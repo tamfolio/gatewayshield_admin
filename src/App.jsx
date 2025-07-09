@@ -6,6 +6,8 @@ import Dashboard from "./Pages/Dashboard";
 import Home from "./Components/Dashboard/Home";
 import AddUsers from "./Components/Dashboard/User Management/AddUsers";
 import ManageUsers from "./Components/Dashboard/User Management/ManageUsers";
+import Sos from "./Components/Dashboard/Report Management/Sos";
+import General from "./Components/Dashboard/Report Management/General";
 // Import more components as needed...
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
     <Route index element={<Home />} />
     <Route path="users/add" element={<AddUsers />} />
     <Route path="users/manage" element={<ManageUsers/>} />
+    <Route path="reports/sos" element={<Sos />} />
+    <Route path="reports/general" element={<General />} />
   </Route>
 </Routes>
   );
