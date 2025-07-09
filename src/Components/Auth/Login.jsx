@@ -32,12 +32,12 @@ export default function SignIn() {
     };
 
     try {
-      await loginUser(dispatch, credentials);
-      toast.success("Login successful!");
-      navigate("/home");
+    //   await loginUser(dispatch, credentials);
+    //   toast.success("Login successful!");
+      navigate("/dashboard");
     } catch (err) {
-      toast.error(err?.response?.data?.error);
-      console.error("Login Error:", err?.response?.data?.error);
+    //   toast.error(err?.response?.data?.error);
+    //   console.error("Login Error:", err?.response?.data?.error);
     } finally {
       setLoading(false);
     }

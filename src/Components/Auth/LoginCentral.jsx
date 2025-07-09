@@ -7,7 +7,7 @@ import { SetNewPassword } from "./SetPassword";
 import { PasswordResetSuccess } from "./PasswordResetComplete";
 
 function LoginCentral() {
-  const [currentPage, setCurrentPage] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
   return (
     <div>
       <Navbar />
