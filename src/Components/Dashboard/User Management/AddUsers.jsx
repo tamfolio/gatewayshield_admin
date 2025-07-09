@@ -8,7 +8,7 @@ import UploadFailureModal from "./UploadFailureModal";
 function AddUsers() {
   const [activeTab, setActiveTab] = useState("Single User");
   const [successModal, setSuccessModal] = useState(false);
-  const [failureModal, setFailureModal] = useState(true);
+  const [failureModal, setFailureModal] = useState(false);
   // Single user form state
   const [formData, setFormData] = useState({
     firstName: "",
