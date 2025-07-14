@@ -2,23 +2,15 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { loginUser } from "../../Redux/apiCalls";
+import { loginAdmin } from "../../Redux/apiCalls";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { publicRequest } from "../../requestMethod";
-import {
-  LoginFailure,
-  loginStart,
-  loginSuccess,
-} from '../../Redux/LoginSlice'
-import { GoogleLogin } from "@react-oauth/google";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -32,20 +24,16 @@ export default function SignIn() {
     };
 
     try {
-    //   await loginUser(dispatch, credentials);
-    //   toast.success("Login successful!");
+      await loginAdmin(dispatch, credentials);
+      toast.success("Login successful!");
       navigate("/dashboard");
     } catch (err) {
-    //   toast.error(err?.response?.data?.error);
-    //   console.error("Login Error:", err?.response?.data?.error);
+      toast.error(err?.response?.data?.error);
+      console.error("Login Error:", err?.response?.data?.error);
     } finally {
       setLoading(false);
     }
   };
-
-  
-
- 
 
   return (
     <div className="min-h-screen bg-white flex items-start justify-center p-4">
@@ -138,10 +126,6 @@ export default function SignIn() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
-
-       
-
-       
         </div>
       </div>
     </div>

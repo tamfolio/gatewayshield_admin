@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Upload, Download, CheckCircle, AlertCircle, X, Trash2 } from 'lucide-react';
+import { userRequest } from '../../../requestMethod';
+import useAccessToken from '../../../Utils/useAccessToken';
 
 function AddMultipleUsers() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('idle');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [adminData, setAdminData] = useState([]);
+  const [paginationData, setPaginationData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const token = useAccessToken();
 
   const handleDownloadTemplate = () => {
     // Create a sample CSV template
@@ -108,6 +115,31 @@ function AddMultipleUsers() {
       </div>;
     }
   };
+
+  useEffect(() => {
+    const fetchAdmins = async () => {
+      setLoading(true);
+      try {
+        const res = await userRequest(token).get(
+          "/admin/get/all"
+        );
+        console.log("✅:", res.data);
+        setAdminData(res.data?.data?.incidents?.data || []);
+        setPaginationData(res.data?.data?.incidents?.pagination || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch incidents:", err);
+        setError("Failed to fetch incidents");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+
+    if (token) {
+      fetchAdmins();
+    }
+  }, [token]);
 
   const formatFileSize = (sizeInKB) => {
     if (sizeInKB < 1024) {

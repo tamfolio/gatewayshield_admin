@@ -4,7 +4,7 @@ import { store } from "./Redux/Store"; // Import Redux store
 import { toast } from "react-toastify";
 import { LogOut } from "./Redux/LoginSlice";
 
-const BASE_URL = import.meta.env.VITE_STAFF_WEB_BASE_URL;
+const BASE_URL = 'https://admin-api.thegatewayshield.com/api/v1';
 
 
 export const publicRequest = axios.create({

@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import { Calendar, Download, ChevronDown } from 'lucide-react';
+import { useSelector } from 'react-redux';
 
 const Home = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState('30 days');
   const [selectedRatingTimeframe, setSelectedRatingTimeframe] = useState('30 days');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedTab, setSelectedTab] = useState('General');
+
+const userData = useSelector((state) => state.user?.currentUser?.admin);
+const token = useSelector((state) => state.user?.currentUser?.tokens?.access?.token);
+
+// console.log(userData, token)
 
   // Sample data for charts
   const resolutionTimeData = [
@@ -141,7 +147,7 @@ const Home = () => {
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back, Sienna</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back, {userData?.firstName}</h1>
             <p className="text-gray-600">Here's an overview of your team's performance</p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50">

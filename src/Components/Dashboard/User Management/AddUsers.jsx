@@ -1,14 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AddMultipleUsers from "./AddMultipleUsers";
 import AddSingleUser from "./AddSingleUser";
 import { ChevronDown } from "lucide-react";
 import UploadSuccessModal from "./UploadSuccessModal";
 import UploadFailureModal from "./UploadFailureModal";
+import { userRequest } from "../../../requestMethod";
+import useAccessToken from "../../../Utils/useAccessToken";
 
 function AddUsers() {
   const [activeTab, setActiveTab] = useState("Single User");
   const [successModal, setSuccessModal] = useState(false);
   const [failureModal, setFailureModal] = useState(false);
+  const token = useAccessToken();
   // Single user form state
   const [formData, setFormData] = useState({
     firstName: "",
@@ -22,6 +25,51 @@ function AddUsers() {
     formation: "",
     rank: "",
   });
+
+  useEffect(() => {
+    const fetchAdminRoles = async () => {
+      try {
+        const res = await userRequest(token).get(
+          "/options/adminRoles/all"
+        );
+        
+        setAdminRoles(res.data?.data?.adminRoles || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin roles:", err);
+      } 
+    };
+
+    const fetchAdminFormation = async () => {
+      try {
+        const res = await userRequest(token).get(
+          "/options/adminFormations/all"
+        );
+        
+        setAdminFormation(res.data?.data?.adminFormations || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin Formation:", err);
+      } 
+    };
+
+    const fetchAdminRanks = async () => {
+      try {
+        const res = await userRequest(token).get(
+          "/options/adminRanks/all"
+        );
+        
+        setAdminRanks(res.data?.data?.adminRanks || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin ranks:", err);
+      } 
+    };
+
+    if (token) {
+      fetchAdminRoles();
+      fetchAdminFormation();
+      fetchAdminRanks();
+    }
+  }, [token]);
+
 
   const handleSuccessModal = () => {
     setSuccessModal(!successModal)

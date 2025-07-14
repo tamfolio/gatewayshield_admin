@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Play,
   Pause,
@@ -19,19 +19,27 @@ import AssignTicketModal from "./AssignTicketModal";
 import ExportTicketSuccessModal from "./ReportExportedSuccessModal";
 import TicketAssignedSuccessModal from "./TicketAssignedSuccessModal";
 import CloseTicketConfirmModal from "./ConfirmCloseTicketModal";
+import { userRequest } from "../../../requestMethod";
+import { useSelector } from "react-redux";
+import { useParams } from "react-router-dom";
+import { getAvatarInitial, getAvatarColor ,extractDate, extractTime,statusColorMap } from "../../../Utils/dateUtils";
 
 function SosDetails() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  const { id } = useParams();
+  const reportRef = useRef();
   const [activeTab, setActiveTab] = useState("Citizen Report");
   const [selectedReports, setSelectedReports] = useState([]);
   const [exportModal, setExportModal] = useState(false);
+  const [incident, setIncident] = useState([]);
+  const [loading, setLoading] = useState(false)
+  const [stations, setStations] = useState([]);
+  const [closureReasons, setClosureReasons] = useState([]);
   const [exportSuccessModal, setExportSuccessModal] = useState(false);
   const [closeTicketModal, setCloseTicketModal] = useState(false);
   const [assignTicketModal, setAssignTicketModal] = useState(false);
   const [assignTicketSuccessModal, setAssignTicketSuccessModal] =
     useState(false);
-  const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(true);
+  const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
 
   const handleExportModal = () => {
     setExportModal(!exportModal);
@@ -67,6 +75,10 @@ function SosDetails() {
   //     }
   //   };
 
+  const token = useSelector(
+    (state) => state.user?.currentUser?.tokens?.access?.token
+  );
+
   const handleSelectReport = (reportId) => {
     if (selectedReports.includes(reportId)) {
       setSelectedReports(selectedReports.filter((id) => id !== reportId));
@@ -75,89 +87,151 @@ function SosDetails() {
     }
   };
 
-  const reports = {
-    id: "RI0005667",
-    status: "New",
-    statusColor: "bg-green-500",
-    type: "SOS",
-    heading: "SOS HEADING",
-    summary: "Report summary goes here lorem ipsum dolor...",
-    reportedBy: "Olivia Rhye",
-    avatar: "👤",
-    dateReported: "02-04-2025",
-    time: "12:00 AM",
-    channel: "Mobile",
+  const getStations = async () => {
+    try {
+      const res = await userRequest(token).get(`/incident/${id}/stations`);
+      setStations(res.data.data.stations);
+    } catch (error) {
+      console.error("❌ Failed to fetch incident:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const StatusBadge = ({ status, color }) => (
-    <div className="flex items-center space-x-2">
-      <div
-        className={`w-full ${color} text-white text-xs font-medium px-3 py-1 text-center`}
-      >
-        {status}
-      </div>
-    </div>
-  );
+  const getClosureReasons = async () => {
+    try {
+      const res = await userRequest(token).get(`incident/closureReasons/all`);
+      setClosureReasons(res.data.data);
+    } catch (error) {
+      console.error("❌ Failed to fetch incident:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const ReportCard = ({ report }) => {
+  console.log(stations)
+
+  useEffect(() => {
+    const fetchIncident = async () => {
+      try {
+        const res = await userRequest(token).get(`/incident/${id}`);
+        setIncident(res.data.data.incident);
+      } catch (error) {
+        console.error("❌ Failed to fetch incident:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id && token) {
+      fetchIncident();
+    }
+  }, [id, token]);
+
+  console.log(incident)
+
+  useEffect(() => {
+    getStations();
+    getClosureReasons();
+  }, [])
+
+ 
+  const StatusBadge = ({ status }) => {
+    const normalizedStatus = status?.toLowerCase()?.replace(/\s/g, "_");
+    const color = statusColorMap[normalizedStatus] || "bg-gray-400";
+
     return (
-      <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-start justify-start">
-          <div className="flex flex-col w-full">
-            <div className="flex">
-              <div className="w-32 flex flex-col bg-white">
-                <div className="flex bg-gray-100 items-center justify-center">
-                  <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600">
-                    #{report.id}
+      <div className="flex items-center space-x-2">
+        <div
+          className={`w-full ${color} text-white text-xs font-medium px-3 py-1 text-center`}
+        >
+          {status}
+        </div>
+      </div>
+    );
+  };
+
+  const ReportCard = ({ incident }) => {
+    return (
+        <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-start justify-start">
+            <div className="flex flex-col w-full">
+              <div className="flex">
+                <div className="flex flex-col bg-white">
+                  <div className="flex bg-[#E9EAEB] items-center justify-center">
+                    <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
+                      #{incident?.id}
+                    </div>
+                  </div>
+                  <StatusBadge
+                    status={incident?.incidentStatus}
+                    color={incident?.statusColor}
+                  />
+                  <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
+                    SOS
                   </div>
                 </div>
 
-                <StatusBadge
-                  status={report.status}
-                  color={report.statusColor}
-                />
-                <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
-                  {report.type}
+                <div className="flex-1 p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {incident?.incidentType}
+                  </h3>
+                  <p className="text-gray-600 text-sm">{incident?.description}</p>
                 </div>
               </div>
 
-              <div className="flex-1 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  {report.heading}
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">{report.summary}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-6 text-sm text-gray-500 px-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs">
-                  {report.avatar}
+              <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-6 h-6 ${getAvatarColor(
+                      incident?.user?.name
+                    )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
+                  >
+                    {getAvatarInitial(incident?.user?.name)}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Reported By</div>
+                    <div className="font-medium">{incident.user?.name}</div>
+                  </div>
                 </div>
+
                 <div>
-                  <div className="text-xs text-gray-400">Reported By</div>
-                  <div className="font-medium">{report.reportedBy}</div>
+                  <div className="text-xs text-gray-400">Date Reported</div>
+                  <div className="font-medium">
+                    {extractDate(incident.datePublished)}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <div className="text-xs text-gray-400">Date Reported</div>
-                <div className="font-medium">{report.dateReported}</div>
-              </div>
+                <div>
+                  <div className="text-xs text-gray-400">Time</div>
+                  <div className="font-medium">
+                    {extractTime(incident.datePublished)}
+                  </div>
+                </div>
 
-              <div>
-                <div className="text-xs text-gray-400">Time</div>
-                <div className="font-medium">{report.time}</div>
-              </div>
+                <div>
+                  <div className="text-xs text-gray-400">Incident Type</div>
+                  <div className="font-medium">{incident.incidentType}</div>
+                </div>
 
-              <div>
-                <div className="text-xs text-gray-400">Channel</div>
-                <div className="font-medium">{report.channel}</div>
+                <div>
+                  <div className="text-xs text-gray-400">SLA Status</div>
+                  <div className="font-medium">{incident.slaStatus}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Channel</div>
+                  <div className="font-medium">{incident.channel}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Priority</div>
+                  <div className="font-medium">{incident.priority}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
     );
   };
 
@@ -166,13 +240,13 @@ function SosDetails() {
   return (
     <>
       {exportModal && (
-        <ExportReportModal handleExportModal={handleExportModal} />
+        <ExportReportModal handleExportModal={handleExportModal} reportRef={reportRef}/>
       )}
       {closeTicketModal && (
-        <CloseTicketModal handleCloseTicketModal={handleCloseTicketModal} />
+        <CloseTicketModal handleCloseTicketModal={handleCloseTicketModal} closureReasons={closureReasons} handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}/>
       )}
       {assignTicketModal && (
-        <AssignTicketModal handleAssignTicketModal={handleAssignTicketModal} />
+        <AssignTicketModal handleAssignTicketModal={handleAssignTicketModal} stations={stations} handleAssignTicketSuccessModal={handleAssignTicketSuccessModal} />
       )}
       {exportSuccessModal && (
         <ExportTicketSuccessModal
@@ -201,10 +275,10 @@ function SosDetails() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6" ref={reportRef}>
             {/* SOS Header Card */}
             <div className="space-y-4">
-              <ReportCard report={reports} />
+              <ReportCard incident={incident} />
             </div>
 
             {/* Tabs */}
@@ -256,102 +330,19 @@ function SosDetails() {
                 {activeTab === "Audit Trail" && <AuditTrailSection />}
               </div>
             </div>
-
-            {/* Audio Recording Section */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="p-6">
-                <div className="space-y-4">
-                  {/* First Recording */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm text-gray-600">
-                        New Recording
-                      </span>
-                      <span className="text-sm text-gray-600">00:30</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-1">
-                        <div className="w-full h-12 bg-gray-100 rounded flex items-center px-4">
-                          <div className="w-full flex items-center justify-center space-x-1">
-                            {[...Array(50)].map((_, i) => (
-                              <div
-                                key={i}
-                                className={`w-0.5 bg-gray-400 ${
-                                  i < 25
-                                    ? "h-2"
-                                    : i < 35
-                                    ? "h-4"
-                                    : i < 45
-                                    ? "h-6"
-                                    : "h-3"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded p-3">
-                      <button className="flex items-center space-x-2 text-blue-600 text-sm">
-                        <Play className="w-4 h-4" />
-                        <span>play recording</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Second Recording */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm text-gray-600">
-                        New Recording
-                      </span>
-                      <span className="text-sm text-gray-600">00:30</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-1">
-                        <div className="w-full h-12 bg-gray-100 rounded flex items-center px-4">
-                          <div className="w-full flex items-center justify-center space-x-1">
-                            {[...Array(50)].map((_, i) => (
-                              <div
-                                key={i}
-                                className={`w-0.5 bg-gray-400 ${
-                                  i < 20
-                                    ? "h-3"
-                                    : i < 30
-                                    ? "h-5"
-                                    : i < 40
-                                    ? "h-4"
-                                    : "h-2"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 bg-red-50 border border-red-200 rounded p-3">
-                      <button className="flex items-center space-x-2 text-red-600 text-sm">
-                        <Square className="w-4 h-4" />
-                        <span>stop recording</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700">
+              <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700" onClick={handleAssignTicketModal}>
                 Assign Ticket
               </button>
-              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50">
+              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50" onClick={handleCloseTicketModal}>
                 Close Ticket
               </button>
-              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50">
+              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50" onClick={handleExportModal}>
                 Export Report
               </button>
             </div>

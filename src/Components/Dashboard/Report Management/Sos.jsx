@@ -1,29 +1,78 @@
-import React, { useState } from "react";
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Calendar, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  Search,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  X,
+} from "lucide-react";
+import { userRequest } from "../../../requestMethod";
+import { useSelector } from "react-redux";
+import {
+  extractDate,
+  extractTime,
+  getAvatarInitial, avatarColors, getAvatarColor, statusColorMap
+} from "../../../Utils/dateUtils";
+import { Link } from "react-router-dom";
+
 
 const Sos = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState([]);
+  const [incidents, setIncidents] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [paginationData, setPaginationData] = useState([]);
   const [selectedAll, setSelectedAll] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
-  
+  const token = useSelector(
+    (state) => state.user?.currentUser?.tokens?.access?.token
+  );
+
+  useEffect(() => {
+    const fetchIncidents = async () => {
+      setLoading(true);
+      try {
+        const res = await userRequest(token).get(
+          "/incident/all?page=1&size=10"
+        );
+        console.log("✅ Incidents fetched:", res.data);
+        setIncidents(res.data?.data?.incidents?.data || []);
+        setPaginationData(res.data?.data?.incidents?.pagination || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch incidents:", err);
+        setError("Failed to fetch incidents");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchIncidents();
+    }
+  }, [token]);
+
   // Filter states
-  const [showReportStatusDropdown, setShowReportStatusDropdown] = useState(false);
-  const [showPoliceStationDropdown, setShowPoliceStationDropdown] = useState(false);
+  const [showReportStatusDropdown, setShowReportStatusDropdown] =
+    useState(false);
+  const [showPoliceStationDropdown, setShowPoliceStationDropdown] =
+    useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showOriginChannelDropdown, setShowOriginChannelDropdown] = useState(false);
+  const [showOriginChannelDropdown, setShowOriginChannelDropdown] =
+    useState(false);
   const [showReportTypeDropdown, setShowReportTypeDropdown] = useState(false);
-  
+
   // Filter values
   const [selectedReportStatus, setSelectedReportStatus] = useState("");
   const [selectedPoliceStation, setSelectedPoliceStation] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedOriginChannel, setSelectedOriginChannel] = useState("");
   const [selectedReportType, setSelectedReportType] = useState("");
-  
+
   // Active filters for display
   const [activeFilters, setActiveFilters] = useState([]);
-  
+
   // Calendar state
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
@@ -99,7 +148,12 @@ const Sos = () => {
 
   // Filter options
   const reportStatusOptions = ["New", "In Progress", "On Hold", "Rejected"];
-  const policeStationOptions = ["Station A", "Station B", "Station C", "Station D"];
+  const policeStationOptions = [
+    "Station A",
+    "Station B",
+    "Station C",
+    "Station D",
+  ];
   const originChannelOptions = ["Mobile", "Web", "Phone"];
   const reportTypeOptions = ["SOS", "General"];
 
@@ -122,32 +176,32 @@ const Sos = () => {
 
   const handleFilterSelect = (filterType, value) => {
     let newFilters = [...activeFilters];
-    
+
     // Remove existing filter of the same type
-    newFilters = newFilters.filter(filter => filter.type !== filterType);
-    
+    newFilters = newFilters.filter((filter) => filter.type !== filterType);
+
     // Add new filter if value is not empty
     if (value) {
       newFilters.push({ type: filterType, value, label: value });
     }
-    
+
     setActiveFilters(newFilters);
-    
+
     // Update filter states
     switch (filterType) {
-      case 'reportStatus':
+      case "reportStatus":
         setSelectedReportStatus(value);
         setShowReportStatusDropdown(false);
         break;
-      case 'policeStation':
+      case "policeStation":
         setSelectedPoliceStation(value);
         setShowPoliceStationDropdown(false);
         break;
-      case 'originChannel':
+      case "originChannel":
         setSelectedOriginChannel(value);
         setShowOriginChannelDropdown(false);
         break;
-      case 'reportType':
+      case "reportType":
         setSelectedReportType(value);
         setShowReportTypeDropdown(false);
         break;
@@ -157,23 +211,25 @@ const Sos = () => {
   };
 
   const removeFilter = (filterType) => {
-    setActiveFilters(activeFilters.filter(filter => filter.type !== filterType));
-    
+    setActiveFilters(
+      activeFilters.filter((filter) => filter.type !== filterType)
+    );
+
     switch (filterType) {
-      case 'reportStatus':
+      case "reportStatus":
         setSelectedReportStatus("");
         break;
-      case 'policeStation':
+      case "policeStation":
         setSelectedPoliceStation("");
         break;
-      case 'date':
+      case "date":
         setSelectedDate("");
         setSelectedCalendarDate("");
         break;
-      case 'originChannel':
+      case "originChannel":
         setSelectedOriginChannel("");
         break;
-      case 'reportType':
+      case "reportType":
         setSelectedReportType("");
         break;
       default:
@@ -204,34 +260,38 @@ const Sos = () => {
     const daysInMonth = getDaysInMonth(calendarDate);
     const firstDayOfMonth = getFirstDayOfMonth(calendarDate);
     const days = [];
-    
+
     // Previous month days
-    const prevMonth = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 0);
+    const prevMonth = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth() - 1,
+      0
+    );
     const daysInPrevMonth = prevMonth.getDate();
-    
+
     for (let i = firstDayOfMonth - 1; i >= 0; i--) {
       days.push({
         day: daysInPrevMonth - i,
         isCurrentMonth: false,
-        isToday: false
+        isToday: false,
       });
     }
-    
+
     // Current month days
     const today = new Date();
     for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = 
-        day === today.getDate() && 
-        calendarDate.getMonth() === today.getMonth() && 
+      const isToday =
+        day === today.getDate() &&
+        calendarDate.getMonth() === today.getMonth() &&
         calendarDate.getFullYear() === today.getFullYear();
-      
+
       days.push({
         day,
         isCurrentMonth: true,
-        isToday
+        isToday,
       });
     }
-    
+
     // Next month days
     const totalCells = 42;
     const remainingCells = totalCells - days.length;
@@ -239,118 +299,169 @@ const Sos = () => {
       days.push({
         day,
         isCurrentMonth: false,
-        isToday: false
+        isToday: false,
       });
     }
-    
+
     return days;
   };
 
   const handleDateSelect = (day) => {
     if (day.isCurrentMonth) {
-      const selectedDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day.day);
-      const formattedDate = selectedDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
+      const selectedDate = new Date(
+        calendarDate.getFullYear(),
+        calendarDate.getMonth(),
+        day.day
+      );
+      const formattedDate = selectedDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       });
       setSelectedCalendarDate(formattedDate);
     }
   };
 
+
+
+
+
   const applyDateFilter = () => {
     if (selectedCalendarDate) {
       let newFilters = [...activeFilters];
-      newFilters = newFilters.filter(filter => filter.type !== 'date');
-      newFilters.push({ type: 'date', value: selectedCalendarDate, label: selectedCalendarDate });
+      newFilters = newFilters.filter((filter) => filter.type !== "date");
+      newFilters.push({
+        type: "date",
+        value: selectedCalendarDate,
+        label: selectedCalendarDate,
+      });
       setActiveFilters(newFilters);
       setSelectedDate(selectedCalendarDate);
     }
     setShowDatePicker(false);
   };
 
-  const StatusBadge = ({ status, color }) => (
-    <div className="flex items-center space-x-2">
-      <div className={`w-full ${color} text-white text-xs font-medium px-3 py-1 text-center`}>
-        {status}
-      </div>
-    </div>
-  );
 
-  const ReportCard = ({ report }) => {
+
+  const StatusBadge = ({ status }) => {
+    const normalizedStatus = status?.toLowerCase()?.replace(/\s/g, "_");
+    const color = statusColorMap[normalizedStatus] || "bg-gray-400";
+
     return (
-      <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-start justify-start">
-          <div className="flex flex-col w-full">
-            <div className="flex">
-              <div className="w-32 flex flex-col bg-white">
-                <div className="flex bg-gray-100 items-center justify-center">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                    checked={selectedReports.includes(report.id)}
-                    onChange={() => handleSelectReport(report.id)}
-                  />
-                  <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600">
-                    #{report.id}
-                  </div>
-                </div>
-                <StatusBadge status={report.status} color={report.statusColor} />
-                <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
-                  {report.type}
-                </div>
-              </div>
-  
-              <div className="flex-1 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  {report.heading}
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">{report.summary}</p>
-              </div>
-            </div>
-  
-            <div className="flex items-center space-x-6 text-sm text-gray-500 px-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs">
-                  {report.avatar}
-                </div>
-                <div>
-                  <div className="text-xs text-gray-400">Reported By</div>
-                  <div className="font-medium">{report.reportedBy}</div>
-                </div>
-              </div>
-  
-              <div>
-                <div className="text-xs text-gray-400">Date Reported</div>
-                <div className="font-medium">{report.dateReported}</div>
-              </div>
-  
-              <div>
-                <div className="text-xs text-gray-400">Time</div>
-                <div className="font-medium">{report.time}</div>
-              </div>
-  
-              <div>
-                <div className="text-xs text-gray-400">Channel</div>
-                <div className="font-medium">{report.channel}</div>
-              </div>
-            </div>
-          </div>
+      <div className="flex items-center space-x-2">
+        <div
+          className={`w-full ${color} text-white text-xs font-medium px-3 py-1 text-center`}
+        >
+          {status}
         </div>
       </div>
     );
   };
 
+  const ReportCard = ({ report }) => {
+    return (
+      <Link to={`/dashboard/reports/sos/${report.id}`} className="block">
+        <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-start justify-start">
+            <div className="flex flex-col w-full">
+              <div className="flex">
+                <div className="flex flex-col bg-white">
+                  <div className="flex bg-[#E9EAEB] items-center justify-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                      checked={selectedReports.includes(report.id)}
+                      onChange={() => handleSelectReport(report.id)}
+                    />
+                    <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
+                      #{report.id}
+                    </div>
+                  </div>
+                  <StatusBadge
+                    status={report.incidentStatus}
+                    color={report.statusColor}
+                  />
+                  <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
+                    SOS
+                  </div>
+                </div>
+
+                <div className="flex-1 p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {report.incidentType}
+                  </h3>
+                  <p className="text-gray-600 text-sm">{report.description}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`w-6 h-6 ${getAvatarColor(
+                      report.user
+                    )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
+                  >
+                    {getAvatarInitial(report.user)}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Reported By</div>
+                    <div className="font-medium">{report.user}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Date Reported</div>
+                  <div className="font-medium">
+                    {extractDate(report.datePublished)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Time</div>
+                  <div className="font-medium">
+                    {extractTime(report.datePublished)}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Incident Type</div>
+                  <div className="font-medium">{report.incidentType}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">SLA Status</div>
+                  <div className="font-medium">{report.slaStatus}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Channel</div>
+                  <div className="font-medium">{report.channel}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-400">Priority</div>
+                  <div className="font-medium">{report.priority}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  };
+
   const DropdownMenu = ({ isOpen, options, onSelect, selectedValue }) => {
     if (!isOpen) return null;
-    
+
     return (
       <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
         {options.map((option) => (
           <button
             key={option}
             className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-              selectedValue === option ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+              selectedValue === option
+                ? "bg-blue-50 text-blue-600"
+                : "text-gray-700"
             }`}
             onClick={() => onSelect(option)}
           >
@@ -363,17 +474,36 @@ const Sos = () => {
 
   const DatePicker = () => {
     if (!showDatePicker) return null;
-    
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"];
-    
+
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
     const days = generateCalendarDays();
-    
+
     return (
       <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1))}
+            onClick={() =>
+              setCalendarDate(
+                new Date(
+                  calendarDate.getFullYear(),
+                  calendarDate.getMonth() - 1
+                )
+              )
+            }
             className="p-1 hover:bg-gray-100 rounded"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -382,16 +512,26 @@ const Sos = () => {
             {monthNames[calendarDate.getMonth()]} {calendarDate.getFullYear()}
           </h3>
           <button
-            onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1))}
+            onClick={() =>
+              setCalendarDate(
+                new Date(
+                  calendarDate.getFullYear(),
+                  calendarDate.getMonth() + 1
+                )
+              )
+            }
             className="p-1 hover:bg-gray-100 rounded"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-        
+
         <div className="grid grid-cols-7 gap-1 mb-4">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-            <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+          {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+            <div
+              key={day}
+              className="text-center text-sm font-medium text-gray-500 py-2"
+            >
               {day}
             </div>
           ))}
@@ -400,17 +540,22 @@ const Sos = () => {
               key={index}
               onClick={() => handleDateSelect(day)}
               className={`text-center text-sm py-2 rounded hover:bg-gray-100 ${
-                day.isCurrentMonth ? 'text-gray-900' : 'text-gray-300'
-              } ${day.isToday ? 'bg-blue-500 text-white hover:bg-blue-600' : ''} ${
-                selectedCalendarDate && selectedCalendarDate.includes(day.day.toString()) && day.isCurrentMonth 
-                  ? 'bg-blue-100 text-blue-600' : ''
+                day.isCurrentMonth ? "text-gray-900" : "text-gray-300"
+              } ${
+                day.isToday ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+              } ${
+                selectedCalendarDate &&
+                selectedCalendarDate.includes(day.day.toString()) &&
+                day.isCurrentMonth
+                  ? "bg-blue-100 text-blue-600"
+                  : ""
               }`}
             >
               {day.day}
             </button>
           ))}
         </div>
-        
+
         <div className="flex justify-between">
           <button
             onClick={() => setShowDatePicker(false)}
@@ -450,7 +595,7 @@ const Sos = () => {
               Incident Reports
             </h1>
             <span className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full">
-              1000 Total
+              {paginationData?.total} Total
             </span>
           </div>
 
@@ -520,7 +665,9 @@ const Sos = () => {
             <div className="relative">
               <button
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() => setShowReportStatusDropdown(!showReportStatusDropdown)}
+                onClick={() =>
+                  setShowReportStatusDropdown(!showReportStatusDropdown)
+                }
               >
                 <span>Report Status</span>
                 <ChevronDown className="h-4 w-4" />
@@ -528,7 +675,7 @@ const Sos = () => {
               <DropdownMenu
                 isOpen={showReportStatusDropdown}
                 options={reportStatusOptions}
-                onSelect={(value) => handleFilterSelect('reportStatus', value)}
+                onSelect={(value) => handleFilterSelect("reportStatus", value)}
                 selectedValue={selectedReportStatus}
               />
             </div>
@@ -536,7 +683,9 @@ const Sos = () => {
             <div className="relative">
               <button
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() => setShowPoliceStationDropdown(!showPoliceStationDropdown)}
+                onClick={() =>
+                  setShowPoliceStationDropdown(!showPoliceStationDropdown)
+                }
               >
                 <span>Police Station</span>
                 <ChevronDown className="h-4 w-4" />
@@ -544,7 +693,7 @@ const Sos = () => {
               <DropdownMenu
                 isOpen={showPoliceStationDropdown}
                 options={policeStationOptions}
-                onSelect={(value) => handleFilterSelect('policeStation', value)}
+                onSelect={(value) => handleFilterSelect("policeStation", value)}
                 selectedValue={selectedPoliceStation}
               />
             </div>
@@ -563,7 +712,9 @@ const Sos = () => {
             <div className="relative">
               <button
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() => setShowOriginChannelDropdown(!showOriginChannelDropdown)}
+                onClick={() =>
+                  setShowOriginChannelDropdown(!showOriginChannelDropdown)
+                }
               >
                 <span>Origin Channel</span>
                 <ChevronDown className="h-4 w-4" />
@@ -571,7 +722,7 @@ const Sos = () => {
               <DropdownMenu
                 isOpen={showOriginChannelDropdown}
                 options={originChannelOptions}
-                onSelect={(value) => handleFilterSelect('originChannel', value)}
+                onSelect={(value) => handleFilterSelect("originChannel", value)}
                 selectedValue={selectedOriginChannel}
               />
             </div>
@@ -579,7 +730,9 @@ const Sos = () => {
             <div className="relative">
               <button
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() => setShowReportTypeDropdown(!showReportTypeDropdown)}
+                onClick={() =>
+                  setShowReportTypeDropdown(!showReportTypeDropdown)
+                }
               >
                 <span>Report Type</span>
                 <ChevronDown className="h-4 w-4" />
@@ -587,7 +740,7 @@ const Sos = () => {
               <DropdownMenu
                 isOpen={showReportTypeDropdown}
                 options={reportTypeOptions}
-                onSelect={(value) => handleFilterSelect('reportType', value)}
+                onSelect={(value) => handleFilterSelect("reportType", value)}
                 selectedValue={selectedReportType}
               />
             </div>
@@ -597,7 +750,7 @@ const Sos = () => {
 
       {/* Reports List */}
       <div className="space-y-4">
-        {reports.map((report, index) => (
+        {incidents.map((report, index) => (
           <ReportCard key={`${report.id}-${index}`} report={report} />
         ))}
       </div>

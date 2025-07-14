@@ -1,117 +1,84 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Upload, Plus, MoreHorizontal, Trash2, Edit } from 'lucide-react';
+import { userRequest } from '../../../requestMethod';
+import useAccessToken from '../../../Utils/useAccessToken';
 
 const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [adminRoles, setAdminRoles] = useState([]);
+  const [adminFormation, setAdminFormation] = useState([]);
+  const [adminRanks, setAdminRanks] = useState([]);
   const [selectedFilters, setSelectedFilters] = useState({
     SWAT: true,
     Pending: true,
     Admin: true,
     'Inspector General': true
   });
+  const [adminData, setAdminData] = useState([]);
+  const [paginationData, setPaginationData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const token = useAccessToken();
 
-  const users = [
-    {
-      id: 1,
-      name: 'Olivia Rhye',
-      email: 'olivia@gmail.com',
-      rank: 'Inspr. Gen. of Police',
-      role: 'Admin',
-      status: 'Pending',
-      formation: 'SWAT',
-      avatar: '👩‍🦰'
-    },
-    {
-      id: 2,
-      name: 'Phoenix Baker',
-      email: 'phoenix@gmail.com',
-      rank: 'Deputy Inspr. Gen. of Police',
-      role: 'Command Centre Staff',
-      status: 'Inactive',
-      formation: 'COMMAND HQ',
-      avatar: '👨‍🦱'
-    },
-    {
-      id: 3,
-      name: 'Lana Steiner',
-      email: 'lana@gmail.com',
-      rank: 'Asst. Inspr. Gen. of Police',
-      role: 'Area Command',
-      status: 'Active',
-      formation: 'TASK FORCE',
-      avatar: '👩‍🦳'
-    },
-    {
-      id: 4,
-      name: 'Demi Wilkinson',
-      email: 'demi@gmail.com',
-      rank: 'Commissioner of Police',
-      role: 'Police Station Officer',
-      status: 'Pending',
-      formation: '16 PMF',
-      avatar: '👩‍🦱'
-    },
-    {
-      id: 5,
-      name: 'Candice Wu',
-      email: 'candice@gmail.com',
-      rank: 'Deputy Comm. of Police',
-      role: 'Guest',
-      status: 'Active',
-      formation: '71 PMF',
-      avatar: '👩‍💼'
-    },
-    {
-      id: 6,
-      name: 'Natali Craig',
-      email: 'natali@gmail.com',
-      rank: 'Assistant Comm. of Police',
-      role: 'Command Centre Admin',
-      status: 'Inactive',
-      formation: 'EOD',
-      avatar: '👩‍🦰'
-    },
-    {
-      id: 7,
-      name: 'Drew Cano',
-      email: 'drew@gmail.com',
-      rank: 'Chief Superintendent of Police',
-      role: 'Command Centre Staff',
-      status: 'Active',
-      formation: 'SWAT',
-      avatar: '👨‍💼'
-    },
-    {
-      id: 8,
-      name: 'Orlando Diggs',
-      email: 'orlando@gmail.com',
-      rank: 'Superintendent of Police',
-      role: 'Police Station',
-      status: 'Active',
-      formation: 'EOD',
-      avatar: '👨‍🦲'
-    },
-    {
-      id: 9,
-      name: 'Andi Lane',
-      email: 'andi@gmail.com',
-      rank: 'Deputy Sup. of Police',
-      role: 'Area Command',
-      status: 'Active',
-      formation: 'TASK FORCE',
-      avatar: '👩‍🦱'
-    },
-    {
-      id: 10,
-      name: 'Kate Morrison',
-      email: 'kate@gmail.com',
-      rank: 'Assistant Sup. of Police',
-      role: 'Guest',
-      status: 'Active',
-      formation: '16 PMF',
-      avatar: '👩‍🦳'
+  useEffect(() => {
+    const fetchAdmins = async () => {
+      setLoading(true);
+      try {
+        const res = await userRequest(token).get(
+          "/admin/get/all"
+        );
+        console.log("✅:", res.data.data.admin);
+        setAdminData(res.data?.data?.admin || []);
+        setPaginationData(res.data?.data?.incidents?.pagination || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch incidents:", err);
+        setError("Failed to fetch incidents");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchAdminRoles = async () => {
+      try {
+        const res = await userRequest(token).get("/options/adminRoles/all");
+
+        setAdminRoles(res.data?.data?.adminRoles || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin roles:", err);
+      }
+    };
+
+    const fetchAdminFormation = async () => {
+      try {
+        const res = await userRequest(token).get(
+          "/options/adminFormations/all"
+        );
+
+        setAdminFormation(res.data?.data?.adminFormations || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin Formation:", err);
+      }
+    };
+
+    const fetchAdminRanks = async () => {
+      try {
+        const res = await userRequest(token).get("/options/adminRanks/all");
+
+        setAdminRanks(res.data?.data?.adminRanks || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin ranks:", err);
+      }
+    };
+
+    if (token) {
+      fetchAdmins();
+      fetchAdminRoles();
+      fetchAdminFormation();
+      fetchAdminRanks();
     }
-  ];
+  }, [token]);
+
+ 
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -243,7 +210,7 @@ const ManageUsers = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
+            {adminData.map((user) => (
               <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-3">
@@ -256,14 +223,14 @@ const ManageUsers = () => {
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.rank}</td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.role}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{user.rankId || "N/A"}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{user.roleId || "N/A"}</td>
                 <td className="py-4 px-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
                     {user.status}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.formation}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{user.formationId || "N/A"}</td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">
                     <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">

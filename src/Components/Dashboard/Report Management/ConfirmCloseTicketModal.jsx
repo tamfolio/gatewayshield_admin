@@ -1,11 +1,18 @@
-import React from "react";
+import React, { useState } from "react";
 import { CircleCheckBig, X } from "lucide-react";
 
-const CloseTicketConfirmModal = ({ handleConfirmCloseTicketModal }) => {
-  const handleExport = () => {
-    // Handle export logic here
-    // You can add your export logic here
-    handleConfirmCloseTicketModal(); // Close modal after export
+const CloseTicketConfirmModal = ({
+  handleConfirmCloseTicketModal,
+  handleCloseTicket,
+  handleCloseTicketModal,
+}) => {
+  const [loading, setLoading] = useState(false);
+  const handleClosingTicket = async () => {
+    setLoading(true);
+    await handleCloseTicket();
+    setLoading(false);
+    handleConfirmCloseTicketModal();
+    handleCloseTicketModal();
   };
 
   return (
@@ -44,10 +51,37 @@ const CloseTicketConfirmModal = ({ handleConfirmCloseTicketModal }) => {
                 No I don't
               </button>
               <button
-                onClick={handleExport}
-                className="w-full bg-[#D92D20] text-[#fff] py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                onClick={handleClosingTicket}
+                disabled={loading}
+                className="w-full bg-[#D92D20] text-[#fff] py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Yes I Do
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"
+                      ></path>
+                    </svg>
+                    Closing...
+                  </>
+                ) : (
+                  "Yes I Do"
+                )}
               </button>
             </div>
           </div>

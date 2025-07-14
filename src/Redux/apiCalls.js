@@ -15,7 +15,7 @@ export const loginUser = async (dispatch, data) => {
   export const loginAdmin = async (dispatch, data) => {
     dispatch(loginStart());
     try {
-      const res = await publicRequest.post("/admin/login", data);
+      const res = await publicRequest.post("/auth/login", data);
       dispatch(loginSuccess(res.data));
     } catch (error) {
       dispatch(LoginFailure(error?.data))

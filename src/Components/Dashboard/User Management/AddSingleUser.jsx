@@ -1,7 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronDown, Mail } from "lucide-react";
+import { userRequest } from "../../../requestMethod";
+import useAccessToken from "../../../Utils/useAccessToken";
+import { toast } from "react-toastify";
 
 function AddSingleUser({ activeTab, setActiveTab }) {
+  const token = useAccessToken();
+  const [adminRoles, setAdminRoles] = useState([]);
+  const [adminFormation, setAdminFormation] = useState([]);
+  const [adminRanks, setAdminRanks] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -15,6 +23,46 @@ function AddSingleUser({ activeTab, setActiveTab }) {
     badgeNumber: "",
   });
 
+  useEffect(() => {
+    const fetchAdminRoles = async () => {
+      try {
+        const res = await userRequest(token).get("/options/adminRoles/all");
+
+        setAdminRoles(res.data?.data?.adminRoles || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin roles:", err);
+      }
+    };
+
+    const fetchAdminFormation = async () => {
+      try {
+        const res = await userRequest(token).get(
+          "/options/adminFormations/all"
+        );
+
+        setAdminFormation(res.data?.data?.adminFormations || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin Formation:", err);
+      }
+    };
+
+    const fetchAdminRanks = async () => {
+      try {
+        const res = await userRequest(token).get("/options/adminRanks/all");
+
+        setAdminRanks(res.data?.data?.adminRanks || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch admin ranks:", err);
+      }
+    };
+
+    if (token) {
+      fetchAdminRoles();
+      fetchAdminFormation();
+      fetchAdminRanks();
+    }
+  }, [token]);
+
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -22,8 +70,41 @@ function AddSingleUser({ activeTab, setActiveTab }) {
     }));
   };
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData);
+  const handleSubmit = async () => {
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phoneNumber: formData.phone,
+      email: formData.email,
+      roleId: formData.role,
+      formationId: formData.formation,
+      address: formData.address,
+      coordinate: formData.coordinate,
+      rankId: formData.rank,
+      badgeNumber: formData.badgeNumber,
+    };
+    setIsLoading(true);
+    try {
+      const res = await userRequest(token).post("/admin/create", payload);
+      toast.success(res.data.message);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        role: "",
+        formation: "",
+        address: "",
+        coordinate: "",
+        rank: "",
+        badgeNumber: "",
+      });
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      const message = err?.response?.data?.error || "❌ Failed to create admin";
+      toast.error(message);
+    }
   };
 
   const handleCancel = () => {
@@ -110,9 +191,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     <div className="flex">
                       <div className="relative">
                         <select className="appearance-none bg-white border border-gray-300 rounded-l-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
-                          <option>US</option>
-                          <option>UK</option>
-                          <option>CA</option>
+                          <option>NG</option>
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                       </div>
@@ -123,7 +202,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                           handleInputChange("phone", e.target.value)
                         }
                         className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="+1 (555) 000-0000"
+                        placeholder="+234**********"
                       />
                     </div>
                   </div>
@@ -142,9 +221,11 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                         className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500"
                       >
                         <option value="">Select the Role</option>
-                        <option value="admin">Admin</option>
-                        <option value="user">User</option>
-                        <option value="moderator">Moderator</option>
+                        {adminRoles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -164,9 +245,11 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                         className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500"
                       >
                         <option value="">Select the Formation</option>
-                        <option value="alpha">Alpha Formation</option>
-                        <option value="beta">Beta Formation</option>
-                        <option value="gamma">Gamma Formation</option>
+                        {adminFormation.map((formation) => (
+                          <option key={formation.id} value={formation.id}>
+                            {formation.name}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -218,10 +301,11 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                         className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500"
                       >
                         <option value="">Select the Rank</option>
-                        <option value="lieutenant">Lieutenant</option>
-                        <option value="captain">Captain</option>
-                        <option value="major">Major</option>
-                        <option value="colonel">Colonel</option>
+                        {adminRanks.map((rank) => (
+                          <option key={rank.id} value={rank.id}>
+                            {rank.name}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -263,9 +347,14 @@ function AddSingleUser({ activeTab, setActiveTab }) {
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isLoading
+                    ? "bg-blue-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
-                Submit
+                {isLoading ? "Submitting..." : "Submit"}
               </button>
             </div>
           </div>
