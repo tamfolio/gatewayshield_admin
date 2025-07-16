@@ -22,7 +22,14 @@ import CloseTicketConfirmModal from "./ConfirmCloseTicketModal";
 import { userRequest } from "../../../requestMethod";
 import { useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
-import { getAvatarInitial, getAvatarColor ,extractDate, extractTime,statusColorMap } from "../../../Utils/dateUtils";
+import {
+  getAvatarInitial,
+  getAvatarColor,
+  extractDate,
+  extractTime,
+  statusColorMap,
+} from "../../../Utils/dateUtils";
+import PastHistorySOS from "./PastTrailHistory.jsx";
 
 function SosDetails() {
   const { id } = useParams();
@@ -31,7 +38,8 @@ function SosDetails() {
   const [selectedReports, setSelectedReports] = useState([]);
   const [exportModal, setExportModal] = useState(false);
   const [incident, setIncident] = useState([]);
-  const [loading, setLoading] = useState(false)
+  const [pastHistory, setPastHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [stations, setStations] = useState([]);
   const [closureReasons, setClosureReasons] = useState([]);
   const [exportSuccessModal, setExportSuccessModal] = useState(false);
@@ -109,7 +117,7 @@ function SosDetails() {
     }
   };
 
-  console.log(stations)
+  console.log(stations);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -123,19 +131,32 @@ function SosDetails() {
       }
     };
 
+    const fetchPastHistory = async () => {
+      try {
+        const res = await userRequest(token).get(
+          `/incident/${id}/pastReport?page=1&size=10`
+        );
+        setPastHistory(res.data.data.incidents.data);
+      } catch (error) {
+        console.error("❌ Failed to fetch incident:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (id && token) {
       fetchIncident();
+      fetchPastHistory();
     }
   }, [id, token]);
 
-  console.log(incident)
+  console.log("past",pastHistory);
 
   useEffect(() => {
     getStations();
     getClosureReasons();
-  }, [])
+  }, []);
 
- 
   const StatusBadge = ({ status }) => {
     const normalizedStatus = status?.toLowerCase()?.replace(/\s/g, "_");
     const color = statusColorMap[normalizedStatus] || "bg-gray-400";
@@ -153,85 +174,85 @@ function SosDetails() {
 
   const ReportCard = ({ incident }) => {
     return (
-        <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-start justify-start">
-            <div className="flex flex-col w-full">
-              <div className="flex">
-                <div className="flex flex-col bg-white">
-                  <div className="flex bg-[#E9EAEB] items-center justify-center">
-                    <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
-                      #{incident?.id}
-                    </div>
-                  </div>
-                  <StatusBadge
-                    status={incident?.incidentStatus}
-                    color={incident?.statusColor}
-                  />
-                  <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
-                    SOS
+      <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
+        <div className="flex items-start justify-start">
+          <div className="flex flex-col w-full">
+            <div className="flex">
+              <div className="flex flex-col bg-white">
+                <div className="flex bg-[#E9EAEB] items-center justify-center">
+                  <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
+                    #{incident?.id}
                   </div>
                 </div>
-
-                <div className="flex-1 p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    {incident?.incidentType}
-                  </h3>
-                  <p className="text-gray-600 text-sm">{incident?.description}</p>
+                <StatusBadge
+                  status={incident?.incidentStatus}
+                  color={incident?.statusColor}
+                />
+                <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
+                  SOS
                 </div>
               </div>
 
-              <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-6 h-6 ${getAvatarColor(
-                      incident?.user?.name
-                    )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
-                  >
-                    {getAvatarInitial(incident?.user?.name)}
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-400">Reported By</div>
-                    <div className="font-medium">{incident.user?.name}</div>
-                  </div>
-                </div>
+              <div className="flex-1 p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  {incident?.incidentType}
+                </h3>
+                <p className="text-gray-600 text-sm">{incident?.description}</p>
+              </div>
+            </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">Date Reported</div>
-                  <div className="font-medium">
-                    {extractDate(incident.datePublished)}
-                  </div>
+            <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-6 h-6 ${getAvatarColor(
+                    incident?.user?.name
+                  )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
+                >
+                  {getAvatarInitial(incident?.user?.name)}
                 </div>
+                <div>
+                  <div className="text-xs text-gray-400">Reported By</div>
+                  <div className="font-medium">{incident.user?.name}</div>
+                </div>
+              </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">Time</div>
-                  <div className="font-medium">
-                    {extractTime(incident.datePublished)}
-                  </div>
+              <div>
+                <div className="text-xs text-gray-400">Date Reported</div>
+                <div className="font-medium">
+                  {extractDate(incident.datePublished)}
                 </div>
+              </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">Incident Type</div>
-                  <div className="font-medium">{incident.incidentType}</div>
+              <div>
+                <div className="text-xs text-gray-400">Time</div>
+                <div className="font-medium">
+                  {extractTime(incident.datePublished)}
                 </div>
+              </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">SLA Status</div>
-                  <div className="font-medium">{incident.slaStatus}</div>
-                </div>
+              <div>
+                <div className="text-xs text-gray-400">Incident Type</div>
+                <div className="font-medium">{incident.incidentType}</div>
+              </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">Channel</div>
-                  <div className="font-medium">{incident.channel}</div>
-                </div>
+              <div>
+                <div className="text-xs text-gray-400">SLA Status</div>
+                <div className="font-medium">{incident.slaStatus}</div>
+              </div>
 
-                <div>
-                  <div className="text-xs text-gray-400">Priority</div>
-                  <div className="font-medium">{incident.priority}</div>
-                </div>
+              <div>
+                <div className="text-xs text-gray-400">Channel</div>
+                <div className="font-medium">{incident.channel}</div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-400">Priority</div>
+                <div className="font-medium">{incident.priority}</div>
               </div>
             </div>
           </div>
         </div>
+      </div>
     );
   };
 
@@ -240,13 +261,24 @@ function SosDetails() {
   return (
     <>
       {exportModal && (
-        <ExportReportModal handleExportModal={handleExportModal} reportRef={reportRef}/>
+        <ExportReportModal
+          handleExportModal={handleExportModal}
+          reportRef={reportRef}
+        />
       )}
       {closeTicketModal && (
-        <CloseTicketModal handleCloseTicketModal={handleCloseTicketModal} closureReasons={closureReasons} handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}/>
+        <CloseTicketModal
+          handleCloseTicketModal={handleCloseTicketModal}
+          closureReasons={closureReasons}
+          handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}
+        />
       )}
       {assignTicketModal && (
-        <AssignTicketModal handleAssignTicketModal={handleAssignTicketModal} stations={stations} handleAssignTicketSuccessModal={handleAssignTicketSuccessModal} />
+        <AssignTicketModal
+          handleAssignTicketModal={handleAssignTicketModal}
+          stations={stations}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
+        />
       )}
       {exportSuccessModal && (
         <ExportTicketSuccessModal
@@ -299,50 +331,49 @@ function SosDetails() {
                 ))}
               </nav>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border">
-              {/* Tab Content */}
-              <div className="px-6 pb-6">
-                {activeTab === "Citizen Report" && (
-                  <div className="space-y-4">
-                    <p className="text-gray-700 leading-relaxed">
-                      Dolor enim eu tortor urna sed duis nulla. Aliquam
-                      vestibulum, nulla odio nisl vitae. In aliquet pellentesque
-                      aenean hac vestibulum turpis mi bibendum diam. Tempor
-                      integer aliquam in vitae malesuada fringilla. Elit nisl in
-                      eleifend sed nisl. Pulvinar at orci, proin imperdiet
-                      commodo consectetur convallis risus.
-                    </p>
-                    <p className="text-gray-700 leading-relaxed">
-                      Dolor enim eu tortor urna sed duis nulla. Aliquam
-                      vestibulum, nulla odio nisl vitae. In aliquet pellentesque
-                      aenean hac vestibulum turpis mi bibendum diam. Tempor
-                      integer aliquam in vitae malesuada fringilla. Elit nisl in
-                      eleifend sed nisl. Pulvinar at orci, proin imperdiet
-                      commodo consectetur convallis risus.
-                    </p>
-                  </div>
-                )}
-                {activeTab === "Past SOS History" && (
-                  <div className="text-gray-700">
-                    <p>Past SOS history content would go here...</p>
-                  </div>
-                )}
-                {activeTab === "Audit Trail" && <AuditTrailSection />}
+            {activeTab === "Citizen Report" && (
+              <div className="bg-white rounded-lg shadow-sm border">
+                <div className="px-6 pb-6">
+                    <div className="space-y-4">
+                      <p className="text-gray-700 leading-relaxed">
+                        {incident?.description}
+                      </p>
+                    </div>
+                </div>
               </div>
+            )}
+            {activeTab === "Past SOS History" && (
+            <div className="bg-white rounded-lg shadow-sm border">
+              {activeTab === "Past SOS History" && <PastHistorySOS pastHistory={pastHistory} />}
             </div>
+            )}
+            {activeTab === "Audit Trail" && (
+            <div className="bg-white rounded-lg shadow-sm border">
+              {activeTab === "Audit Trail" && <AuditTrailSection pastHistory={pastHistory}/>}
+            </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700" onClick={handleAssignTicketModal}>
+              <button
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+                onClick={handleAssignTicketModal}
+              >
                 Assign Ticket
               </button>
-              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50" onClick={handleCloseTicketModal}>
+              <button
+                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+                onClick={handleCloseTicketModal}
+              >
                 Close Ticket
               </button>
-              <button className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50" onClick={handleExportModal}>
+              <button
+                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+                onClick={handleExportModal}
+              >
                 Export Report
               </button>
             </div>

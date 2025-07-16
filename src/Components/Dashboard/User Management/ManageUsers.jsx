@@ -109,11 +109,21 @@ const ManageUsers = () => {
     });
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const getRankName = (rankId) => {
+    const rank = adminRanks.find(rank => rank.id === rankId);
+    return rank ? rank.name : 'N/A';
+  };
+  
+  const getRoleName = (roleId) => {
+    const role = adminRoles.find(role => role.id === roleId);
+    return role ? role.name : 'N/A';
+  };
+  
+  const getFormationName = (formationId) => {
+    const formation = adminFormation.find(f => f.id === formationId);
+    return formation ? formation.name : 'N/A';
+  };
+  
 
   return (
     <div className="p-6 bg-white">
@@ -223,14 +233,14 @@ const ManageUsers = () => {
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.rankId || "N/A"}</td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.roleId || "N/A"}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{getRankName(user.rankId, adminRanks)}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{getRoleName(user.roleId)}</td>
                 <td className="py-4 px-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
                     {user.status}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.formationId || "N/A"}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">{getFormationName(user.formationId)}</td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">
                     <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">

@@ -12,6 +12,9 @@ import SosDetails from "./Components/Dashboard/Report Management/SosDetails";
 import { ToastContainer } from "react-toastify";
 import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
+import News from "./Components/Dashboard/Admin-Tools/News";
+import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
+import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
 // Import more components as needed...
 
 function App() {
@@ -30,6 +33,9 @@ function App() {
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
+          <Route path="admin/news" element={<News />} />
+          <Route path="feedback" element={<FeedbackMain />} />
+          <Route path="crime-map" element={<CrimeMap />} />
         </Route>
       </Routes>
     </>

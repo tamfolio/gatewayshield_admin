@@ -51,9 +51,19 @@ const Sidebar = () => {
         { name: "General", path: "/dashboard/reports/general" },
       ],
     },
-    { name: "Crime Map", icon: MapPin, path: "/crime-map" },
-    { name: "Admin Tools", icon: Settings, path: "/admin" },
-    { name: "Feedback Hub", icon: MessageSquare, path: "/feedback" },
+    { name: "Crime Map", icon: MapPin, path: "/dashboard/crime-map" },
+    {
+      name: "Admin Tools",
+      icon: Settings,
+      path: "/admin",
+      hasSubmenu: true,
+      submenu: [
+        { name: "News", path: "/dashboard/admin/news" },
+        { name: "Emergency Broadcast", path: "/dashboard/reports/emergency-broadcast" },
+        { name: "Community Hub", path: "/dashboard/reports/Community-Hub" },
+      ],
+    },
+    { name: "Feedback Hub", icon: MessageSquare, path: "/dashboard/feedback" },
     { name: "Audit Logs", icon: FileSearch, path: "/audit" },
   ];
 

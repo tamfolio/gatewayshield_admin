@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const AuditTrailSection = ({pastHistory}) => {
+const PastHistorySOS = ({pastHistory}) => {
   // Format date to match the design
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -104,4 +104,4 @@ const AuditTrailSection = ({pastHistory}) => {
   );
 };
 
-export default AuditTrailSection;
+export default PastHistorySOS;
