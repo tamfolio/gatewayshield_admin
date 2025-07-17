@@ -14,6 +14,9 @@ import {
   ChevronDown,
   UserPlus,
   UserCheck,
+  Newspaper,
+  Radio,
+  Users2,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -23,6 +26,7 @@ const Sidebar = () => {
   const [expandedSections, setExpandedSections] = useState({
     "User Management": false,
     "Report Management": false,
+    "Admin Tools": false,
   });
 
   const menuItems = [
@@ -52,7 +56,17 @@ const Sidebar = () => {
       ],
     },
     { name: "Crime Map", icon: MapPin, path: "/crime-map" },
-    { name: "Admin Tools", icon: Settings, path: "/admin" },
+    {
+      name: "Admin Tools",
+      icon: Settings,
+      path: "/admin",
+      hasSubmenu: true,
+      submenu: [
+        { name: "News", icon: Newspaper, path: "/dashboard/admin/news" },
+        { name: "Emergency Broadcast", icon: Radio, path: "/dashboard/admin/emergency-broadcast" },
+        { name: "Community Hub", icon: Users2, path: "/dashboard/admin/community-hub" },
+      ],
+    },
     { name: "Feedback Hub", icon: MessageSquare, path: "/feedback" },
     { name: "Audit Logs", icon: FileSearch, path: "/audit" },
   ];
