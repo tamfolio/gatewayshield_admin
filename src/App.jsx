@@ -32,6 +32,7 @@ function App() {
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
           <Route path="admin/news" element={<CreateNewsArticle />} />
+          <Route path="admin/new-broadcast" element={<CreateNewBroadcast />} />
         </Route>
       </Routes>
     </>
