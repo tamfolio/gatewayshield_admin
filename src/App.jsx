@@ -12,6 +12,7 @@ import SosDetails from "./Components/Dashboard/Report Management/SosDetails";
 import { ToastContainer } from "react-toastify";
 import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
+import CreateNewsArticle from "./Components/Dashboard/Admin Tools/CreateNewsArticle";
 // Import more components as needed...
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
+          <Route path="admin/news" element={<CreateNewsArticle />} />
         </Route>
       </Routes>
     </>
