@@ -67,7 +67,7 @@ const TagsManager = ({ tags, onTagsChange, error, maxTags = 20 }) => {
         ))}
       </div>
       
-      {/* Add Tag Button for mobile/accessibility */}
+      {/* Add Tag Button */}
       <button
         onClick={addTag}
         disabled={!newTag.trim() || tags.includes(newTag.trim()) || tags.length >= maxTags}

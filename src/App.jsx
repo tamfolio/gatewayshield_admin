@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 
 import LoginCentral from "./Components/Auth/LoginCentral";
 import Dashboard from "./Pages/Dashboard";
-import Home from "./Components/Dashboard/Home";
+import Home from "./Components/Dashboard/Home"; 
 import AddUsers from "./Components/Dashboard/User Management/AddUsers";
 import ManageUsers from "./Components/Dashboard/User Management/ManageUsers";
 import Sos from "./Components/Dashboard/Report Management/Sos";
@@ -12,7 +12,8 @@ import SosDetails from "./Components/Dashboard/Report Management/SosDetails";
 import { ToastContainer } from "react-toastify";
 import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
-import CreateNewsArticle from "./Components/Dashboard/Admin Tools/CreateNewsArticle";
+import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
+import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
 // Import more components as needed...
 
 function App() {
@@ -31,8 +32,8 @@ function App() {
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
-          <Route path="admin/news" element={<CreateNewsArticle />} />
-          <Route path="admin/new-broadcast" element={<CreateNewBroadcast />} />
+          <Route path="admin/news" element={<NewsPage />} />
+          <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
         </Route>
       </Routes>
     </>

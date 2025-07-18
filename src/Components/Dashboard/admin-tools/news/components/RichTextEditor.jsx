@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Bold, Italic, Underline, List, AlignLeft, AlignCenter } from 'lucide-react';
 
 const RichTextEditor = ({ 
@@ -13,6 +13,8 @@ const RichTextEditor = ({
 }) => {
   const formatText = (command, value = null) => {
     document.execCommand(command, false, value);
+    // Trigger onChange after formatting
+    handleContentChange();
   };
 
   const getTextContent = (element) => {
@@ -21,9 +23,39 @@ const RichTextEditor = ({
   };
 
   const handleContentChange = () => {
+    if (!textRef.current) return;
+    
+    const htmlContent = textRef.current.innerHTML;
     const textContent = getTextContent(textRef.current);
+    
+    // Check character limit
     if (textContent.length <= limit) {
-      onChange(textContent);
+      onChange(htmlContent); // Pass HTML content, not text
+    } else {
+      // If over limit, prevent the change by restoring previous content
+      textRef.current.innerHTML = value || '';
+    }
+  };
+
+  // Set initial content
+  useEffect(() => {
+    if (textRef.current && value !== undefined) {
+      // Only update if the content is different to avoid cursor jumping
+      if (textRef.current.innerHTML !== value) {
+        textRef.current.innerHTML = value || '';
+      }
+    }
+  }, [value, textRef]);
+
+  // Handle paste events to ensure character limit
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const paste = (e.clipboardData || window.clipboardData).getData('text');
+    const currentText = getTextContent(textRef.current);
+    
+    if (currentText.length + paste.length <= limit) {
+      document.execCommand('insertText', false, paste);
+      handleContentChange();
     }
   };
 
@@ -32,45 +64,55 @@ const RichTextEditor = ({
       {/* Rich Text Toolbar */}
       <div className="flex items-center gap-1 p-2 border border-gray-300 rounded-t-md bg-gray-50">
         {showHeadings && (
-          <select className="text-sm border-none bg-transparent focus:outline-none mr-2">
-            <option>H1</option>
-            <option>H2</option>
-            <option>H3</option>
-            <option>P</option>
+          <select 
+            className="text-sm border-none bg-transparent focus:outline-none mr-2"
+            onChange={(e) => formatText('formatBlock', e.target.value)}
+          >
+            <option value="div">Normal</option>
+            <option value="h1">H1</option>
+            <option value="h2">H2</option>
+            <option value="h3">H3</option>
+            <option value="p">P</option>
           </select>
         )}
         <button
+          type="button"
           onClick={() => formatText('bold')}
           className="p-1 rounded hover:bg-gray-200"
         >
           <Bold className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={() => formatText('italic')}
           className="p-1 rounded hover:bg-gray-200"
         >
           <Italic className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={() => formatText('underline')}
           className="p-1 rounded hover:bg-gray-200"
         >
           <Underline className="w-4 h-4" />
         </button>
-        <div className="w-4 h-4 bg-black rounded-full mx-2"></div>
+        <div className="w-px h-4 bg-gray-300 mx-2"></div>
         <button
+          type="button"
           onClick={() => formatText('justifyLeft')}
           className="p-1 rounded hover:bg-gray-200"
         >
           <AlignLeft className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={() => formatText('justifyCenter')}
           className="p-1 rounded hover:bg-gray-200"
         >
           <AlignCenter className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={() => formatText('insertUnorderedList')}
           className="p-1 rounded hover:bg-gray-200"
         >
@@ -87,6 +129,8 @@ const RichTextEditor = ({
         }`}
         style={{ minHeight }}
         onInput={handleContentChange}
+        onPaste={handlePaste}
+        data-placeholder={placeholder}
         suppressContentEditableWarning={true}
       />
       
@@ -101,6 +145,14 @@ const RichTextEditor = ({
           {textRef.current ? getTextContent(textRef.current).length : 0}/{limit}
         </div>
       </div>
+      
+      <style jsx>{`
+        [contenteditable][data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #9ca3af;
+          cursor: text;
+        }
+      `}</style>
     </div>
   );
 };
