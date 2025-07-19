@@ -26,7 +26,7 @@ const Sidebar = () => {
   });
 
   const menuItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     {
       name: "User Management",
       icon: Users,

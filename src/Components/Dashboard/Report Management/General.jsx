@@ -77,74 +77,6 @@ const General = () => {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
 
-  // Sample data based on the image
-  const reports = [
-    {
-      id: "RI0005667",
-      status: "New",
-      statusColor: "bg-green-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005668",
-      status: "Rejected",
-      statusColor: "bg-red-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005669",
-      status: "In Progress",
-      statusColor: "bg-orange-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005670",
-      status: "On Hold",
-      statusColor: "bg-orange-400",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005671",
-      status: "New",
-      statusColor: "bg-green-500",
-      type: "General",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Web",
-    },
-  ];
 
   // Filter options
   const reportStatusOptions = ["New", "In Progress", "On Hold", "Rejected"];
@@ -360,7 +292,7 @@ const General = () => {
 
   const ReportCard = ({ report }) => {
     return (
-      <Link to={`/dashboard/reports/sos/${report.id}`} className="block">
+      <Link to={`/dashboard/reports/general/${report.id}`} className="block">
         <div className="block bg-white border border-gray-200 rounded-lg mb-4 overflow-hidden pb-3 hover:shadow-md transition-shadow duration-200">
           <div className="flex items-start justify-start">
             <div className="flex flex-col w-full">
@@ -382,7 +314,7 @@ const General = () => {
                     color={report.statusColor}
                   />
                   <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
-                    SOS
+                    General
                   </div>
                 </div>
 

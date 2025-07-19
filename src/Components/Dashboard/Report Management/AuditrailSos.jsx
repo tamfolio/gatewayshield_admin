@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { extractDate, extractTime } from "../../../Utils/dateUtils";
 
-const AuditTrailSection = ({ auditTrail }) => {
+const AuditTrailSectionSos = ({ auditTrail }) => {
   // Format date to match the design
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -34,11 +33,14 @@ const AuditTrailSection = ({ auditTrail }) => {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       {/* Table Header */}
-      <div className="grid grid-cols-4 gap-4 py-4 px-6 bg-gray-50 border-b border-gray-200">
-        <div className="text-sm font-semibold text-gray-700">User</div>
-        <div className="text-sm font-semibold text-gray-700">Role</div>
-        <div className="text-sm font-semibold text-gray-700">Action</div>
-        <div className="text-sm font-semibold text-gray-700">Time Stamp</div>
+      <div className="grid grid-cols-5 gap-4 py-4 px-6 bg-gray-50 border-b border-gray-200">
+        <div className="text-sm font-semibold text-gray-700">Report ID</div>
+        <div className="text-sm font-semibold text-gray-700">Report Type</div>
+        <div className="text-sm font-semibold text-gray-700">Date Reported</div>
+        <div className="text-sm font-semibold text-gray-700">Status</div>
+        <div className="text-sm font-semibold text-gray-700">
+          Assigned Station
+        </div>
       </div>
 
       {/* Table Body */}
@@ -47,23 +49,33 @@ const AuditTrailSection = ({ auditTrail }) => {
           (item, index) => (
             <div
               key={item.id || index}
-              className="grid grid-cols-4 gap-4 py-4 px-6 hover:bg-gray-50 transition-colors"
+              className="grid grid-cols-5 gap-4 py-4 px-6 hover:bg-gray-50 transition-colors"
             >
               {/* Report ID */}
               <div className="text-sm text-gray-900 font-medium">
-                {item?.user?.fullname || "N/A" }
+                {item?.id ? `#${item.id.slice(-6)}` : "—"}
               </div>
+
+              {/* Report Type */}
               <div className="text-sm text-gray-700 capitalize">
                 {item.incidentType || "SOS"}
               </div>
 
+              {/* Date Reported */}
               <div className="text-sm text-gray-700">
-                {item.action ||  "—"}
+                {item.datePublished ? formatDate(item.datePublished) : "—"}
               </div>
 
               {/* Status */}
               <div className="text-sm">
-                {extractDate(item.timestamp)} {extractTime(item.timestamp)}
+                <span className={getStatusBadge(item.incidentStatus)}>
+                  {item.incidentStatus || "—"}
+                </span>
+              </div>
+
+              {/* Station Name */}
+              <div className="text-sm text-gray-700">
+                {item.station?.name || "—"}
               </div>
             </div>
           )
@@ -81,4 +93,4 @@ const AuditTrailSection = ({ auditTrail }) => {
   );
 };
 
-export default AuditTrailSection;
+export default AuditTrailSectionSos;

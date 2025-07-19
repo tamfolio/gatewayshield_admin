@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const PastHistorySOS = ({pastHistory}) => {
+const PastHistoryGeneral = ({pastHistory}) => {
   // Format date to match the design
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -104,4 +104,4 @@ const PastHistorySOS = ({pastHistory}) => {
   );
 };
 
-export default PastHistorySOS;
+export default PastHistoryGeneral;

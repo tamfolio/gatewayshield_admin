@@ -15,6 +15,7 @@ import { ActivateAccount } from "./Components/Auth/ActivateAccount";
 import News from "./Components/Dashboard/Admin-Tools/News";
 import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
 import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
+import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDetails";
 // Import more components as needed...
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
+          <Route path="reports/general/:id" element={<GeneralDetails />} />
           <Route path="admin/news" element={<News />} />
           <Route path="feedback" element={<FeedbackMain />} />
           <Route path="crime-map" element={<CrimeMap />} />
