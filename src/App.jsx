@@ -16,6 +16,7 @@ import News from "./Components/Dashboard/Admin-Tools/News";
 import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
 import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
 import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDetails";
+import EditUser from "./Components/Dashboard/User Management/EditUser";
 // Import more components as needed...
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />}>
           <Route index element={<Home />} />
           <Route path="users/add" element={<AddUsers />} />
+          <Route path="users/edit/:id" element={<EditUser />} />
           <Route path="users/manage" element={<ManageUsers />} />
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
