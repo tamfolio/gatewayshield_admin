@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { publicRequest } from "../../requestMethod";
 import { toast } from "react-toastify";
 import { ForgotPasswordStep } from "./InitializePasswordReset";
-import { CheckEmailStep } from "./ForgotPasswordOTP";
+import { CheckEmailStep } from "./ForgotPasswordOtp";
 import { SetNewPasswordStep } from "./PasswordReset";
 import { PasswordResetSuccessStep } from "./PasswordResetSuccess";
 
