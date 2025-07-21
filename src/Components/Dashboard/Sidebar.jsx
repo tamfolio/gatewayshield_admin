@@ -30,7 +30,7 @@ const Sidebar = () => {
   });
 
   const menuItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     {
       name: "User Management",
       icon: Users,
@@ -55,7 +55,7 @@ const Sidebar = () => {
         { name: "General", path: "/dashboard/reports/general" },
       ],
     },
-    { name: "Crime Map", icon: MapPin, path: "/crime-map" },
+    { name: "Crime Map", icon: MapPin, path: "/dashboard/crime-map" },
     {
       name: "Admin Tools",
       icon: Settings,

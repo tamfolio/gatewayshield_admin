@@ -35,11 +35,11 @@ const Sos = () => {
       setLoading(true);
       try {
         const res = await userRequest(token).get(
-          "/incident/all?page=1&size=10"
+          "/sos/all?page=1&size=10"
         );
         console.log("✅ Incidents fetched:", res.data);
-        setIncidents(res.data?.data?.incidents?.data || []);
-        setPaginationData(res.data?.data?.incidents?.pagination || []);
+        setIncidents(res.data?.data?.sos?.data || []);
+        setPaginationData(res.data?.data?.sos?.pagination || []);
       } catch (err) {
         console.error("❌ Failed to fetch incidents:", err);
         setError("Failed to fetch incidents");
@@ -394,7 +394,7 @@ const Sos = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
+              <div className="flex items-center justify-start gap-10 space-x-6 text-sm text-gray-500 px-5 mt-2">
                 <div className="flex items-center space-x-2">
                   <div
                     className={`w-6 h-6 ${getAvatarColor(
@@ -403,7 +403,7 @@ const Sos = () => {
                   >
                     {getAvatarInitial(report.user)}
                   </div>
-                  <div>
+                  <div className="w-[200px]">
                     <div className="text-xs text-gray-400">Reported By</div>
                     <div className="font-medium">{report.user}</div>
                   </div>
@@ -422,25 +422,9 @@ const Sos = () => {
                     {extractTime(report.datePublished)}
                   </div>
                 </div>
-
-                <div>
-                  <div className="text-xs text-gray-400">Incident Type</div>
-                  <div className="font-medium">{report.incidentType}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-gray-400">SLA Status</div>
-                  <div className="font-medium">{report.slaStatus}</div>
-                </div>
-
                 <div>
                   <div className="text-xs text-gray-400">Channel</div>
                   <div className="font-medium">{report.channel}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-gray-400">Priority</div>
-                  <div className="font-medium">{report.priority}</div>
                 </div>
               </div>
             </div>

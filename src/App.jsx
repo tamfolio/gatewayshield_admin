@@ -12,6 +12,11 @@ import SosDetails from "./Components/Dashboard/Report Management/SosDetails";
 import { ToastContainer } from "react-toastify";
 import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
+import News from "./Components/Dashboard/Admin-Tools/News";
+import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
+import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
+import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDetails";
+import EditUser from "./Components/Dashboard/User Management/EditUser";
 import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
 import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
 // Import more components as needed...
@@ -28,10 +33,15 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />}>
           <Route index element={<Home />} />
           <Route path="users/add" element={<AddUsers />} />
+          <Route path="users/edit/:id" element={<EditUser />} />
           <Route path="users/manage" element={<ManageUsers />} />
           <Route path="reports/sos" element={<Sos />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
+          <Route path="reports/general/:id" element={<GeneralDetails />} />
+          <Route path="admin/news" element={<News />} />
+          <Route path="feedback" element={<FeedbackMain />} />
+          <Route path="crime-map" element={<CrimeMap />} />
           <Route path="admin/news" element={<NewsPage />} />
           <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
         </Route>

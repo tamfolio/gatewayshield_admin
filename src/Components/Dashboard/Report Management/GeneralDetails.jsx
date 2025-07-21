@@ -12,11 +12,10 @@ import {
   Calendar,
   AlertTriangle,
 } from "lucide-react";
-import AudioPlayer from "react-h5-audio-player";
-import "react-h5-audio-player/lib/styles.css";
+import AuditTrailSection from "./AuditTrail";
 import ExportReportModal from "./ExportReportModal";
-import CloseSosTicketModal from "./CloseSosTicketModal";
-import AssignTicketSosModal from "./AssignTicketSosModal";
+import CloseTicketModal from "./CloseTicketModal";
+import AssignTicketModal from "./AssignTicketModal";
 import ExportTicketSuccessModal from "./ReportExportedSuccessModal";
 import TicketAssignedSuccessModal from "./TicketAssignedSuccessModal";
 import CloseTicketConfirmModal from "./ConfirmCloseTicketModal";
@@ -30,11 +29,10 @@ import {
   extractTime,
   statusColorMap,
 } from "../../../Utils/dateUtils";
-import PastHistorySOS from "./PastSosTrailHistory.jsx";
-import AuditTrailSectionSos from "./AuditrailSos.jsx";
+import PastHistorySOS from "./PastTrailHistory.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
 
-function SosDetails() {
+function GeneralDetails() {
   const { id } = useParams();
   const reportRef = useRef();
   const [activeTab, setActiveTab] = useState("Citizen Report");
@@ -46,9 +44,9 @@ function SosDetails() {
   const [stations, setStations] = useState([]);
   const [auditTrail, setAuditTrail] = useState([]);
   const [closureReasons, setClosureReasons] = useState([]);
-  const [exportSosSuccessModal, setExportSosSuccessModal] = useState(false);
-  const [closeSosTicketModal, setCloseSosTicketModal] = useState(false);
-  const [assignTicketSosModal, setAssignTicketSosModal] = useState(false);
+  const [exportSuccessModal, setExportSuccessModal] = useState(false);
+  const [closeTicketModal, setCloseTicketModal] = useState(false);
+  const [assignTicketModal, setAssignTicketModal] = useState(false);
   const [assignTicketSuccessModal, setAssignTicketSuccessModal] =
     useState(false);
   const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
@@ -57,20 +55,20 @@ function SosDetails() {
     setExportModal(!exportModal);
   };
 
-  const handleCloseSosTicketModal = () => {
-    setCloseSosTicketModal(!closeSosTicketModal);
+  const handleCloseTicketModal = () => {
+    setCloseTicketModal(!closeTicketModal);
   };
 
-  const handleAssignSosTicketModal = () => {
-    setAssignTicketSosModal(!assignTicketSosModal);
+  const handleAssignTicketModal = () => {
+    setAssignTicketModal(!assignTicketModal);
   };
 
-  const handleAssignSosTicketSuccessModal = () => {
+  const handleAssignTicketSuccessModal = () => {
     setAssignTicketSuccessModal(!assignTicketSuccessModal);
   };
 
-  const handleExportSosSuccessModal = () => {
-    setExportSosSuccessModal(!exportSosSuccessModal);
+  const handleExportSuccessModal = () => {
+    setExportSuccessModal(!exportSuccessModal);
   };
 
   const handleConfirmCloseTicketModal = () => {
@@ -126,8 +124,8 @@ function SosDetails() {
   useEffect(() => {
     const fetchIncident = async () => {
       try {
-        const res = await userRequest(token).get(`/sos/${id}`);
-        setIncident(res.data.data.sos);
+        const res = await userRequest(token).get(`/incident/${id}`);
+        setIncident(res.data.data.incident);
       } catch (error) {
         console.error("❌ Failed to fetch incident:", error);
       } finally {
@@ -138,7 +136,7 @@ function SosDetails() {
     const fetchPastHistory = async () => {
       try {
         const res = await userRequest(token).get(
-          `/sos/${id}/pastReport?page=1&size=10`
+          `/incident/${id}/pastReport?page=1&size=10`
         );
         setPastHistory(res.data.data.incidents.data);
       } catch (error) {
@@ -150,7 +148,9 @@ function SosDetails() {
 
     const fetchAuditTrail = async () => {
       try {
-        const res = await userRequest(token).get(`/sos/getAuditLogs/${id}`);
+        const res = await userRequest(token).get(
+          `/incident/getAuditLogs/${id}`
+        );
         setAuditTrail(res.data.data);
       } catch (error) {
         console.error("❌ Failed to fetch incident:", error);
@@ -165,6 +165,8 @@ function SosDetails() {
       fetchAuditTrail();
     }
   }, [id, token]);
+
+  console.log("audit", auditTrail);
 
   useEffect(() => {
     getStations();
@@ -203,7 +205,7 @@ function SosDetails() {
                   color={incident?.statusColor}
                 />
                 <div className="bg-gray-600 text-white text-xs font-medium px-3 py-1 text-center">
-                  SOS
+                  General
                 </div>
               </div>
 
@@ -215,18 +217,18 @@ function SosDetails() {
               </div>
             </div>
 
-            <div className="flex items-center justify-start gap-10 space-x-6 text-sm text-gray-500 px-5 mt-2">
+            <div className="flex items-center justify-between space-x-6 text-sm text-gray-500 px-5 mt-2">
               <div className="flex items-center space-x-2">
                 <div
                   className={`w-6 h-6 ${getAvatarColor(
-                    incident?.user
+                    incident?.user?.name
                   )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
                 >
-                  {getAvatarInitial(incident?.user)}
+                  {getAvatarInitial(incident?.user?.name)}
                 </div>
                 <div>
                   <div className="text-xs text-gray-400">Reported By</div>
-                  <div className="font-medium">{incident.user}</div>
+                  <div className="font-medium">{incident.user?.name}</div>
                 </div>
               </div>
 
@@ -245,8 +247,23 @@ function SosDetails() {
               </div>
 
               <div>
+                <div className="text-xs text-gray-400">Incident Type</div>
+                <div className="font-medium">{incident.incidentType}</div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-400">SLA Status</div>
+                <div className="font-medium">{incident.slaStatus}</div>
+              </div>
+
+              <div>
                 <div className="text-xs text-gray-400">Channel</div>
                 <div className="font-medium">{incident.channel}</div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-400">Priority</div>
+                <div className="font-medium">{incident.priority}</div>
               </div>
             </div>
           </div>
@@ -259,7 +276,7 @@ function SosDetails() {
 
   return (
     <>
-      <div style={{ position: "absolute", top: "-9999px", left: "-9999px", visibility: "hidden" }}>
+      <div style={{ display: "none" }}>
         <div ref={reportRef}>
           <ReportExportTemplate
             incident={incident}
@@ -268,35 +285,34 @@ function SosDetails() {
           />
         </div>
       </div>
-
       {exportModal && (
         <ExportReportModal
           handleExportModal={handleExportModal}
           reportRef={reportRef}
         />
       )}
-      {closeSosTicketModal && (
-        <CloseSosTicketModal
-          handleCloseSosTicketModal={handleCloseSosTicketModal}
+      {closeTicketModal && (
+        <CloseTicketModal
+          handleCloseTicketModal={handleCloseTicketModal}
           closureReasons={closureReasons}
           handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}
         />
       )}
-      {assignTicketSosModal && (
-        <AssignTicketSosModal
-          handleAssignSosTicketModal={handleAssignSosTicketModal}
+      {assignTicketModal && (
+        <AssignTicketModal
+          handleAssignTicketModal={handleAssignTicketModal}
           stations={stations}
-          handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
-      {exportSosSuccessModal && (
+      {exportSuccessModal && (
         <ExportTicketSuccessModal
-          handleExportSosSuccessModal={handleExportSosSuccessModal}
+          handleExportSuccessModal={handleExportSuccessModal}
         />
       )}
       {assignTicketSuccessModal && (
         <TicketAssignedSuccessModal
-          handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
       {confirmCloseTicketModal && (
@@ -316,7 +332,7 @@ function SosDetails() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6" ref={reportRef}>
             {/* SOS Header Card */}
             <div className="space-y-4">
               <ReportCard incident={incident} />
@@ -341,24 +357,16 @@ function SosDetails() {
               </nav>
             </div>
             {activeTab === "Citizen Report" && (
-              <>
-                <div className="bg-white rounded-lg shadow-sm border">
-                  <div className="px-6 pb-6">
-                    <div className="space-y-4">
-                      <p className="text-gray-700 leading-relaxed">
-                        {incident?.description || "No description Attached"}
-                      </p>
-                    </div>
+              <div className="bg-white rounded-lg shadow-sm border">
+                <div className="px-6 pb-6">
+                  <div className="space-y-4">
+                    <p className="text-gray-700 leading-relaxed">
+                      {incident?.description}
+                    </p>
                   </div>
                 </div>
-                <AudioPlayer
-                  src={incident.audio}
-                  onPlay={(e) => console.log("Playing")}
-                  controls
-                />
-              </>
+              </div>
             )}
-
             {activeTab === "Past SOS History" && (
               <div className="bg-white rounded-lg shadow-sm border">
                 {activeTab === "Past SOS History" && (
@@ -369,7 +377,7 @@ function SosDetails() {
             {activeTab === "Audit Trail" && (
               <div className="bg-white rounded-lg shadow-sm border">
                 {activeTab === "Audit Trail" && (
-                  <AuditTrailSectionSos auditTrail={auditTrail} />
+                  <AuditTrailSection auditTrail={auditTrail} />
                 )}
               </div>
             )}
@@ -381,13 +389,13 @@ function SosDetails() {
             <div className="space-y-3">
               <button
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
-                onClick={handleAssignSosTicketModal}
+                onClick={handleAssignTicketModal}
               >
                 Assign Ticket
               </button>
               <button
                 className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-                onClick={handleCloseSosTicketModal}
+                onClick={handleCloseTicketModal}
               >
                 Close Ticket
               </button>
@@ -551,4 +559,4 @@ function SosDetails() {
   );
 }
 
-export default SosDetails;
+export default GeneralDetails;
