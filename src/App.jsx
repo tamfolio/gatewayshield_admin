@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 
 import LoginCentral from "./Components/Auth/LoginCentral";
 import Dashboard from "./Pages/Dashboard";
-import Home from "./Components/Dashboard/Home";
+import Home from "./Components/Dashboard/Home"; 
 import AddUsers from "./Components/Dashboard/User Management/AddUsers";
 import ManageUsers from "./Components/Dashboard/User Management/ManageUsers";
 import Sos from "./Components/Dashboard/Report Management/Sos";
@@ -17,6 +17,8 @@ import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
 import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
 import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDetails";
 import EditUser from "./Components/Dashboard/User Management/EditUser";
+import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
+import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
 // Import more components as needed...
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
           <Route path="admin/news" element={<News />} />
           <Route path="feedback" element={<FeedbackMain />} />
           <Route path="crime-map" element={<CrimeMap />} />
+          <Route path="admin/news" element={<NewsPage />} />
+          <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
         </Route>
       </Routes>
     </>
