@@ -1,6 +1,5 @@
 import "./App.css";
 import { Routes, Route } from "react-router-dom";
-
 import LoginCentral from "./Components/Auth/LoginCentral";
 import Dashboard from "./Pages/Dashboard";
 import Home from "./Components/Dashboard/Home"; 
