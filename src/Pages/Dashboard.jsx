@@ -1,17 +1,18 @@
-import React from "react";
-import Sidebar from "../Components/Dashboard/Sidebar";
-import Home from "../Components/Dashboard/Home";
-import { Outlet } from "react-router-dom";
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../Components/Dashboard/Sidebar';
 
-function Dashboard() {
+const Dashboard = () => {
   return (
-    <div className="flex">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto h-screen">
-        <Outlet />
-      </div>
+      <main className="flex-1 overflow-y-auto">
+        {/* Content area with padding for mobile menu button */}
+        <div className="pt-16 lg:pt-0">
+          <Outlet /> 
+        </div>
+      </main>
     </div>
   );
-}
+};
 
 export default Dashboard;

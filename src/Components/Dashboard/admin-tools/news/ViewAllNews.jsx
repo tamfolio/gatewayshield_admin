@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Trash2, Edit3, X } from 'lucide-react';
-import { useApiClient } from '../../../../Utils/apiClient';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Trash2, Edit3, X, Eye, RefreshCw } from 'lucide-react';
+import { useApiClient, newsApi } from '../../../../Utils/apiClient';
 import useAccessToken from '../../../../Utils/useAccessToken';
 
 const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
@@ -14,12 +14,14 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [activeFilters, setActiveFilters] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(null);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
   
   const itemsPerPage = 10;
   const accessToken = useAccessToken();
   const apiClient = useApiClient();
 
-  const fetchNews = async () => {
+  // Fetch news using the newsApi helper
+  const fetchNews = useCallback(async () => {
     if (!accessToken) {
       setError('No access token. Please log in.');
       return;
@@ -36,43 +38,51 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
         ...(activeFilters.includes('Published') && { status: 'published' }),
       };
 
-      const response = await apiClient.get('/all', { params });
-
-      // fallbacks for inconsistent API responses
-      const resData = response?.data || {};
-      const dataContent = resData?.data || {};
+      // Use the newsApi helper function
+      const resData = await newsApi.getAll(apiClient, params);
+      
+      // Handle the response data structure
+      const dataContent = resData?.data || resData;
       let newsArray = [];
 
       if (Array.isArray(dataContent.items)) {
         newsArray = dataContent.items;
       } else if (Array.isArray(dataContent.news)) {
         newsArray = dataContent.news;
-      } else if (Array.isArray(resData.news)) {
-        newsArray = resData.news;
-      } else if (Array.isArray(resData.items)) {
-        newsArray = resData.items;
       } else if (Array.isArray(dataContent)) {
         newsArray = dataContent;
       }
 
       setNewsData(newsArray);
 
-      //  pagination
+      // Handle pagination
       const pagination = dataContent.pagination || resData.pagination || {};
-      setTotalPages(pagination.totalPages || Math.ceil(newsArray.length / itemsPerPage) || 1);
+      setTotalPages(pagination.totalPages || Math.ceil((pagination.total || newsArray.length) / itemsPerPage) || 1);
       setTotalItems(pagination.total || newsArray.length || 0);
 
     } catch (err) {
       console.error('Fetch News Error:', err);
-      setError(err.message || 'Failed to load news');
+      
+      // Enhanced error handling
+      if (err.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else if (err.response?.status === 403) {
+        setError('Access denied. Insufficient permissions.');
+      } else if (err.response?.status === 404) {
+        setError('News endpoint not found.');
+      } else {
+        setError(err.message || 'Failed to load news');
+      }
+      
       setNewsData([]);
       setTotalPages(1);
       setTotalItems(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm, activeFilters, accessToken]);
 
+  // Delete single news item using newsApi helper
   const handleDeleteNews = async (newsId, broadcastId) => {
     if (!window.confirm('Are you sure you want to delete this article?')) {
       return;
@@ -85,29 +95,82 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
         ...(broadcastId && { broadcastId })
       };
 
-      await apiClient.delete(`/${newsId}`, { data: deleteData });
+      // Use the newsApi helper function
+      await newsApi.delete(apiClient, newsId, deleteData);
       
       // Remove the deleted item from the local state
       setNewsData(prevData => prevData.filter(item => item.id !== newsId));
       setTotalItems(prev => prev - 1);
       setSelectedItems(prev => prev.filter(id => id !== newsId));
       
-      
+      // Navigate to previous page if current page is empty
       if (newsData.length === 1 && currentPage > 1) {
         setCurrentPage(prev => prev - 1);
       }
       
     } catch (err) {
       console.error('Delete News Error:', err);
-      setError(err.message || 'Failed to delete news article');
+      setError(err.response?.data?.message || err.message || 'Failed to delete news article');
     } finally {
       setDeleteLoading(null);
     }
   };
 
+  // Bulk delete functionality
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedItems.length} article${selectedItems.length > 1 ? 's' : ''}?`;
+    if (!window.confirm(confirmMessage)) return;
+    
+    try {
+      setBulkDeleteLoading(true);
+      setError('');
+      
+      // Delete all selected items
+      const deletePromises = selectedItems.map(async (id) => {
+        const article = newsData.find(item => item.id === id);
+        const deleteData = article?.broadcastId ? { broadcastId: article.broadcastId } : {};
+        return newsApi.delete(apiClient, id, deleteData);
+      });
+      
+      await Promise.all(deletePromises);
+      
+      // Refresh the list after successful deletion
+      setSelectedItems([]);
+      await fetchNews();
+      
+    } catch (err) {
+      console.error('Bulk Delete Error:', err);
+      setError('Failed to delete some articles. Please try again.');
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
+  // View single news article
+  const handleViewNews = async (newsId) => {
+    try {
+      const newsData = await newsApi.getById(apiClient, newsId);
+      // You can implement a modal or navigate to a detailed view
+      console.log('News details:', newsData);
+      // For now, just log the data - you might want to open a modal or navigate
+    } catch (err) {
+      console.error('View News Error:', err);
+      setError('Failed to load news details');
+    }
+  };
+
   useEffect(() => {
     fetchNews();
-  }, [currentPage, searchTerm, activeFilters]);
+  }, [currentPage, searchTerm, activeFilters, accessToken]);
+
+  // Reset page to 1 when search or filters change (but not on initial load)
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, activeFilters]);
 
   const handleFilterToggle = (filter) => {
     setActiveFilters(prev => 
@@ -178,9 +241,10 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
       <div className="bg-white rounded-lg p-6 text-center">
         <div className="text-red-500 mb-4">Error: {error}</div>
         <button 
-          onClick={() => fetchNews()} 
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          onClick={fetchNews} 
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center gap-2"
         >
+          <RefreshCw className="w-4 h-4" />
           Retry
         </button>
       </div>
@@ -201,16 +265,39 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           </span>
         </div>
         
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-          />
+        <div className="flex items-center gap-3">
+          {/* Bulk Actions */}
+          {selectedItems.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {selectedItems.length} selected
+              </span>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteLoading}
+                className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 text-sm inline-flex items-center gap-1"
+              >
+                {bulkDeleteLoading ? (
+                  <div className="w-3 h-3 animate-spin border border-current border-t-transparent rounded-full" />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+                Delete Selected
+              </button>
+            </div>
+          )}
+          
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+            />
+          </div>
         </div>
       </div>
 
@@ -297,7 +384,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
         <div className="col-span-2 text-sm font-medium text-gray-700">Date Created</div>
         <div className="col-span-2 text-sm font-medium text-gray-700">Author</div>
         <div className="col-span-2 text-sm font-medium text-gray-700">Status</div>
-        <div className="col-span-1 text-sm font-medium text-gray-700"></div>
+        <div className="col-span-1 text-sm font-medium text-gray-700">Actions</div>
       </div>
 
       {/* News List */}
@@ -306,6 +393,12 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           <div className="text-center py-12 text-gray-500">
             <div className="text-lg font-medium mb-2">No news articles found</div>
             <p className="text-sm">Try adjusting your search or filters</p>
+            <button
+              onClick={onSwitchToCreate}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Create First Article
+            </button>
           </div>
         ) : (
           newsData.map((article, index) => (
@@ -364,6 +457,13 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
 
               {/* Actions */}
               <div className="col-span-1 flex items-center gap-1">
+                <button
+                  onClick={() => handleViewNews(article.id)}
+                  className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                  title="View"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => onEditNews(article.id)}
                   className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
