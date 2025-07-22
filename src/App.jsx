@@ -14,6 +14,10 @@ import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
 import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
 import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
+import FeedbackHub from './Components/Dashboard/feedbackhub/FeedbackHub';
+import AuditLogs from "./Components/Dashboard/audit-logs/AuditLogs";
+import SLAHub from "./Components/Dashboard/system-settings/SLAHub";
+import ResourcesHub from "./Components/Dashboard/help/ResourcesHub";
 // Import more components as needed...
 
 function App() {
@@ -34,6 +38,12 @@ function App() {
           <Route path="reports/general" element={<General />} />
           <Route path="admin/news" element={<NewsPage />} />
           <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
+          <Route path="feedback" element={<FeedbackHub />} /> 
+          <Route path="audit" element={<AuditLogs />} /> 
+          <Route path="settings" element={<SLAHub />} /> 
+          <Route path="help" element={<ResourcesHub />} /> 
+          
+
         </Route>
       </Routes>
     </>

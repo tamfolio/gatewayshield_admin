@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 
-const TagsManager = ({ tags, onTagsChange, error, maxTags = 20 }) => {
+const TagsManager = ({ tags = [], onTagsChange, error, maxTags = 20 }) => {
   const [newTag, setNewTag] = useState('');
 
+  // Ensure tags is always an array
+  const safeTags = Array.isArray(tags) ? tags : [];
+
   const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim()) && tags.length < maxTags) {
-      onTagsChange([...tags, newTag.trim()]);
+    if (!onTagsChange) return; // Safety check for callback
+    
+    if (newTag.trim() && !safeTags.includes(newTag.trim()) && safeTags.length < maxTags) {
+      onTagsChange([...safeTags, newTag.trim()]);
       setNewTag('');
     }
   };
 
   const removeTag = (tagToRemove) => {
-    onTagsChange(tags.filter(tag => tag !== tagToRemove));
+    if (!onTagsChange) return; // Safety check for callback
+    
+    onTagsChange(safeTags.filter(tag => tag !== tagToRemove));
   };
 
   const handleKeyPress = (e) => {
@@ -44,14 +51,14 @@ const TagsManager = ({ tags, onTagsChange, error, maxTags = 20 }) => {
             </div>
           )}
           <div className="text-sm text-gray-500 ml-auto">
-            {tags.length}/{maxTags} tags
+            {safeTags.length}/{maxTags} tags
           </div>
         </div>
       </div>
       
       {/* Tags Display */}
       <div className="flex flex-wrap gap-2">
-        {tags.map((tag, index) => (
+        {safeTags.map((tag, index) => (
           <span
             key={index}
             className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm border"
@@ -60,6 +67,7 @@ const TagsManager = ({ tags, onTagsChange, error, maxTags = 20 }) => {
             <button
               onClick={() => removeTag(tag)}
               className="text-gray-400 hover:text-gray-600 ml-1"
+              type="button"
             >
               <X className="w-3 h-3" />
             </button>
@@ -70,8 +78,9 @@ const TagsManager = ({ tags, onTagsChange, error, maxTags = 20 }) => {
       {/* Add Tag Button */}
       <button
         onClick={addTag}
-        disabled={!newTag.trim() || tags.includes(newTag.trim()) || tags.length >= maxTags}
+        disabled={!newTag.trim() || safeTags.includes(newTag.trim()) || safeTags.length >= maxTags}
         className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        type="button"
       >
         Add Tag
       </button>

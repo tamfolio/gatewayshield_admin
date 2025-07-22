@@ -2,17 +2,23 @@ import React, { useEffect } from 'react';
 import { Bold, Italic, Underline, List, AlignLeft, AlignCenter } from 'lucide-react';
 
 const RichTextEditor = ({ 
-  value, 
+  value = '', 
   onChange, 
-  placeholder, 
+  placeholder = '', 
   minHeight = '120px',
   showHeadings = false,
   error,
-  limit,
+  limit = 1000,
   textRef
 }) => {
-  const formatText = (command, value = null) => {
-    document.execCommand(command, false, value);
+  // Safe value handling
+  const safeValue = value || '';
+  const safeLimit = limit || 1000;
+
+  const formatText = (command, commandValue = null) => {
+    if (!textRef?.current) return;
+    
+    document.execCommand(command, false, commandValue);
     // Trigger onChange after formatting
     handleContentChange();
   };
@@ -23,37 +29,39 @@ const RichTextEditor = ({
   };
 
   const handleContentChange = () => {
-    if (!textRef.current) return;
+    if (!textRef?.current || !onChange) return;
     
     const htmlContent = textRef.current.innerHTML;
     const textContent = getTextContent(textRef.current);
     
     // Check character limit
-    if (textContent.length <= limit) {
+    if (textContent.length <= safeLimit) {
       onChange(htmlContent); // Pass HTML content, not text
     } else {
       // If over limit, prevent the change by restoring previous content
-      textRef.current.innerHTML = value || '';
+      textRef.current.innerHTML = safeValue;
     }
   };
 
   // Set initial content
   useEffect(() => {
-    if (textRef.current && value !== undefined) {
+    if (textRef?.current && safeValue !== undefined) {
       // Only update if the content is different to avoid cursor jumping
-      if (textRef.current.innerHTML !== value) {
-        textRef.current.innerHTML = value || '';
+      if (textRef.current.innerHTML !== safeValue) {
+        textRef.current.innerHTML = safeValue;
       }
     }
-  }, [value, textRef]);
+  }, [safeValue]);
 
   // Handle paste events to ensure character limit
   const handlePaste = (e) => {
+    if (!textRef?.current) return;
+    
     e.preventDefault();
-    const paste = (e.clipboardData || window.clipboardData).getData('text');
+    const paste = (e.clipboardData || window.clipboardData)?.getData('text') || '';
     const currentText = getTextContent(textRef.current);
     
-    if (currentText.length + paste.length <= limit) {
+    if (currentText.length + paste.length <= safeLimit) {
       document.execCommand('insertText', false, paste);
       handleContentChange();
     }
@@ -142,7 +150,7 @@ const RichTextEditor = ({
           </div>
         )}
         <div className="text-sm text-gray-500 ml-auto">
-          {textRef.current ? getTextContent(textRef.current).length : 0}/{limit}
+          {textRef?.current ? getTextContent(textRef.current).length : 0}/{safeLimit}
         </div>
       </div>
       
