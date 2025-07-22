@@ -3,61 +3,42 @@ import { X } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-const ExportTicketModal = ({ handleExportModal, reportRef }) => {
+const ExportSosTicketModal = ({ handleExportModal, reportRef }) => {
   const [selectedFormat, setSelectedFormat] = useState("PDF");
-  console.log("reportRef:", reportRef.current);
-
 
   const handleExport = async () => {
     if (!reportRef?.current) return;
-  
+
     const content = reportRef.current;
-  
-    // ✅ Utility to force safe CSS styles
-    const forceSafeStyles = (element) => {
-      element.querySelectorAll("*").forEach((el) => {
-        el.style.color = "#000"; // Safe text color
-        el.style.backgroundColor = "#fff"; // Safe background
-        el.style.borderColor = "#ccc"; // Safe border
-        el.style.boxShadow = "none";
-        el.style.textShadow = "none";
-      });
-    };
-  
+
     if (selectedFormat === "PDF") {
       try {
-        // ✅ Clean up inherited unsafe styles
-        forceSafeStyles(content);
-  
-        // ✅ Capture screenshot
-        const canvas = await html2canvas(content, {
-          scale: 2,
-          backgroundColor: "#fff",
-          useComputedStyle: false, // prevent oklch parsing
-        });
-  
-        // ✅ Convert to PDF
+        const canvas = await html2canvas(content, { scale: 2 });
         const imgData = canvas.toDataURL("image/png");
         const pdf = new jsPDF("p", "mm", "a4");
-  
+
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
-  
-        const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-        const pdfWidth = canvas.width * ratio;
-        const pdfHeight = canvas.height * ratio;
-  
+
+        const imgProps = {
+          width: canvas.width,
+          height: canvas.height,
+        };
+
+        const ratio = Math.min(pageWidth / imgProps.width, pageHeight / imgProps.height);
+        const pdfWidth = imgProps.width * ratio;
+        const pdfHeight = imgProps.height * ratio;
+
         pdf.addImage(imgData, "PNG", 10, 10, pdfWidth, pdfHeight);
         pdf.save("ticket-report.pdf");
       } catch (error) {
         console.error("PDF export failed:", error);
       }
     } else if (selectedFormat === "CSV") {
-      // ✅ Simple CSV export fallback
       const text = content.innerText;
       const lines = text.split("\n");
       const csvContent = lines.map(line => `"${line}"`).join("\n");
-  
+
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -67,16 +48,12 @@ const ExportTicketModal = ({ handleExportModal, reportRef }) => {
       link.click();
       document.body.removeChild(link);
     }
-  
-    handleExportModal(); // ✅ Close the modal
+
+    handleExportModal(); // close modal
   };
-  
-  
-  
-  
 
   return (
-    <div id="export-modal" className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-[#101828B2] bg-opacity-50" onClick={handleExportModal} />
       <div className="flex min-h-full items-center justify-center p-4 text-center">
         <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl w-full max-w-sm z-10">
@@ -141,4 +118,4 @@ const ExportTicketModal = ({ handleExportModal, reportRef }) => {
   );
 };
 
-export default ExportTicketModal;
+export default ExportSosTicketModal;
