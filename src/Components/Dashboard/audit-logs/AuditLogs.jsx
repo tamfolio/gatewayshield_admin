@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, Search, Calendar, X } from 'lucide-react';
 import { FiDownloadCloud } from 'react-icons/fi';
+import SuccessModal from './SuccessModal';
 
 const AuditLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,6 +12,7 @@ const AuditLogs = () => {
   const [showUserRoleDropdown, setShowUserRoleDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const userRoles = [
     'Police Station',
@@ -99,8 +101,12 @@ const AuditLogs = () => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     
-    // Show success message
-    alert('Audit logs exported successfully!');
+    // Show success modal
+    setShowSuccessModal(true);
+  };
+
+  const closeSuccessModal = () => {
+    setShowSuccessModal(false);
   };
 
   return (
@@ -301,6 +307,15 @@ const AuditLogs = () => {
           </button>
         </div>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={closeSuccessModal}
+        title="Export Successful!"
+        message="Your audit logs have been successfully exported as a CSV file."
+        buttonText="Continue"
+      />
 
       {/* Click outside to close dropdowns */}
       {(showUserRoleDropdown || showDatePicker) && (

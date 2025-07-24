@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
-// API Integration for Feedback Table
-const feedbackAPI = {
+// Centralized API Integration for Case Review Feedbacks
+const caseReviewFeedbackAPI = {
   baseURL: 'https://admin-api.thegatewayshield.com/api/v1/feedback/caseReview',
   
   getAuthToken: () => {
@@ -12,21 +12,27 @@ const feedbackAPI = {
   async getAllFeedbacks(page = 1, size = 10, filters = {}) {
     const params = new URLSearchParams({
       page: page.toString(),
-      size: size.toString(),
-      ...filters
+      size: size.toString()
+    });
+
+    // Add filters to params if they exist
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== undefined && filters[key] !== '' && filters[key] !== null) {
+        params.append(key, filters[key]);
+      }
     });
 
     const token = this.getAuthToken();
-    const url = `${this.baseURL}/all-feedbacks?${params}`;
+    const url = `${this.baseURL}/all-feedbacks?${params.toString()}`;
     
     try {
-      console.log(`🚀 Feedback API Call: ${url}`);
+      console.log(`🚀 Case Review Feedback API Call: ${url}`);
       console.log(`🔑 Auth Token: ${token ? 'Present' : 'Missing'}`);
       console.log(`📋 Filters:`, filters);
       
       const response = await fetch(url, {
         method: 'GET',
-        mode: 'cors', // Explicitly handle CORS
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -40,48 +46,17 @@ const feedbackAPI = {
       }
 
       const data = await response.json();
-      console.log(`✅ Feedback API Success:`, data);
+      console.log(`✅ Case Review Feedback API Success:`, data);
+      console.log(`📊 Response data keys:`, Object.keys(data || {}));
+      console.log(`📋 Response structure:`, JSON.stringify(data, null, 2));
       return data;
     } catch (error) {
-      console.error(`❌ Feedback API Detailed Error:`, {
+      console.error(`❌ Case Review Feedback API Error:`, {
         message: error.message,
         name: error.name,
         stack: error.stack,
         url: url
       });
-      throw error;
-    }
-  }
-};
-
-// Station API (reusing from CaseReview)
-const stationAPI = {
-  baseURL: 'https://admin-api.thegatewayshield.com/api',
-  
-  getAuthToken: () => {
-    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-  },
-
-  async getStations() {
-    const token = this.getAuthToken();
-    
-    try {
-      const response = await fetch(`${this.baseURL}/v1/feedback/caseReview/stations`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`❌ Station API Error:`, error);
       throw error;
     }
   }
@@ -119,7 +94,7 @@ const Button = ({ children, variant = "primary", size = "sm", className = "", di
   );
 };
 
-// Filter Badge Component (like in the original)
+// Filter Badge Component
 const FilterBadge = ({ children, onRemove, variant = "default" }) => {
   const variants = {
     default: "bg-gray-100 text-gray-800",
@@ -163,8 +138,20 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Pagination Component (matching original design)
-const TablePagination = ({ currentPage, totalPages, onPageChange, loading }) => {
+// Error Display Component
+const ErrorDisplay = ({ error, onRetry }) => (
+  <div className="flex flex-col items-center justify-center p-8 text-center">
+    <div className="text-red-600 mb-4">Error: {error}</div>
+    {onRetry && (
+      <Button onClick={onRetry} variant="outline" size="sm">
+        Retry
+      </Button>
+    )}
+  </div>
+);
+
+// Pagination Component
+const TablePagination = ({ currentPage, totalPages, onPageChange, loading, totalItems, pageSize }) => {
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 7;
@@ -191,51 +178,60 @@ const TablePagination = ({ currentPage, totalPages, onPageChange, loading }) => 
     return pages;
   };
 
+  const startItem = ((currentPage - 1) * pageSize) + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
   return (
     <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-      <Button
-        variant="ghost"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage <= 1 || loading}
-        className="flex items-center gap-2"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Previous
-      </Button>
-      
-      <div className="flex items-center gap-1">
-        {getPageNumbers().map((page, index) => (
-          <React.Fragment key={index}>
-            {page === '...' ? (
-              <span className="px-2 py-1 text-gray-400">...</span>
-            ) : (
-              <Button
-                variant={page === currentPage ? "primary" : "ghost"}
-                onClick={() => onPageChange(page)}
-                disabled={loading}
-                className="min-w-[2rem]"
-              >
-                {page}
-              </Button>
-            )}
-          </React.Fragment>
-        ))}
+      <div className="text-sm text-gray-500">
+        Showing {startItem} to {endItem} of {totalItems} results
       </div>
       
-      <Button
-        variant="ghost"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage >= totalPages || loading}
-        className="flex items-center gap-2"
-      >
-        Next
-        <ChevronRight className="w-4 h-4" />
-      </Button>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1 || loading}
+          className="flex items-center gap-2"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {getPageNumbers().map((page, index) => (
+            <React.Fragment key={index}>
+              {page === '...' ? (
+                <span className="px-2 py-1 text-gray-400">...</span>
+              ) : (
+                <Button
+                  variant={page === currentPage ? "primary" : "ghost"}
+                  onClick={() => onPageChange(page)}
+                  disabled={loading}
+                  className="min-w-[2rem]"
+                >
+                  {page}
+                </Button>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+        
+        <Button
+          variant="ghost"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages || loading}
+          className="flex items-center gap-2"
+        >
+          Next
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 };
 
-// Main Feedback Table Component
+// Main Case Review Table Component
 const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
   const [tableData, setTableData] = useState({
     feedbacks: [],
@@ -253,83 +249,164 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
     status: null,
     dateRange: null
   });
-  const [stations, setStations] = useState([]);
 
-  // Load stations for mapping
-  useEffect(() => {
-    loadStations();
-  }, []);
-
-  // Load feedbacks when page or filters change
+  // Load feedbacks when page, search, or filters change
   useEffect(() => {
     loadFeedbacks();
-  }, [tableData.currentPage, searchTerm, filters]);
-
-  const loadStations = async () => {
-    try {
-      const result = await stationAPI.getStations();
-      if (result?.data) {
-        setStations(result.data);
-      }
-    } catch (error) {
-      console.error('Error loading stations:', error);
-    }
-  };
+  }, [tableData.currentPage, searchTerm, filters, localFilters]);
 
   const loadFeedbacks = async () => {
     setTableData(prev => ({ ...prev, loading: true, error: null }));
     
     try {
+      // Combine all filters for the API call
       const apiFilters = {
         ...(searchTerm && { search: searchTerm }),
         ...(localFilters.rating && { rating: localFilters.rating }),
         ...(localFilters.status && { status: localFilters.status }),
         ...(filters.stationId && { stationId: filters.stationId }),
         ...(filters.incidentTypeId && { incidentTypeId: filters.incidentTypeId }),
-        ...(filters.source && filters.source !== 'All' && { source: filters.source })
+        ...(filters.source && filters.source !== 'All' && { source: filters.source }),
+        // Add date range if provided from main filters
+        ...(filters.startDate && { startDate: filters.startDate }),
+        ...(filters.endDate && { endDate: filters.endDate })
       };
 
-      const response = await feedbackAPI.getAllFeedbacks(
+      const response = await caseReviewFeedbackAPI.getAllFeedbacks(
         tableData.currentPage,
         tableData.pageSize,
         apiFilters
       );
 
-      // Handle response structure
-      const feedbacks = response.data || response.feedbacks || response || [];
-      const total = response.total || response.totalCount || feedbacks.length;
-      const totalPages = response.totalPages || Math.ceil(total / tableData.pageSize);
+      // Handle different possible response structures
+      let feedbacks = [];
+      let total = 0;
+      let totalPages = 1;
+
+      if (response) {
+        console.log(`🔍 Processing API response:`, response);
+        console.log(`🔍 Response keys:`, Object.keys(response));
+        
+        // Handle the nested structure: { data: { data: [...], pagination: {...} } }
+        const responseData = response.data || response;
+        
+        feedbacks = responseData.data || 
+                   responseData.feedbacks || 
+                   responseData.items || 
+                   responseData.results ||
+                   responseData.content ||
+                   (Array.isArray(responseData) ? responseData : []);
+                   
+        // Extract pagination info from the nested pagination object
+        const paginationInfo = responseData.pagination || responseData;
+        
+        total = paginationInfo.total || 
+               paginationInfo.totalCount || 
+               paginationInfo.totalItems || 
+               paginationInfo.totalElements ||
+               paginationInfo.count ||
+               (feedbacks ? feedbacks.length : 0);
+               
+        totalPages = paginationInfo.totalPages || 
+                    paginationInfo.pages ||
+                    Math.ceil(total / tableData.pageSize);
+        
+        console.log(`📊 Extracted feedbacks:`, feedbacks);
+        console.log(`📊 Total items:`, total);
+        console.log(`📊 Total pages:`, totalPages);
+        
+        // Ensure feedbacks is an array
+        if (!Array.isArray(feedbacks)) {
+          console.log(`⚠️ Feedbacks is not an array, converting:`, feedbacks);
+          feedbacks = [];
+        }
+      }
 
       setTableData(prev => ({
         ...prev,
-        feedbacks: Array.isArray(feedbacks) ? feedbacks : [],
-        totalPages: totalPages || 1,
+        feedbacks: feedbacks,
+        totalPages: Math.max(1, totalPages),
         totalItems: total,
         loading: false
       }));
 
     } catch (error) {
-      console.error('Error loading feedbacks:', error);
+      console.error('Error loading case review feedbacks:', error);
       
-      // Fallback mock data (matching original table)
+      // Fallback mock data for development/testing
       const mockFeedbacks = [
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: 'Very respectful officer', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'ikeja', station: 'Ikeja', feedback: 'Station was locked', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: 'Add more female officers', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' },
-        { id: '#23456', stationId: 'surulere', station: 'Surulere', feedback: '-', rating: 5, date: 'Jan 4, 2025' }
+        { 
+          id: '#CR001', 
+          reportId: '#CR001',
+          stationId: 'surulere', 
+          station: 'Surulere Station', 
+          feedback: 'Very respectful and professional officers', 
+          feedbackText: 'Very respectful and professional officers',
+          comment: 'Very respectful and professional officers',
+          rating: 5, 
+          date: '2025-01-04',
+          createdAt: '2025-01-04T10:30:00Z',
+          dateClosed: '2025-01-04'
+        },
+        { 
+          id: '#CR002', 
+          reportId: '#CR002',
+          stationId: 'ikeja', 
+          station: 'Ikeja Station', 
+          feedback: 'Station was closed when I arrived', 
+          feedbackText: 'Station was closed when I arrived',
+          comment: 'Station was closed when I arrived',
+          rating: 2, 
+          date: '2025-01-04',
+          createdAt: '2025-01-04T09:15:00Z',
+          dateClosed: '2025-01-04'
+        },
+        { 
+          id: '#CR003', 
+          reportId: '#CR003',
+          stationId: 'surulere', 
+          station: 'Surulere Station', 
+          feedback: 'Need more female officers at the station', 
+          feedbackText: 'Need more female officers at the station',
+          comment: 'Need more female officers at the station',
+          rating: 4, 
+          date: '2025-01-03',
+          createdAt: '2025-01-03T14:20:00Z',
+          dateClosed: '2025-01-03'
+        },
+        { 
+          id: '#CR004', 
+          reportId: '#CR004',
+          stationId: 'vi', 
+          station: 'Victoria Island Station', 
+          feedback: 'Quick response time and helpful staff', 
+          feedbackText: 'Quick response time and helpful staff',
+          comment: 'Quick response time and helpful staff',
+          rating: 5, 
+          date: '2025-01-03',
+          createdAt: '2025-01-03T16:45:00Z',
+          dateClosed: '2025-01-03'
+        },
+        { 
+          id: '#CR005', 
+          reportId: '#CR005',
+          stationId: 'yaba', 
+          station: 'Yaba Station', 
+          feedback: 'Officer was very understanding of my situation', 
+          feedbackText: 'Officer was very understanding of my situation',
+          comment: 'Officer was very understanding of my situation',
+          rating: 4, 
+          date: '2025-01-02',
+          createdAt: '2025-01-02T11:30:00Z',
+          dateClosed: '2025-01-02'
+        }
       ];
 
       setTableData(prev => ({
         ...prev,
         feedbacks: mockFeedbacks,
-        totalPages: 10,
-        totalItems: 100,
+        totalPages: 3,
+        totalItems: 25,
         loading: false,
         error: `API Error: ${error.message}. Showing sample data.`
       }));
@@ -396,12 +473,34 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
     }
   };
 
-  // Map station ID to station name
-  const getStationName = (stationId, fallbackName) => {
-    if (fallbackName && fallbackName !== 'N/A') return fallbackName;
-    
-    const station = stations.find(s => s.id === stationId);
-    return station?.formation || station?.name || fallbackName || 'Unknown Station';
+  const handleExportCSV = () => {
+    try {
+      const headers = ['Report ID', 'Station', 'Feedback Text', 'Citizen Rating', 'Date Closed'];
+      const csvContent = [
+        headers.join(','),
+        ...tableData.feedbacks.map(row => [
+          row.reportID || row.id || row.reportId || '',
+          row.stationName || row.station || '',
+          `"${(row.comments || row.feedback || row.feedbackText || row.comment || '').replace(/"/g, '""')}"`,
+          row.rating || '',
+          row.dateclosed || row.date || row.createdAt || row.dateClosed || ''
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'case_review_feedbacks.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert('Failed to export CSV');
+    }
   };
 
   return (
@@ -413,7 +512,7 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Search feedbacks..."
               value={searchTerm}
               onChange={handleSearchChange}
               disabled={tableData.loading}
@@ -424,12 +523,17 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
             </kbd>
           </div>
           
-          <Button variant="outline" className="flex items-center gap-2 ml-4">
-            Export CSV
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 ml-4"
+            onClick={handleExportCSV}
+            disabled={tableData.feedbacks.length === 0}
+          >
+            Export CSV ({tableData.feedbacks.length})
           </Button>
         </div>
 
-        {/* Active Filters - Only show when there are active filters */}
+        {/* Active Filters */}
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2">
             {searchTerm && (
@@ -475,13 +579,22 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
         )}
       </div>
 
+      {/* Error Display */}
+      {tableData.error && (
+        <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+          <div className="text-yellow-800 text-sm">
+            ⚠️ {tableData.error}
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto">
         {tableData.loading && tableData.feedbacks.length === 0 ? (
           <LoadingSpinner />
-        ) : tableData.feedbacks.length === 0 ? (
+        ) : tableData.feedbacks.length === 0 && !tableData.loading ? (
           <div className="text-center py-12 text-gray-500">
-            No feedback entries found
+            No case review feedback entries found
           </div>
         ) : (
           <table className="w-full">
@@ -506,21 +619,23 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {tableData.feedbacks.map((feedback, index) => (
-                <tr key={feedback.id || index} className="hover:bg-gray-50">
+                <tr key={feedback.reportID || feedback.id || index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {feedback.id || feedback.reportId || `#23456`}
+                    {feedback.reportID || feedback.id || feedback.reportId || `#${index + 1}`}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getStationName(feedback.stationId, feedback.station)}
+                    {feedback.stationName || feedback.station || 'Unknown Station'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    {feedback.feedback || feedback.feedbackText || feedback.comment || '-'}
+                    <div className="max-w-xs truncate" title={feedback.comments || feedback.feedback || feedback.feedbackText || feedback.comment}>
+                      {feedback.comments || feedback.feedback || feedback.feedbackText || feedback.comment || '-'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <StarRating rating={feedback.rating || 5} />
+                    <StarRating rating={feedback.rating || 0} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(feedback.date || feedback.createdAt || feedback.dateClosed || 'Jan 4, 2025')}
+                    {formatDate(feedback.dateclosed || feedback.date || feedback.createdAt || feedback.dateClosed)}
                   </td>
                 </tr>
               ))}
@@ -534,6 +649,8 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
         <TablePagination
           currentPage={tableData.currentPage}
           totalPages={tableData.totalPages}
+          totalItems={tableData.totalItems}
+          pageSize={tableData.pageSize}
           onPageChange={handlePageChange}
           loading={tableData.loading}
         />

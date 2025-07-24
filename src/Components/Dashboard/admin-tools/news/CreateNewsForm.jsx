@@ -1,12 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import RichTextEditor from './components/RichTextEditor';
 import FileUploadComponent from './components/FileUploadComponent';
 import TagsManager from './components/TagsManager';
-import { useApiClient, newsApi } from '../../../../Utils/apiClient'; // Updated import
+import SuccessModal from './components/SuccessModal'; 
+import { useApiClient, newsApi } from '../../../../Utils/apiClient';
 
-const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
-  const apiClient = useApiClient(); // Use the API client hook
+const CreateNewsForm = ({ editingNewsId, setEditingNewsId, onRedirectToDashboard }) => {
+  const apiClient = useApiClient();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -20,10 +21,115 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Success modal state
+  const [successModal, setSuccessModal] = useState({
+    isOpen: false,
+    type: 'published' // 'published', 'updated', or 'draft'
+  });
+  
   const subtitleRef = useRef(null);
   const bodyTextRef = useRef(null);
 
   const TITLE_LIMIT = 100, SUBTITLE_LIMIT = 150, BODYTEXT_LIMIT = 2000, TAG_LIMIT = 20;
+
+  // ADDED: Effect to load news data when editing
+  useEffect(() => {
+    const loadNewsForEditing = async () => {
+      if (!editingNewsId || !apiClient) return;
+
+      setIsLoading(true);
+      setErrors({});
+      
+      try {
+        const newsData = await newsApi.getOne(apiClient, editingNewsId);
+        
+        console.log('Loaded news for editing:', newsData);
+        
+        // Parse the response to get the actual news data
+        let article = null;
+        if (newsData?.data?.news) {
+          article = newsData.data.news;
+        } else if (newsData?.news) {
+          article = newsData.news;
+        } else if (newsData?.data) {
+          article = newsData.data;
+        } else {
+          article = newsData;
+        }
+
+        if (article) {
+          setFormData({
+            title: article.title || '',
+            subtitle: article.subtitle || '',
+            bodyText: article.bodyText || article.body || '',
+            tags: article.tags || [],
+            coverImageName: article.coverImageFileName || article.coverImageName || '',
+            isDraft: article.isDraft !== false, // Default to true if not explicitly false
+            isActive: article.isActive === true
+          });
+
+          // Set editor content
+          if (subtitleRef.current) {
+            subtitleRef.current.innerHTML = article.subtitle || '';
+          }
+          if (bodyTextRef.current) {
+            bodyTextRef.current.innerHTML = article.bodyText || article.body || '';
+          }
+
+          // Handle existing media files if any
+          if (article.mediaFiles && Array.isArray(article.mediaFiles)) {
+            const existingFiles = article.mediaFiles.map((media, index) => ({
+              id: `existing-${index}`,
+              name: media.filename || media.name || `media-${index}`,
+              size: media.size || 0,
+              type: media.type || 'image/*',
+              progress: 100,
+              completed: true,
+              isUploading: false,
+              makeCoverImage: media.filename === article.coverImageFileName,
+              caption: media.caption || '',
+              uploadedUrl: media.url || media.path,
+              file: null // Existing files don't have File objects
+            }));
+            setUploadedFiles(existingFiles);
+          }
+        }
+
+      } catch (error) {
+        console.error('Error loading news for editing:', error);
+        setErrors({ 
+          general: 'Failed to load news article for editing. Please try again.' 
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadNewsForEditing();
+  }, [editingNewsId, apiClient]);
+
+  // ADDED: Effect to clear form when not editing
+  useEffect(() => {
+    if (!editingNewsId) {
+      setFormData({
+        title: '',
+        subtitle: '',
+        bodyText: '',
+        tags: [],
+        coverImageName: '',
+        isDraft: true,
+        isActive: false
+      });
+      setUploadedFiles([]);
+      setErrors({});
+      
+      // Clear editors
+      if (subtitleRef.current) subtitleRef.current.innerHTML = '';
+      if (bodyTextRef.current) bodyTextRef.current.innerHTML = '';
+    }
+  }, [editingNewsId]);
 
   const getTextContent = (el) => {
     if (!el) return '';
@@ -90,19 +196,26 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
       newsData.coverImageFileName = formData.coverImageName.trim();
     }
 
-    // Add cover image from uploaded files if not manually set
-    const completedFiles = (uploadedFiles || []).filter(f => f?.completed);
-    if (completedFiles.length > 0) {
+    // Prepare files for upload (only new files, not existing ones)
+    const newFiles = (uploadedFiles || []).filter(f => f?.completed && f?.file);
+    let mediaFiles = [];
+    let coverFile = null;
+    
+    if (newFiles.length > 0) {
       // Set coverImageFileName to first cover image or first image
-      const coverImage = completedFiles.find(f => f.makeCoverImage) || completedFiles[0];
+      const coverImage = newFiles.find(f => f.makeCoverImage) || newFiles[0];
       if (coverImage && !formData.coverImageName) {
         newsData.coverImageFileName = coverImage.name;
+        coverFile = coverImage.file;
       }
       
       // Add caption from cover image
       if (coverImage?.caption) {
         newsData.caption = coverImage.caption;
       }
+      
+      // Collect all new media files
+      mediaFiles = newFiles.map(f => f.file).filter(Boolean);
     }
 
     // Enhanced debugging
@@ -111,63 +224,53 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
     console.log('Subtitle ref content:', getTextContent(subtitleRef.current));
     console.log('Body text ref content:', getTextContent(bodyTextRef.current));
     console.log('Uploaded files:', uploadedFiles);
+    console.log('New media files to upload:', mediaFiles);
+    console.log('Cover file to upload:', coverFile);
     console.log('Final newsData being sent:', JSON.stringify(newsData, null, 2));
-    console.log('Data types:', {
-      title: typeof newsData.title,
-      subtitle: typeof newsData.subtitle, 
-      bodyText: typeof newsData.bodyText,
-      tags: Array.isArray(newsData.tags) ? 'array' : typeof newsData.tags,
-      isDraft: typeof newsData.isDraft,
-      isActive: typeof newsData.isActive,
-      coverImageFileName: typeof newsData.coverImageFileName,
-      caption: typeof newsData.caption
-    });
+    console.log('Is editing:', !!editingNewsId);
 
     try {
       let result;
       
-      // The API might expect data wrapped in an object
-      // Based on the error "Expected object, received null", we'll try different structures
-      const wrappedNewsData = {
-        news: newsData  // Try wrapping in 'news' object first
-      };
-      
-      console.log('Trying wrapped data structure:', JSON.stringify(wrappedNewsData, null, 2));
-      
       if (editingNewsId) {
         // Update existing news article
-        result = await newsApi.update(apiClient, editingNewsId, wrappedNewsData);
-        alert('News article updated successfully!');
+        result = await newsApi.update(apiClient, editingNewsId, newsData, mediaFiles, coverFile);
+        
+        // Show success modal for update
+        setSuccessModal({
+          isOpen: true,
+          type: 'updated'
+        });
       } else {
-        // Create new news article - try direct data first, then wrapped if it fails
-        try {
-          result = await newsApi.create(apiClient, newsData);
-        } catch (directError) {
-          console.log('Direct data failed, trying wrapped structure...');
-          result = await newsApi.create(apiClient, wrappedNewsData);
+        // Create new news article
+        result = await newsApi.create(apiClient, newsData, mediaFiles, coverFile);
+        
+        // Show success modal based on whether it's draft or published
+        setSuccessModal({
+          isOpen: true,
+          type: isDraft ? 'draft' : 'published'
+        });
+        
+        // Reset form if published and not editing
+        if (!isDraft) {
+          setFormData({ 
+            title: '', 
+            subtitle: '', 
+            bodyText: '', 
+            tags: [], 
+            coverImageName: '',
+            isDraft: true,
+            isActive: false
+          });
+          // Clear the editors
+          if (subtitleRef.current) subtitleRef.current.innerHTML = '';
+          if (bodyTextRef.current) bodyTextRef.current.innerHTML = '';
+          setUploadedFiles([]);
+          setErrors({});
         }
-        alert(isDraft ? 'Draft saved successfully!' : 'News article published successfully!');
       }
 
       console.log('API Response:', result);
-
-      // Reset form if published and not editing
-      if (!isDraft && !editingNewsId) {
-        setFormData({ 
-          title: '', 
-          subtitle: '', 
-          bodyText: '', 
-          tags: [], 
-          coverImageName: '',
-          isDraft: true,
-          isActive: false
-        });
-        // Clear the editors
-        if (subtitleRef.current) subtitleRef.current.innerHTML = '';
-        if (bodyTextRef.current) bodyTextRef.current.innerHTML = '';
-        setUploadedFiles([]);
-        setErrors({});
-      }
 
     } catch (error) {
       console.error('=== DEBUG: Full Error Details ===');
@@ -175,9 +278,6 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
       console.error('Error response:', error.response);
       console.error('Error response data:', error.response?.data);
       console.error('Error response status:', error.response?.status);
-      console.error('Error response headers:', error.response?.headers);
-      console.error('Error request:', error.request);
-      console.error('Error message:', error.message);
       
       // Handle different types of errors
       let errorMessage = 'Failed to save news article. Please try again.';
@@ -216,6 +316,21 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Success modal handlers
+  const handleCloseModal = () => {
+    setSuccessModal({ isOpen: false, type: 'published' });
+  };
+
+  const handleRedirectToDashboard = () => {
+    setSuccessModal({ isOpen: false, type: 'published' });
+    if (editingNewsId) {
+      setEditingNewsId(null); // Exit edit mode
+    }
+    if (onRedirectToDashboard) {
+      onRedirectToDashboard();
     }
   };
 
@@ -290,171 +405,204 @@ const CreateNewsForm = ({ editingNewsId, setEditingNewsId }) => {
     }));
   };
 
-  return (
-    <div className="max-w-5xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Create News Article</h2>
-          <p className="text-sm text-gray-600 mt-1">Upload your News information and Images and Media here.</p>
+  // Show loading state when loading news for editing
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading news article...</p>
         </div>
+      </div>
+    );
+  }
 
-        <div className="p-6">
-          {errors.general && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <div className="flex items-center gap-2 text-red-700">
-                <AlertCircle size={16} />
-                <span className="text-sm">{errors.general}</span>
+  return (
+    <>
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {editingNewsId ? 'Edit News Article' : 'Create News Article'}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">Upload your News information and Images and Media here.</p>
+          </div>
+
+          <div className="p-6">
+            {errors.general && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center gap-2 text-red-700">
+                  <AlertCircle size={16} />
+                  <span className="text-sm">{errors.general}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Show authentication warning if no API client */}
-          {!apiClient && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <div className="flex items-center gap-2 text-yellow-700">
-                <AlertCircle size={16} />
-                <span className="text-sm">Please log in to save news articles.</span>
+            {/* Show authentication warning if no API client */}
+            {!apiClient && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <div className="flex items-center gap-2 text-yellow-700">
+                  <AlertCircle size={16} />
+                  <span className="text-sm">Please log in to save news articles.</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Title Section */}
-          <div className="grid grid-cols-4 gap-6 items-center mb-6">
-            <label className="text-sm font-medium text-gray-700">Title *</label>
-            <div className="col-span-3">
-              <input
-                type="text"
-                value={formData.title || ''}
-                onChange={(e) => updateFormData('title', e.target.value)}
-                placeholder="Enter news title"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.title ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 mb-6"></div>
-
-          {/* Subtitle Section */}
-          <div className="grid grid-cols-4 gap-6 items-start mb-6">
-            <label className="text-sm font-medium text-gray-700 pt-3">Subtitle *</label>
-            <div className="col-span-3">
-              <RichTextEditor
-                value={formData.subtitle || ''}
-                onChange={(content) => updateFormData('subtitle', content || '')}
-                placeholder="Write a short subtitle..."
-                textRef={subtitleRef}
-                limit={SUBTITLE_LIMIT}
-                error={errors.subtitle}
-                minHeight="80px"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 mb-6"></div>
-
-          {/* Body Text Section */}
-          <div className="grid grid-cols-4 gap-6 items-start mb-6">
-            <label className="text-sm font-medium text-gray-700 pt-3">Body Text *</label>
-            <div className="col-span-3">
-              <RichTextEditor
-                value={formData.bodyText || ''}
-                onChange={(content) => updateFormData('bodyText', content || '')}
-                placeholder="Write your article content..."
-                textRef={bodyTextRef}
-                limit={BODYTEXT_LIMIT}
-                error={errors.bodyText}
-                minHeight="120px"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 mb-6"></div>
-
-          {/* File Upload Section */}
-          <div className="grid grid-cols-4 gap-6 items-start mb-6">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Upload Images</label>
-              <div className="text-xs text-gray-500 mt-1">Upload images for media and cover image.</div>
-            </div>
-            <div className="col-span-3">
-              <FileUploadComponent
-                uploadedFiles={uploadedFiles || []}
-                onFileUpload={handleFileUpload}
-                onFileRemove={handleFileRemove}
-                onFileUpdate={handleFileUpdate}
-              />
-            </div>
-          </div>
-
-          {/* Cover Image Name */}
-          {uploadedFiles.length > 0 && (
+            {/* Title Section */}
             <div className="grid grid-cols-4 gap-6 items-center mb-6">
-              <label className="text-sm font-medium text-gray-700">Cover Image</label>
+              <label className="text-sm font-medium text-gray-700">Title *</label>
               <div className="col-span-3">
-                <select
-                  value={formData.coverImageName || ''}
-                  onChange={(e) => updateFormData('coverImageName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Auto-select (first image)</option>
-                  {uploadedFiles.filter(f => f.completed).map((file) => (
-                    <option key={file.id} value={file.name}>
-                      {file.name}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={formData.title || ''}
+                  onChange={(e) => updateFormData('title', e.target.value)}
+                  placeholder="Enter news title"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.title ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 mb-6"></div>
+
+            {/* Subtitle Section */}
+            <div className="grid grid-cols-4 gap-6 items-start mb-6">
+              <label className="text-sm font-medium text-gray-700 pt-3">Subtitle *</label>
+              <div className="col-span-3">
+                <RichTextEditor
+                  value={formData.subtitle || ''}
+                  onChange={(content) => updateFormData('subtitle', content || '')}
+                  placeholder="Write a short subtitle..."
+                  textRef={subtitleRef}
+                  limit={SUBTITLE_LIMIT}
+                  error={errors.subtitle}
+                  minHeight="80px"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 mb-6"></div>
+
+            {/* Body Text Section */}
+            <div className="grid grid-cols-4 gap-6 items-start mb-6">
+              <label className="text-sm font-medium text-gray-700 pt-3">Body Text *</label>
+              <div className="col-span-3">
+                <RichTextEditor
+                  value={formData.bodyText || ''}
+                  onChange={(content) => updateFormData('bodyText', content || '')}
+                  placeholder="Write your article content..."
+                  textRef={bodyTextRef}
+                  limit={BODYTEXT_LIMIT}
+                  error={errors.bodyText}
+                  minHeight="120px"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 mb-6"></div>
+
+            {/* File Upload Section */}
+            <div className="grid grid-cols-4 gap-6 items-start mb-6">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Upload Images</label>
+                <div className="text-xs text-gray-500 mt-1">Upload images for media and cover image.</div>
+              </div>
+              <div className="col-span-3">
+                <FileUploadComponent
+                  uploadedFiles={uploadedFiles || []}
+                  onFileUpload={handleFileUpload}
+                  onFileRemove={handleFileRemove}
+                  onFileUpdate={handleFileUpdate}
+                />
+              </div>
+            </div>
+
+            {/* Cover Image Name */}
+            {uploadedFiles.length > 0 && (
+              <div className="grid grid-cols-4 gap-6 items-center mb-6">
+                <label className="text-sm font-medium text-gray-700">Cover Image</label>
+                <div className="col-span-3">
+                  <select
+                    value={formData.coverImageName || ''}
+                    onChange={(e) => updateFormData('coverImageName', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Auto-select (first image)</option>
+                    {uploadedFiles.filter(f => f.completed).map((file) => (
+                      <option key={file.id} value={file.name}>
+                        {file.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Choose which image to use as cover, or leave blank to use the first uploaded image.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-gray-200 mb-6"></div>
+
+            {/* Tags Section */}
+            <div className="grid grid-cols-4 gap-6 items-start mb-6">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Tags (Maximum 20) *
+                </label>
                 <p className="text-xs text-gray-500 mt-1">
-                  Choose which image to use as cover, or leave blank to use the first uploaded image.
+                  Add tags to help categorize your news article.
                 </p>
               </div>
+              <div className="col-span-3">
+                <TagsManager
+                  tags={formData.tags || []}
+                  onTagsChange={handleTagsChange}
+                  error={errors.tags}
+                  maxTags={TAG_LIMIT}
+                />
+              </div>
             </div>
-          )}
 
-          <div className="border-t border-gray-200 mb-6"></div>
-
-          {/* Tags Section */}
-          <div className="grid grid-cols-4 gap-6 items-start mb-6">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Tags (Maximum 20) *
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Add tags to help categorize your news article.
-              </p>
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+              {editingNewsId && (
+                <button
+                  onClick={() => setEditingNewsId(null)}
+                  disabled={isSubmitting}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel Edit
+                </button>
+              )}
+              <button
+                onClick={() => handleSave(true)}
+                disabled={isSubmitting || !apiClient}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? 'Saving...' : 'Save as Draft'}
+              </button>
+              <button
+                onClick={() => handleSave(false)}
+                disabled={isSubmitting || !apiClient}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? 'Publishing...' : (editingNewsId ? 'Update & Publish' : 'Publish News')}
+              </button>
             </div>
-            <div className="col-span-3">
-              <TagsManager
-                tags={formData.tags || []}
-                onTagsChange={handleTagsChange}
-                error={errors.tags}
-                maxTags={TAG_LIMIT}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => handleSave(true)}
-              disabled={isSubmitting || !apiClient}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              {isSubmitting ? 'Saving...' : 'Save as Draft'}
-            </button>
-            <button
-              onClick={() => handleSave(false)}
-              disabled={isSubmitting || !apiClient}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {isSubmitting ? 'Publishing...' : (editingNewsId ? 'Update & Publish' : 'Publish News')}
-            </button>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        type={successModal.type}
+        onClose={handleCloseModal}
+        onRedirectToDashboard={handleRedirectToDashboard}
+      />
+    </>
   );
 };
 

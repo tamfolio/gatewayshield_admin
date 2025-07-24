@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import GeneralFeedbackTable from './GeneralFeedbackTable';
+import { useApiClient, generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
 
 // Register Chart.js components
 ChartJS.register(
@@ -26,47 +27,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-// API service
-const API_BASE_URL = 'https://admin-api.thegatewayshield.com/api/v1/feedback/generalFeedback';
-
-const feedbackAPI = {
-  getDashboardStats: async (page = 1, size = 10) => {
-    const response = await fetch(`${API_BASE_URL}/dashboard-stats?page=${page}&size=${size}`);
-    if (!response.ok) throw new Error('Failed to fetch dashboard stats');
-    return response.json();
-  },
-  
-  getAllFeedbacks: async (page = 1, size = 10) => {
-    const response = await fetch(`${API_BASE_URL}/all-feedbacks?page=${page}&size=${size}`);
-    if (!response.ok) throw new Error('Failed to fetch feedbacks');
-    return response.json();
-  },
-  
-  deleteFeedback: async (feedbackId) => {
-    const response = await fetch(`${API_BASE_URL}/delete-feedback`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ feedbackId }),
-    });
-    if (!response.ok) throw new Error('Failed to delete feedback');
-    return response.json();
-  },
-  
-  publishFeedback: async (feedbackId) => {
-    const response = await fetch(`${API_BASE_URL}/publish-feedback`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ feedbackId }),
-    });
-    if (!response.ok) throw new Error('Failed to publish feedback');
-    return response.json();
-  }
-};
 
 // Reusable Card Component
 const Card = ({ children, className = "" }) => (
@@ -360,6 +320,9 @@ const GeneralFeedback = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Get the API client using the hook
+  const apiClient = useApiClient();
+  
   // Sample fallback data
   const fallbackData = {
     averageOfficerRating: 4.5,
@@ -395,11 +358,24 @@ const GeneralFeedback = () => {
   };
 
   const fetchDashboardData = async () => {
+    // Only proceed if apiClient is available
+    if (!apiClient) {
+      console.log('⏳ API client not ready yet, skipping dashboard fetch');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const data = await feedbackAPI.getDashboardStats(1, 10);
-      setDashboardData(data);
+      
+      // Use centralized API client
+      const data = await generalFeedbackApi.getDashboardStats(apiClient, 1, 10);
+      
+      // Transform API data using utility function
+      const processedData = feedbackUtils.transformGeneralFeedbackDashboard(data.data) || fallbackData;
+      
+      console.log('📊 Processed dashboard data:', processedData);
+      setDashboardData(processedData);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
@@ -411,8 +387,11 @@ const GeneralFeedback = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [filters.timeRange]);
+    // Only fetch when apiClient is available
+    if (apiClient) {
+      fetchDashboardData();
+    }
+  }, [filters.timeRange, apiClient]); // Add apiClient as dependency
 
   const handleExportPDF = () => {
     // Implement PDF export functionality
@@ -546,8 +525,17 @@ const GeneralFeedback = () => {
           </div>
         </Card>
 
-        {/* FUNCTIONAL Feedback Table Component with API Integration */}
-        <GeneralFeedbackTable />
+        {/* General Feedback Table Component with API Integration */}
+        {apiClient ? (
+          <GeneralFeedbackTable apiClient={apiClient} />
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+              <span className="text-gray-600">Initializing API client...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

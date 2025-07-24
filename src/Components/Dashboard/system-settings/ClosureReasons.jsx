@@ -1,16 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Check, X } from 'lucide-react';
+import { useApiClient, slaApi } from '../../../Utils/apiClient';
+import { ListSkeleton } from './LoadingSkeleton';
 
 const ClosureReasons = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [reasons, setReasons] = useState([
-    'Issue Addressed',
-    'False Report',
-    'Suspended',
-    'Report Unreachable'
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const apiClient = useApiClient();
+  const [reasons, setReasons] = useState([]);
+
+  // Load closure reasons on component mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadClosureReasons = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await incidentApi.getClosureReasons(apiClient);
+        
+        if (!isMounted) return;
+        
+        if (response?.data) {
+          // Handle both array and object responses
+          const reasonsArray = Array.isArray(response.data) 
+            ? response.data 
+            : response.data.closureReasons || [];
+          
+          const formattedReasons = reasonsArray.map((item, index) => ({
+            id: item.id || index + 1,
+            reason: item.reason || item.closureReason || item.name || item
+          }));
+          
+          setReasons(formattedReasons);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading closure reasons:', err);
+          setError('Failed to load closure reasons. Please try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadClosureReasons();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Add Closure Reason Modal
   const AddClosureReasonModal = ({ isOpen, onClose }) => {
@@ -18,12 +64,32 @@ const ClosureReasons = () => {
 
     if (!isOpen) return null;
 
-    const handleSave = () => {
+    const handleSave = async () => {
       if (closureReason.trim()) {
-        setReasons(prev => [...prev, closureReason.trim()]);
-        setClosureReason('');
-        onClose();
-        setShowSuccessModal(true);
+        try {
+          setSaving(true);
+          
+          const response = await incidentApi.createClosureReason(apiClient, {
+            reason: closureReason.trim()
+          });
+
+          if (response?.data) {
+            const newReason = {
+              id: response.data.id || reasons.length + 1,
+              reason: closureReason.trim()
+            };
+            setReasons(prev => [...prev, newReason]);
+          }
+
+          setClosureReason('');
+          onClose();
+          setShowSuccessModal(true);
+        } catch (err) {
+          console.error('Error creating closure reason:', err);
+          setError('Failed to create closure reason. Please try again.');
+        } finally {
+          setSaving(false);
+        }
       }
     };
 
@@ -35,6 +101,7 @@ const ClosureReasons = () => {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
+              disabled={saving}
             >
               <X className="w-5 h-5" />
             </button>
@@ -50,7 +117,8 @@ const ClosureReasons = () => {
                 value={closureReason}
                 onChange={(e) => setClosureReason(e.target.value)}
                 placeholder="Enter closure reason"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={saving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               />
             </div>
           </div>
@@ -58,15 +126,17 @@ const ClosureReasons = () => {
           <div className="flex space-x-3 mt-6">
             <button
               onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
+              disabled={saving}
+              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+              disabled={saving || !closureReason.trim()}
+              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
             >
-              Save
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
@@ -109,8 +179,47 @@ const ClosureReasons = () => {
   };
 
   const filteredReasons = reasons.filter(reason =>
-    reason.toLowerCase().includes(searchTerm.toLowerCase())
+    reason.reason.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="flex items-center space-x-4">
+            <div className="h-10 bg-gray-200 rounded w-64 animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded w-40 animate-pulse"></div>
+          </div>
+        </div>
+        {/* Content skeleton */}
+        <div className="p-6">
+          <div className="mb-4">
+            <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+          </div>
+          <ListSkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center text-red-600">
+          <p className="text-lg font-medium mb-2">Error Loading Data</p>
+          <p>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -155,18 +264,21 @@ const ClosureReasons = () => {
 
         {/* Reasons List */}
         <div className="space-y-3">
-          {filteredReasons.map((reason, index) => (
-            <div key={index} className="flex items-center py-3 border-b border-gray-100 last:border-b-0">
-              <span className="text-gray-900">{reason}</span>
+          {filteredReasons.length > 0 ? (
+            filteredReasons.map((reason) => (
+              <div key={reason.id} className="flex items-center py-3 border-b border-gray-100 last:border-b-0">
+                <span className="text-gray-900">{reason.reason}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              {searchTerm 
+                ? 'No closure reasons found matching your search.' 
+                : 'No closure reasons available. Add one to get started.'
+              }
             </div>
-          ))}
+          )}
         </div>
-
-        {filteredReasons.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No closure reasons found matching your search.
-          </div>
-        )}
       </div>
 
       {/* Modals */}
