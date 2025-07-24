@@ -11,13 +11,15 @@ import SosDetails from "./Components/Dashboard/Report Management/SosDetails";
 import { ToastContainer } from "react-toastify";
 import ForgotPasswordFlow from "./Components/Auth/ForgotPassword";
 import { ActivateAccount } from "./Components/Auth/ActivateAccount";
-import News from "./Components/Dashboard/Admin-Tools/News";
-import FeedbackMain from "./Components/Dashboard/Feedback/Feedback";
 import CrimeMap from "./Components/Dashboard/Crime-Map/CrimeMap";
 import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDetails";
 import EditUser from "./Components/Dashboard/User Management/EditUser";
 import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
 import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
+import FeedbackHub from './Components/Dashboard/feedbackhub/FeedbackHub';
+import AuditLogs from "./Components/Dashboard/audit-logs/AuditLogs";
+import SLAHub from "./Components/Dashboard/system-settings/SLAHub";
+import ResourcesHub from "./Components/Dashboard/help/ResourcesHub";
 // Import more components as needed...
 
 function App() {
@@ -38,11 +40,16 @@ function App() {
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
           <Route path="reports/general/:id" element={<GeneralDetails />} />
-          <Route path="admin/news" element={<News />} />
-          <Route path="feedback" element={<FeedbackMain />} />
+          <Route path="feedback" element={<FeedbackHub />} />
           <Route path="crime-map" element={<CrimeMap />} />
           <Route path="admin/news" element={<NewsPage />} />
           <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
+          <Route path="feedback" element={<FeedbackHub />} /> 
+          <Route path="audit" element={<AuditLogs />} /> 
+          <Route path="settings" element={<SLAHub />} /> 
+          <Route path="help" element={<ResourcesHub />} /> 
+          
+
         </Route>
       </Routes>
     </>
