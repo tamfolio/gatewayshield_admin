@@ -1,10 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Upload, Plus, MoreHorizontal, Trash2, Edit } from 'lucide-react';
-import { userRequest } from '../../../requestMethod';
-import useAccessToken from '../../../Utils/useAccessToken';
+import React, { useEffect, useState } from "react";
+import {
+  Search,
+  Upload,
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Edit,
+} from "lucide-react";
+import { userRequest } from "../../../requestMethod";
+import useAccessToken from "../../../Utils/useAccessToken";
+import { Link } from "react-router-dom";
 
 const ManageUsers = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [adminRoles, setAdminRoles] = useState([]);
   const [adminFormation, setAdminFormation] = useState([]);
   const [adminRanks, setAdminRanks] = useState([]);
@@ -12,21 +20,19 @@ const ManageUsers = () => {
     SWAT: true,
     Pending: true,
     Admin: true,
-    'Inspector General': true
+    "Inspector General": true,
   });
   const [adminData, setAdminData] = useState([]);
   const [paginationData, setPaginationData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const token = useAccessToken();
 
   useEffect(() => {
     const fetchAdmins = async () => {
       setLoading(true);
       try {
-        const res = await userRequest(token).get(
-          "/admin/get/all"
-        );
+        const res = await userRequest(token).get("/admin/get/all");
         console.log("✅:", res.data.data.admin);
         setAdminData(res.data?.data?.admin || []);
         setPaginationData(res.data?.data?.incidents?.pagination || []);
@@ -78,25 +84,49 @@ const ManageUsers = () => {
     }
   }, [token]);
 
- 
-
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800';
-      case 'Inactive':
-        return 'bg-gray-100 text-gray-800';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
+      case "Active":
+        return "bg-green-100 text-green-800";
+      case "Inactive":
+        return "bg-gray-100 text-gray-800";
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
+  const getInitials = (firstName = "", lastName = "") =>
+    `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
+
+  // Generate a consistent random color based on user's ID (so it stays the same per user)
+  const getRandomColor = (id) => {
+    const colors = [
+      "#F59E0B", // amber
+      "#10B981", // emerald
+      "#3B82F6", // blue
+      "#6366F1", // indigo
+      "#EC4899", // pink
+      "#F43F5E", // rose
+      "#8B5CF6", // violet
+      "#22C55E", // green
+      "#E11D48", // red
+      "#0EA5E9", // sky
+    ];
+    const index = id
+      ? id
+          .split("")
+          .map((char) => char.charCodeAt(0))
+          .reduce((sum, val) => sum + val, 0) % colors.length
+      : 0;
+    return colors[index];
+  };
+
   const toggleFilter = (filter) => {
-    setSelectedFilters(prev => ({
+    setSelectedFilters((prev) => ({
       ...prev,
-      [filter]: !prev[filter]
+      [filter]: !prev[filter],
     }));
   };
 
@@ -105,15 +135,24 @@ const ManageUsers = () => {
       SWAT: false,
       Pending: false,
       Admin: false,
-      'Inspector General': false
+      "Inspector General": false,
     });
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const getRankName = (rankId) => {
+    const rank = adminRanks.find((rank) => rank.id === rankId);
+    return rank ? rank.name : "N/A";
+  };
+
+  const getRoleName = (roleId) => {
+    const role = adminRoles.find((role) => role.id === roleId);
+    return role ? role.name : "N/A";
+  };
+
+  const getFormationName = (formationId) => {
+    const formation = adminFormation.find((f) => f.id === formationId);
+    return formation ? formation.name : "N/A";
+  };
 
   return (
     <div className="p-6 bg-white">
@@ -121,7 +160,9 @@ const ManageUsers = () => {
       <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
         <span className="hover:text-gray-700 cursor-pointer">Dashboard</span>
         <span>›</span>
-        <span className="hover:text-gray-700 cursor-pointer">User Management</span>
+        <span className="hover:text-gray-700 cursor-pointer">
+          User Management
+        </span>
         <span>›</span>
         <span className="text-gray-900 font-medium">Manage Users</span>
       </div>
@@ -146,7 +187,7 @@ const ManageUsers = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Team members</h1>
           <span className="text-sm text-gray-500">100 users</span>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -157,9 +198,11 @@ const ManageUsers = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">⌘K</span>
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+              ⌘K
+            </span>
           </div>
-          
+
           <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
             <option>Sort by</option>
             <option>Name</option>
@@ -187,7 +230,7 @@ const ManageUsers = () => {
           Inspector General
           <span className="text-gray-400">×</span>
         </button>
-        
+
         <button
           onClick={clearAllFilters}
           className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
@@ -201,36 +244,76 @@ const ManageUsers = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-medium text-gray-900">Name</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900">Rank</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900">Role</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900">Formation</th>
+              <th className="text-left py-3 px-4 font-medium text-gray-900">
+                Name
+              </th>
+              <th className="text-left py-3 px-4 font-medium text-gray-900">
+                Rank
+              </th>
+              <th className="text-left py-3 px-4 font-medium text-gray-900">
+                Role
+              </th>
+              <th className="text-left py-3 px-4 font-medium text-gray-900">
+                Status
+              </th>
+              <th className="text-left py-3 px-4 font-medium text-gray-900">
+                Formation
+              </th>
               <th className="text-left py-3 px-4 font-medium text-gray-900"></th>
             </tr>
           </thead>
           <tbody>
             {adminData.map((user) => (
-              <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                key={user.id}
+                className="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-lg">
-                      {user.avatar}
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold text-white"
+                      style={{
+                        backgroundColor: user.avatar
+                          ? "transparent"
+                          : getRandomColor(user.id),
+                      }}
+                    >
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt="Avatar"
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        getInitials(user.firstName, user.lastName)
+                      )}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{user.name}</div>
+                      <div className="font-medium text-gray-900">
+                        {user.name}
+                      </div>
                       <div className="text-sm text-gray-500">{user.email}</div>
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.rankId || "N/A"}</td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.roleId || "N/A"}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">
+                  {getRankName(user.rankId, adminRanks)}
+                </td>
+                <td className="py-4 px-4 text-sm text-gray-900">
+                  {getRoleName(user.roleId)}
+                </td>
                 <td className="py-4 px-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      user.status
+                    )}`}
+                  >
                     {user.status}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-900">{user.formationId || "N/A"}</td>
+                <td className="py-4 px-4 text-sm text-gray-900">
+                  {getFormationName(user.formationId)}
+                </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">
                     <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -240,7 +323,9 @@ const ManageUsers = () => {
                       <Trash2 className="w-4 h-4 text-gray-400" />
                     </button>
                     <button className="p-1 hover:bg-gray-100 rounded">
-                      <Edit className="w-4 h-4 text-gray-400" />
+                      <Link to={`/dashboard/users/edit/${user.id}`}>
+                        <Edit className="w-4 h-4 text-gray-400" />
+                      </Link>
                     </button>
                   </div>
                 </td>
@@ -255,9 +340,11 @@ const ManageUsers = () => {
         <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
           Previous
         </button>
-        
+
         <div className="flex items-center gap-2">
-          <button className="px-3 py-2 bg-blue-600 text-white rounded-lg">1</button>
+          <button className="px-3 py-2 bg-blue-600 text-white rounded-lg">
+            1
+          </button>
           <button className="px-3 py-2 hover:bg-gray-100 rounded-lg">2</button>
           <button className="px-3 py-2 hover:bg-gray-100 rounded-lg">3</button>
           <span className="px-3 py-2 text-gray-500">...</span>
@@ -265,7 +352,7 @@ const ManageUsers = () => {
           <button className="px-3 py-2 hover:bg-gray-100 rounded-lg">9</button>
           <button className="px-3 py-2 hover:bg-gray-100 rounded-lg">10</button>
         </div>
-        
+
         <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
           Next
         </button>
