@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, ChevronDown, Check, X } from 'lucide-react';
+import { useApiClient, slaApi } from '../../../Utils/apiClient';
+import { DataTableSkeleton } from './LoadingSkeleton';
 
 const ManageIncidentType = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -7,39 +9,89 @@ const ManageIncidentType = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const apiClient = useApiClient();
   
-  const [incidents, setIncidents] = useState([
-    { id: 1, name: 'SOS', resolution: '4hrs' },
-    { id: 2, name: 'Fraud', resolution: '4hrs' },
-    { id: 3, name: 'Fire', resolution: '4hrs' },
-    { id: 4, name: 'Vandalism', resolution: '4hrs' },
-    { id: 5, name: 'Arson', resolution: '4hrs' },
-    { id: 6, name: 'Vandalism', resolution: '4hrs' },
-    { id: 7, name: 'Vandalism', resolution: '4hrs' },
-    { id: 8, name: 'Vandalism', resolution: '4hrs' },
-    { id: 9, name: 'Vandalism', resolution: '4hrs' },
-    { id: 10, name: 'Vandalism', resolution: '4hrs' }
-  ]);
+  const [incidents, setIncidents] = useState([]);
+
+  // Load incidents on component mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadIncidents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await slaApi.getIncidentSlas(apiClient);
+        
+        if (!isMounted) return;
+        
+        if (response?.data) {
+          const formattedIncidents = response.data.map((item, index) => ({
+            id: item.id || index + 1,
+            name: item.incidentName || item.name || '',
+            resolution: item.resolutionSla ? `${item.resolutionSla}hrs` : '4hrs'
+          }));
+          setIncidents(formattedIncidents);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading incidents:', err);
+          setError('Failed to load incidents. Please try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadIncidents();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Add Incident Modal
   const AddIncidentModal = ({ isOpen, onClose }) => {
     const [incidentName, setIncidentName] = useState('');
-    const [resolutionSLA, setResolutionSLA] = useState('4hrs');
+    const [resolutionSLA, setResolutionSLA] = useState('4');
 
     if (!isOpen) return null;
 
-    const handleSave = () => {
+    const handleSave = async () => {
       if (incidentName.trim()) {
-        const newIncident = {
-          id: incidents.length + 1,
-          name: incidentName.trim(),
-          resolution: resolutionSLA
-        };
-        setIncidents(prev => [...prev, newIncident]);
-        setIncidentName('');
-        setResolutionSLA('4hrs');
-        onClose();
-        setShowSuccessModal(true);
+        try {
+          setSaving(true);
+          
+          const response = await slaApi.createIncident(apiClient, {
+            name: incidentName.trim(),
+            resolutionSla: resolutionSLA
+          });
+
+          if (response?.data) {
+            const newIncident = {
+              id: response.data.id || incidents.length + 1,
+              name: incidentName.trim(),
+              resolution: `${resolutionSLA}hrs`
+            };
+            setIncidents(prev => [...prev, newIncident]);
+          }
+
+          setIncidentName('');
+          setResolutionSLA('4');
+          onClose();
+          setShowSuccessModal(true);
+        } catch (err) {
+          console.error('Error creating incident:', err);
+          setError('Failed to create incident. Please try again.');
+        } finally {
+          setSaving(false);
+        }
       }
     };
 
@@ -51,6 +103,7 @@ const ManageIncidentType = () => {
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
+              disabled={saving}
             >
               <X className="w-5 h-5" />
             </button>
@@ -66,24 +119,26 @@ const ManageIncidentType = () => {
                 value={incidentName}
                 onChange={(e) => setIncidentName(e.target.value)}
                 placeholder="Enter incident name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={saving}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Resolution SLA
+                Resolution SLA (hours)
               </label>
               <div className="relative">
                 <select
                   value={resolutionSLA}
                   onChange={(e) => setResolutionSLA(e.target.value)}
-                  className="w-full appearance-none px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
+                  disabled={saving}
+                  className="w-full appearance-none px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8 disabled:opacity-50"
                 >
-                  <option value="2hrs">2 hours</option>
-                  <option value="4hrs">4 hours</option>
-                  <option value="8hrs">8 hours</option>
-                  <option value="24hrs">24 hours</option>
+                  <option value="2">2 hours</option>
+                  <option value="4">4 hours</option>
+                  <option value="8">8 hours</option>
+                  <option value="24">24 hours</option>
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
@@ -93,15 +148,17 @@ const ManageIncidentType = () => {
           <div className="flex space-x-3 mt-6">
             <button
               onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium"
+              disabled={saving}
+              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+              disabled={saving || !incidentName.trim()}
+              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
             >
-              Save
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
@@ -147,7 +204,43 @@ const ManageIncidentType = () => {
     incident.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredIncidents.length / 10);
+  // Sort incidents
+  const sortedIncidents = [...filteredIncidents].sort((a, b) => {
+    if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    } else if (sortBy === 'resolution') {
+      const aHours = parseInt(a.resolution.replace('hrs', ''));
+      const bHours = parseInt(b.resolution.replace('hrs', ''));
+      return aHours - bHours;
+    }
+    return 0;
+  });
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(sortedIncidents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedIncidents = sortedIncidents.slice(startIndex, startIndex + itemsPerPage);
+
+  if (loading) {
+    return <DataTableSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center text-red-600">
+          <p className="text-lg font-medium mb-2">Error Loading Data</p>
+          <p>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -175,8 +268,8 @@ const ManageIncidentType = () => {
               onChange={(e) => setSortBy(e.target.value)}
               className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="name">Sort by</option>
-              <option value="resolution">Resolution</option>
+              <option value="name">Sort by Name</option>
+              <option value="resolution">Sort by Resolution</option>
             </select>
             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
@@ -216,57 +309,75 @@ const ManageIncidentType = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredIncidents.map((incident) => (
-              <tr key={incident.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {incident.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                  {incident.resolution}
+            {paginatedIncidents.length > 0 ? (
+              paginatedIncidents.map((incident) => (
+                <tr key={incident.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {incident.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    {incident.resolution}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="2" className="px-6 py-8 text-center text-gray-500">
+                  {searchTerm ? 'No incidents found matching your search.' : 'No incidents available.'}
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-        <button
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          ← Previous
-        </button>
-        
-        <div className="flex space-x-2">
-          {[1, 2, 3, '...', 8, 9, 10].map((page, index) => (
-            <button
-              key={index}
-              onClick={() => typeof page === 'number' && setCurrentPage(page)}
-              className={`px-3 py-2 text-sm font-medium rounded-md ${
-                page === currentPage
-                  ? 'bg-blue-600 text-white'
-                  : typeof page === 'number'
-                  ? 'text-gray-700 hover:bg-gray-50 border border-gray-300'
-                  : 'text-gray-400 cursor-default'
-              }`}
-              disabled={typeof page !== 'number'}
-            >
-              {page}
-            </button>
-          ))}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+          
+          <div className="flex space-x-2">
+            {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  page === currentPage
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
         </div>
-        
-        <button
-          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Next →
-        </button>
-      </div>
+      )}
+
+      {/* Modals */}
+      <AddIncidentModal 
+        isOpen={showAddModal} 
+        onClose={() => setShowAddModal(false)} 
+      />
+      
+      <SuccessModal 
+        isOpen={showSuccessModal} 
+        onClose={() => setShowSuccessModal(false)} 
+      />
     </div>
   );
 };

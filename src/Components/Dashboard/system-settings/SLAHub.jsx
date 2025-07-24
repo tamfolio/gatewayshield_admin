@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import SLASettings from './SLASettings';
 import ManageIncidentType from './ManageIncidentType';
 import ClosureReasons from './ClosureReasons';
@@ -6,24 +6,24 @@ import ClosureReasons from './ClosureReasons';
 const SLAHub = () => {
   const [activeTab, setActiveTab] = useState('sla-settings');
 
-  const tabs = [
+  const tabs = useMemo(() => [
     { id: 'sla-settings', label: 'SLA Settings' },
     { id: 'manage-incident', label: 'Manage Incident Type' },
     { id: 'closure-reasons', label: 'Closure Reasons' }
-  ];
+  ], []);
 
-  const renderActiveComponent = () => {
+  const renderActiveComponent = useMemo(() => {
     switch (activeTab) {
       case 'sla-settings':
-        return <SLASettings />;
+        return <SLASettings key="sla-settings" />;
       case 'manage-incident':
-        return <ManageIncidentType />;
+        return <ManageIncidentType key="manage-incident" />;
       case 'closure-reasons':
-        return <ClosureReasons />;
+        return <ClosureReasons key="closure-reasons" />;
       default:
-        return <SLASettings />;
+        return <SLASettings key="default" />;
     }
-  };
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,7 +39,7 @@ const SLAHub = () => {
       </div>
 
       {/* Tab Navigation */}
-<div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="inline-flex space-x-1 bg-white p-1 rounded-lg">
           {tabs.map((tab) => (
             <button
@@ -59,7 +59,7 @@ const SLAHub = () => {
 
       {/* Main Content */}
       <div className="px-6 py-6">
-        {renderActiveComponent()}
+        {renderActiveComponent}
       </div>
     </div>
   );

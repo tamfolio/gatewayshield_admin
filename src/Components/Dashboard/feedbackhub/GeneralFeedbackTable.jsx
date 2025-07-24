@@ -1,150 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Trash2, Eye, Share } from 'lucide-react';
 import { FiDownloadCloud } from 'react-icons/fi';
-
-// API service
-const API_BASE_URL = 'https://admin-api.thegatewayshield.com/api/v1/feedback/generalFeedback';
-
-const feedbackAPI = {
-  getAllFeedbacks: async (page = 1, size = 10) => {
-    const response = await fetch(`${API_BASE_URL}/all-feedbacks?page=${page}&size=${size}`);
-    if (!response.ok) throw new Error('Failed to fetch feedbacks');
-    return response.json();
-  },
-  
-  deleteFeedback: async (feedbackId) => {
-    const response = await fetch(`${API_BASE_URL}/delete-feedback`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ feedbackId }),
-    });
-    if (!response.ok) throw new Error('Failed to delete feedback');
-    return response.json();
-  },
-  
-  publishFeedback: async (feedbackId) => {
-    const response = await fetch(`${API_BASE_URL}/publish-feedback`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ feedbackId }),
-    });
-    if (!response.ok) throw new Error('Failed to publish feedback');
-    return response.json();
-  }
-};
-
-// Utility function to safely get array
-const safeArray = (data) => {
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.data)) return data.data;
-  if (data && Array.isArray(data.feedbacks)) return data.feedbacks;
-  if (data && Array.isArray(data.items)) return data.items;
-  return [];
-};
-
-// Skeleton Components
-const SkeletonRow = () => (
-  <tr className="border-b border-gray-100">
-    {/* Type */}
-    <td className="py-3 px-4">
-      <div className="w-20 h-6 bg-gray-200 rounded-full animate-pulse"></div>
-    </td>
-    {/* Officer */}
-    <td className="py-3 px-4">
-      <div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div>
-    </td>
-    {/* Station */}
-    <td className="py-3 px-4">
-      <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
-    </td>
-    {/* Comment */}
-    <td className="py-3 px-4">
-      <div className="w-48 h-4 bg-gray-200 rounded animate-pulse"></div>
-    </td>
-    {/* Date */}
-    <td className="py-3 px-4">
-      <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
-    </td>
-    {/* Status */}
-    <td className="py-3 px-4">
-      <div className="w-16 h-6 bg-gray-200 rounded-full animate-pulse"></div>
-    </td>
-    {/* Actions */}
-    <td className="py-3 px-4">
-      <div className="flex gap-2">
-        <div className="w-12 h-7 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-16 h-7 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-8 h-7 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-    </td>
-  </tr>
-);
-
-const SkeletonTable = ({ rows = 5 }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    {/* Header Skeleton */}
-    <div className="flex items-center justify-between mb-4">
-      <div className="w-64 h-10 bg-gray-200 rounded animate-pulse"></div>
-      <div className="flex gap-2">
-        <div className="w-24 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-    </div>
-
-    {/* Table Skeleton */}
-    <div className="overflow-x-auto relative">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4">
-              <div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-            <th className="text-left py-3 px-4">
-              <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rows }).map((_, i) => (
-            <SkeletonRow key={i} />
-          ))}
-        </tbody>
-      </table>
-    </div>
-
-    {/* Pagination Skeleton */}
-    <div className="mt-6 flex items-center justify-between">
-      <div className="w-32 h-4 bg-gray-200 rounded animate-pulse"></div>
-      <div className="flex gap-2">
-        <div className="w-16 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-12 h-8 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-    </div>
-  </div>
-);
+import { generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
 
 // Reusable Button
 const Button = ({ children, variant = "primary", size = "md", className = "", disabled = false, loading = false, ...props }) => {
@@ -171,6 +28,56 @@ const Button = ({ children, variant = "primary", size = "md", className = "", di
     </button>
   );
 };
+
+// Skeleton Components
+const SkeletonRow = () => (
+  <tr className="border-b border-gray-100">
+    <td className="py-3 px-4"><div className="w-20 h-6 bg-gray-200 rounded-full animate-pulse"></div></td>
+    <td className="py-3 px-4"><div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div></td>
+    <td className="py-3 px-4"><div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div></td>
+    <td className="py-3 px-4"><div className="w-48 h-4 bg-gray-200 rounded animate-pulse"></div></td>
+    <td className="py-3 px-4"><div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div></td>
+    <td className="py-3 px-4"><div className="w-16 h-6 bg-gray-200 rounded-full animate-pulse"></div></td>
+    <td className="py-3 px-4">
+      <div className="flex gap-2">
+        <div className="w-12 h-7 bg-gray-200 rounded animate-pulse"></div>
+        <div className="w-16 h-7 bg-gray-200 rounded animate-pulse"></div>
+        <div className="w-8 h-7 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const SkeletonTable = ({ rows = 5 }) => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="flex items-center justify-between mb-4">
+      <div className="w-64 h-10 bg-gray-200 rounded animate-pulse"></div>
+      <div className="flex gap-2">
+        <div className="w-24 h-8 bg-gray-200 rounded animate-pulse"></div>
+        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
+        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    </div>
+    <div className="overflow-x-auto relative">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <th key={i} className="text-left py-3 px-4">
+                <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 // Error Display
 const ErrorDisplay = ({ error, onRetry }) => (
@@ -213,60 +120,6 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading = fa
   );
 };
 
-// Reusable DropdownFilter component
-const DropdownFilter = ({ label, options = [], selected, setSelected, showDropdown, setShowDropdown, searchTerm, setSearchTerm, disabled = false }) => {
-  const filteredOptions = useMemo(() => {
-    const safeOptions = Array.isArray(options) ? options : [];
-    const safeSearchTerm = searchTerm || '';
-    return safeOptions.filter(option =>
-      option && typeof option === 'string' && option.toLowerCase().includes(safeSearchTerm.toLowerCase())
-    );
-  }, [options, searchTerm]);
-
-  return (
-    <th className="text-left py-3 px-4 font-medium text-gray-600">
-      <div className="relative flex items-center gap-2">
-        <span>{label}</span>
-        <button 
-          onClick={() => !disabled && setShowDropdown(prev => !prev)} 
-          className={`text-gray-500 hover:text-gray-700 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={disabled}
-        >
-          <ChevronDown size={16} />
-        </button>
-        {showDropdown && !disabled && (
-          <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-            <input
-              type="text"
-              placeholder={`Search ${label.toLowerCase()}`}
-              value={searchTerm || ''}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border-b border-gray-200 focus:outline-none"
-            />
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map(option => (
-                <button
-                  key={option}
-                  onClick={() => {
-                    setSelected(option);
-                    setShowDropdown(false);
-                    setSearchTerm('');
-                  }}
-                  className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
-                >
-                  {option}
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-2 text-gray-500">No results found</div>
-            )}
-          </div>
-        )}
-      </div>
-    </th>
-  );
-};
-
 // Empty State Component
 const EmptyState = ({ hasFilters }) => (
   <tr>
@@ -288,8 +141,8 @@ const EmptyState = ({ hasFilters }) => (
   </tr>
 );
 
-const GeneralFeedbackTable = () => {
-  // Initialize with empty state - will show skeleton first
+const GeneralFeedbackTable = ({ apiClient }) => {
+  // State management
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -301,35 +154,84 @@ const GeneralFeedbackTable = () => {
   const [selectedType, setSelectedType] = useState('');
   const [selectedOfficer, setSelectedOfficer] = useState('');
   const [selectedStation, setSelectedStation] = useState('');
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showOfficerDropdown, setShowOfficerDropdown] = useState(false);
-  const [showStationDropdown, setShowStationDropdown] = useState(false);
-  const [officerSearchTerm, setOfficerSearchTerm] = useState('');
-  const [stationSearchTerm, setStationSearchTerm] = useState('');
-  const [typeSearchTerm, setTypeSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState({});
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
 
   const itemsPerPage = 10;
 
-  // Fetch feedbacks from API
+  // Fetch feedbacks from API using centralized client
   const fetchFeedbacks = async (page = 1, showLoader = false) => {
+    // Safety check for apiClient
+    if (!apiClient) {
+      console.log('⏳ API client not available, skipping fetch');
+      setLoading(false);
+      setInitialLoadComplete(true);
+      return;
+    }
+
     try {
       if (showLoader) setLoading(true);
       setError(null);
       
-      const response = await feedbackAPI.getAllFeedbacks(page, itemsPerPage);
+      // Use centralized API client
+      const response = await generalFeedbackApi.getAllFeedbacks(apiClient, page, itemsPerPage);
       console.log('API Response:', response);
       
-      const feedbackData = safeArray(response);
-      setData(feedbackData);
-      setTotalItems(response?.total || feedbackData.length);
-      setTotalPages(response?.totalPages || Math.ceil(feedbackData.length / itemsPerPage));
+      // Extract data using utility function
+      const { data: extractedData, pagination } = feedbackUtils.extractApiResponseData(response);
+      
+      // Transform data using utility function
+      const transformedData = feedbackUtils.transformGeneralFeedbackData(extractedData);
+      
+      console.log(`📊 Extracted feedbacks:`, transformedData);
+      console.log(`📊 Total items:`, pagination.total);
+      console.log(`📊 Total pages:`, pagination.totalPages);
+      
+      setData(transformedData);
+      setTotalItems(pagination.total);
+      setTotalPages(Math.max(1, pagination.totalPages));
       
     } catch (err) {
       console.error('Error fetching feedbacks:', err);
       setError(err.message);
-      setData([]);
+      
+      // Fallback mock data that matches your API structure for development
+      const mockFeedbacks = [
+        {
+          id: 'mock_1',
+          feedbackId: 'mock_1', 
+          type: 'complaint',
+          officer: 'John Doe',
+          station: 'AGO-IWOYE DIVISION',
+          comment: 'ksdksdsd',
+          date: 'Jul 11, 2025',
+          status: 'pending'
+        },
+        {
+          id: 'mock_2',
+          feedbackId: 'mock_2',
+          type: 'complaint', 
+          officer: 'N/A',
+          station: 'AGO-IWOYE DIVISION',
+          comment: 'ksdksdsd',
+          date: 'Jul 11, 2025',
+          status: 'pending'
+        },
+        {
+          id: 'mock_3',
+          feedbackId: 'mock_3',
+          type: 'complaint',
+          officer: 'John Doe', 
+          station: 'AGO-IWOYE DIVISION',
+          comment: 'bill',
+          date: 'Jul 11, 2025',
+          status: 'pending'
+        }
+      ];
+      
+      setData(mockFeedbacks);
+      setTotalItems(mockFeedbacks.length);
+      setTotalPages(1);
     } finally {
       setLoading(false);
       setInitialLoadComplete(true);
@@ -390,15 +292,22 @@ const GeneralFeedbackTable = () => {
     }
   }, [filteredData, currentPage]);
 
-  // Handle actions with error handling
+  // Handle actions with error handling using centralized API
   const handleDelete = async (feedbackId) => {
+    if (!apiClient) {
+      alert('API client not available');
+      return;
+    }
+
     try {
       setActionLoading(prev => ({ ...prev, [feedbackId]: true }));
-      await feedbackAPI.deleteFeedback(feedbackId);
+      
+      // Use centralized API client
+      await generalFeedbackApi.deleteFeedback(apiClient, feedbackId);
       
       setData(prev => {
         const safeData = Array.isArray(prev) ? prev : [];
-        return safeData.filter(item => item.id !== feedbackId);
+        return safeData.filter(item => (item.id || item.feedbackId) !== feedbackId);
       });
       
       setTotalItems(prev => Math.max(0, prev - 1));
@@ -413,14 +322,21 @@ const GeneralFeedbackTable = () => {
   };
 
   const handlePublish = async (feedbackId) => {
+    if (!apiClient) {
+      alert('API client not available');
+      return;
+    }
+
     try {
       setActionLoading(prev => ({ ...prev, [feedbackId]: true }));
-      await feedbackAPI.publishFeedback(feedbackId);
+      
+      // Use centralized API client
+      await generalFeedbackApi.publishFeedback(apiClient, feedbackId);
       
       setData(prev => {
         const safeData = Array.isArray(prev) ? prev : [];
         return safeData.map(item => 
-          item.id === feedbackId ? { ...item, status: 'published' } : item
+          (item.id || item.feedbackId) === feedbackId ? { ...item, status: 'published' } : item
         );
       });
       
@@ -470,7 +386,7 @@ const GeneralFeedbackTable = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.href = url;
-      link.setAttribute('download', 'feedback_export.csv');
+      link.setAttribute('download', 'general_feedback_export.csv');
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -484,9 +400,6 @@ const GeneralFeedbackTable = () => {
     setSelectedType('');
     setSelectedOfficer('');
     setSelectedStation('');
-    setTypeSearchTerm('');
-    setOfficerSearchTerm('');
-    setStationSearchTerm('');
     setCurrentPage(1);
   };
 
@@ -508,8 +421,11 @@ const GeneralFeedbackTable = () => {
 
   // Initial data fetch
   useEffect(() => {
-    fetchFeedbacks(1, true);
-  }, []);
+    // Only fetch when apiClient is available
+    if (apiClient) {
+      fetchFeedbacks(1, true);
+    }
+  }, [apiClient]); // Add apiClient as dependency
 
   // Calculate pagination
   const localTotalPages = Math.ceil((filteredData?.length || 0) / itemsPerPage);
@@ -578,7 +494,7 @@ const GeneralFeedbackTable = () => {
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 text-sm">
             <AlertCircle className="w-4 h-4 inline mr-1" />
-            API connection issue: {error}
+            API connection issue: {error}. Showing sample data.
           </p>
         </div>
       )}
@@ -612,39 +528,9 @@ const GeneralFeedbackTable = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <DropdownFilter
-                label="Feedback Type"
-                options={filterOptions.types}
-                selected={selectedType}
-                setSelected={setSelectedType}
-                showDropdown={showTypeDropdown}
-                setShowDropdown={setShowTypeDropdown}
-                searchTerm={typeSearchTerm}
-                setSearchTerm={setTypeSearchTerm}
-                disabled={!initialLoadComplete}
-              />
-              <DropdownFilter
-                label="Officer"
-                options={filterOptions.officers}
-                selected={selectedOfficer}
-                setSelected={setSelectedOfficer}
-                showDropdown={showOfficerDropdown}
-                setShowDropdown={setShowOfficerDropdown}
-                searchTerm={officerSearchTerm}
-                setSearchTerm={setOfficerSearchTerm}
-                disabled={!initialLoadComplete}
-              />
-              <DropdownFilter
-                label="Station"
-                options={filterOptions.stations}
-                selected={selectedStation}
-                setSelected={setSelectedStation}
-                showDropdown={showStationDropdown}
-                setShowDropdown={setShowStationDropdown}
-                searchTerm={stationSearchTerm}
-                setSearchTerm={setStationSearchTerm}
-                disabled={!initialLoadComplete}
-              />
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Feedback Type</th>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Officer</th>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Station</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Comment</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
@@ -653,71 +539,79 @@ const GeneralFeedbackTable = () => {
           </thead>
           <tbody>
             {paginatedData.length > 0 ? (
-              paginatedData.map(item => (
-                <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${{
-                      Compliment: 'bg-green-100 text-green-800',
-                      Complaint: 'bg-red-100 text-red-800',
-                      Suggestion: 'bg-blue-100 text-blue-800'
-                    }[item.type] || 'bg-gray-100 text-gray-800'}`}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-sm">{item.officer}</td>
-                  <td className="py-3 px-4 text-sm">{item.station}</td>
-                  <td className="py-3 px-4 text-sm">
-                    <div className="max-w-xs truncate" title={item.comment}>{item.comment}</div>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-500">{item.date}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'published' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {item.status || 'pending'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="text-blue-600">
-                        <Eye className="w-4 h-4" />
-                        View
-                      </Button>
-                      {item.status !== 'published' && (
-                        <Button 
-                          variant="success" 
-                          size="sm"
-                          loading={actionLoading[item.id]}
+              paginatedData.map(item => {
+                const itemId = item.id || item.feedbackId || item.reportID;
+                const isLoading = actionLoading[itemId];
+                
+                return (
+                  <tr key={itemId} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${{
+                        Compliment: 'bg-green-100 text-green-800',
+                        Complaint: 'bg-red-100 text-red-800',
+                        Suggestion: 'bg-blue-100 text-blue-800'
+                      }[item.type] || 'bg-gray-100 text-gray-800'}`}>
+                        {item.type || 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm">{item.officer || 'N/A'}</td>
+                    <td className="py-3 px-4 text-sm">{item.station || 'N/A'}</td>
+                    <td className="py-3 px-4 text-sm">
+                      <div className="max-w-xs truncate" title={item.comment || item.comments || item.feedback}>
+                        {item.comment || item.comments || item.feedback || '-'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">{item.date || 'N/A'}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        item.status === 'published' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {item.status || 'pending'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="text-blue-600">
+                          <Eye className="w-4 h-4" />
+                          View
+                        </Button>
+                        {item.status !== 'published' && (
+                          <Button 
+                            variant="success" 
+                            size="sm"
+                            loading={isLoading}
+                            disabled={isLoading}
+                            onClick={() => showConfirmation(
+                              'publish', 
+                              itemId, 
+                              'Publish Feedback', 
+                              'Are you sure you want to publish this feedback?'
+                            )}
+                          >
+                            <Share className="w-4 h-4" />
+                            Publish
+                          </Button>
+                        )}
+                        <button 
+                          className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50" 
+                          title="Delete"
+                          disabled={isLoading}
                           onClick={() => showConfirmation(
-                            'publish', 
-                            item.id, 
-                            'Publish Feedback', 
-                            'Are you sure you want to publish this feedback?'
+                            'delete', 
+                            itemId, 
+                            'Delete Feedback', 
+                            'Are you sure you want to delete this feedback? This action cannot be undone.'
                           )}
                         >
-                          <Share className="w-4 h-4" />
-                          Publish
-                        </Button>
-                      )}
-                      <button 
-                        className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50" 
-                        title="Delete"
-                        disabled={actionLoading[item.id]}
-                        onClick={() => showConfirmation(
-                          'delete', 
-                          item.id, 
-                          'Delete Feedback', 
-                          'Are you sure you want to delete this feedback? This action cannot be undone.'
-                        )}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <EmptyState hasFilters={hasSearchOrFilters} />
             )}
