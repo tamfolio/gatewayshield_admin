@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Bold, Italic, Underline, List, AlignLeft, AlignCenter, AlignRight, ChevronRight } from 'lucide-react';
 import BroadcastLogs from './BroadcastLogs';
-import SuccessModal from './SuccessModal'; // Import your success modal
+import SuccessModal from './components/SuccessModal'; // Import your success modal
 import { useApiClient, broadcastApi } from '../../../../Utils/apiClient';
 
 export default function EmergencyBroadcastForm({ onBroadcastUpdate }) {

@@ -1,9 +1,161 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Trash2, Eye, Share } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Trash2, Eye, Share, Filter, X } from 'lucide-react';
 import { FiDownloadCloud } from 'react-icons/fi';
+import { IoIosArrowDown } from 'react-icons/io';
 import { generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
 
-// Reusable Button
+// Table Utility Functions
+const tableUtils = {
+  extractApiResponseData: (response) => {
+    // Handle the nested data structure from your API
+    if (response?.data?.data) {
+      return {
+        data: response.data.data,
+        pagination: response.data.pagination || {
+          total: response.data.data.length,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize: 10
+        }
+      };
+    }
+    
+    // Fallback for different response structures
+    if (response?.data) {
+      return {
+        data: Array.isArray(response.data) ? response.data : [],
+        pagination: {
+          total: Array.isArray(response.data) ? response.data.length : 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize: 10
+        }
+      };
+    }
+    
+    return {
+      data: [],
+      pagination: { total: 0, currentPage: 1, totalPages: 1, pageSize: 10 }
+    };
+  },
+
+  transformGeneralFeedbackData: (rawData) => {
+    if (!Array.isArray(rawData)) {
+      console.warn('Expected array for feedback data, got:', typeof rawData);
+      return [];
+    }
+
+    return rawData.map((item, index) => {
+      // Handle different possible field names from API
+      const feedbackId = item.id || item.feedbackId || `temp-${index}`;
+      const feedbackType = item.feedbackType || item.type || 'Unknown';
+      const officerName = item.officerName || item.officer || '';
+      const stationName = item.stationName || item.station || '';
+      const comment = item.comment || item.commentText || '';
+      const createdAt = item.createdAt || item.date || item.submissionDate || '';
+      
+      // Format date
+      let formattedDate = '';
+      if (createdAt) {
+        try {
+          const date = new Date(createdAt);
+          formattedDate = date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (err) {
+          formattedDate = createdAt;
+        }
+      }
+
+      return {
+        id: feedbackId,
+        feedbackId: feedbackId,
+        type: feedbackType,
+        officer: officerName || 'N/A',
+        station: stationName,
+        comment: comment,
+        date: formattedDate,
+        dateRaw: createdAt, // Keep raw date for sorting
+        status: item.status || 'pending',
+        // Keep original data for reference
+        original: item
+      };
+    });
+  },
+
+  // Format date helper
+  formatDate: (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (err) {
+      return dateString;
+    }
+  }
+};
+
+// Skeleton Components
+const SkeletonPulse = ({ className = "" }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
+
+const TableRowSkeleton = () => (
+  <tr className="border-b border-gray-100">
+    <td className="py-3 px-4"><SkeletonPulse className="h-6 w-20 rounded-full" /></td>
+    <td className="py-3 px-4"><SkeletonPulse className="h-4 w-24" /></td>
+    <td className="py-3 px-4"><SkeletonPulse className="h-4 w-20" /></td>
+    <td className="py-3 px-4"><SkeletonPulse className="h-4 w-48" /></td>
+    <td className="py-3 px-4"><SkeletonPulse className="h-4 w-16" /></td>
+    <td className="py-3 px-4">
+      <div className="flex gap-2">
+        <SkeletonPulse className="h-7 w-12" />
+        <SkeletonPulse className="h-7 w-8" />
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = ({ rows = 8 }) => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+      <SkeletonPulse className="h-10 w-64" />
+      <div className="flex gap-2">
+        <SkeletonPulse className="h-8 w-20" />
+      </div>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <th key={i} className="text-left py-3 px-4">
+                <SkeletonPulse className="h-4 w-20" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <TableRowSkeleton key={i} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// Reusable Components
 const Button = ({ children, variant = "primary", size = "md", className = "", disabled = false, loading = false, ...props }) => {
   const base = "font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2";
   const variants = {
@@ -29,76 +181,6 @@ const Button = ({ children, variant = "primary", size = "md", className = "", di
   );
 };
 
-// Skeleton Components
-const SkeletonRow = () => (
-  <tr className="border-b border-gray-100">
-    <td className="py-3 px-4"><div className="w-20 h-6 bg-gray-200 rounded-full animate-pulse"></div></td>
-    <td className="py-3 px-4"><div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div></td>
-    <td className="py-3 px-4"><div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div></td>
-    <td className="py-3 px-4"><div className="w-48 h-4 bg-gray-200 rounded animate-pulse"></div></td>
-    <td className="py-3 px-4"><div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div></td>
-    <td className="py-3 px-4"><div className="w-16 h-6 bg-gray-200 rounded-full animate-pulse"></div></td>
-    <td className="py-3 px-4">
-      <div className="flex gap-2">
-        <div className="w-12 h-7 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-16 h-7 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-8 h-7 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-    </td>
-  </tr>
-);
-
-const SkeletonTable = ({ rows = 5 }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="flex items-center justify-between mb-4">
-      <div className="w-64 h-10 bg-gray-200 rounded animate-pulse"></div>
-      <div className="flex gap-2">
-        <div className="w-24 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
-        <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-    </div>
-    <div className="overflow-x-auto relative">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <th key={i} className="text-left py-3 px-4">
-                <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rows }).map((_, i) => (
-            <SkeletonRow key={i} />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-// Error Display
-const ErrorDisplay = ({ error, onRetry }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="flex items-center justify-center py-8 bg-red-50 rounded-lg border border-red-200">
-      <AlertCircle className="w-6 h-6 text-red-600 mr-2" />
-      <div className="text-center">
-        <p className="text-red-800 font-medium">Failed to load feedback data</p>
-        <p className="text-red-600 text-sm mb-4">{error}</p>
-        {onRetry && (
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </Button>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-// Confirmation Modal
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading = false, variant = "danger" }) => {
   if (!isOpen) return null;
 
@@ -120,26 +202,79 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading = fa
   );
 };
 
-// Empty State Component
-const EmptyState = ({ hasFilters }) => (
+const ErrorDisplay = ({ error, onRetry }) => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="flex items-center justify-center py-8 bg-red-50 rounded-lg border border-red-200">
+      <AlertCircle className="w-6 h-6 text-red-600 mr-2" />
+      <div className="text-center">
+        <p className="text-red-800 font-medium">Failed to load feedback data</p>
+        <p className="text-red-600 text-sm mb-4">{error}</p>
+        {onRetry && (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </Button>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+const EmptyState = ({ hasFilters, error }) => (
   <tr>
-    <td colSpan="7" className="py-12 px-4 text-center">
+    <td colSpan="6" className="py-12 px-4 text-center">
       <div className="flex flex-col items-center">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <Search className="w-8 h-8 text-gray-400" />
+          {error ? (
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          ) : (
+            <Search className="w-8 h-8 text-gray-400" />
+          )}
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {hasFilters ? 'No matching feedback found' : 'No feedback data yet'}
+          {error ? 'API Connection Issue' : 
+           hasFilters ? 'No matching feedback found' : 'No feedback data available'}
         </h3>
-        <p className="text-gray-500 text-sm">
-          {hasFilters 
-            ? 'Try adjusting your search or filter criteria.' 
-            : 'Feedback submissions will appear here once available.'}
+        <p className="text-gray-500 text-sm mb-4">
+          {error ? 'There was a problem loading the feedback data.' :
+           hasFilters ? 'Try adjusting your search criteria.' : 
+           'No feedback submissions have been recorded yet.'}
         </p>
+        {error && (
+          <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded max-w-md">
+            <strong>Debug Info:</strong><br/>
+            Check the browser console for detailed API response information.
+          </div>
+        )}
       </div>
     </td>
   </tr>
 );
+
+// Sortable Header Component
+const SortableHeader = ({ children, sortKey, currentSort, onSort, className = "" }) => {
+  const isActive = currentSort.key === sortKey;
+  const isAsc = isActive && currentSort.direction === 'asc';
+  const isDesc = isActive && currentSort.direction === 'desc';
+
+  return (
+    <th 
+      className={`text-left py-3 px-4 font-medium text-gray-600 cursor-pointer hover:bg-gray-50 select-none ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className="flex items-center gap-2">
+        {children}
+        <IoIosArrowDown 
+          className={`w-4 h-4 transition-transform duration-200 ${
+            isActive 
+              ? (isAsc ? 'rotate-180 text-blue-600' : 'rotate-0 text-blue-600')
+              : 'text-gray-400'
+          }`}
+        />
+      </div>
+    </th>
+  );
+};
 
 const GeneralFeedbackTable = ({ apiClient }) => {
   // State management
@@ -151,17 +286,25 @@ const GeneralFeedbackTable = ({ apiClient }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedOfficer, setSelectedOfficer] = useState('');
-  const [selectedStation, setSelectedStation] = useState('');
   const [actionLoading, setActionLoading] = useState({});
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
+  const [confirmModal, setConfirmModal] = useState({ 
+    isOpen: false, 
+    type: '', 
+    feedbackId: '', 
+    title: '', 
+    message: '' 
+  });
+  
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: 'date',
+    direction: 'desc' // Default to newest first
+  });
 
   const itemsPerPage = 10;
 
-  // Fetch feedbacks from API using centralized client
+  // Fetch feedbacks from API
   const fetchFeedbacks = async (page = 1, showLoader = false) => {
-    // Safety check for apiClient
     if (!apiClient) {
       console.log('⏳ API client not available, skipping fetch');
       setLoading(false);
@@ -173,64 +316,42 @@ const GeneralFeedbackTable = ({ apiClient }) => {
       if (showLoader) setLoading(true);
       setError(null);
       
-      // Use centralized API client
+      console.log(`🚀 Fetching feedbacks - Page: ${page}, Size: ${itemsPerPage}`);
+      
+      // Use your real API client
       const response = await generalFeedbackApi.getAllFeedbacks(apiClient, page, itemsPerPage);
-      console.log('API Response:', response);
+      console.log('📡 Raw Table API Response:', JSON.stringify(response, null, 2));
       
-      // Extract data using utility function
-      const { data: extractedData, pagination } = feedbackUtils.extractApiResponseData(response);
+      // Check if response has the expected structure
+      if (!response || !response.data) {
+        throw new Error('Invalid API response structure - missing data field');
+      }
       
-      // Transform data using utility function
-      const transformedData = feedbackUtils.transformGeneralFeedbackData(extractedData);
+      // Use the table-specific utility functions
+      const { data: extractedData, pagination } = tableUtils.extractApiResponseData(response);
       
-      console.log(`📊 Extracted feedbacks:`, transformedData);
-      console.log(`📊 Total items:`, pagination.total);
-      console.log(`📊 Total pages:`, pagination.totalPages);
+      // Transform data using table-specific utility function
+      const transformedData = tableUtils.transformGeneralFeedbackData(extractedData);
+      
+      console.log('📊 Transformed feedbacks:', transformedData);
+      console.log('📊 Total items:', pagination.total);
+      console.log('📊 Total pages:', pagination.totalPages);
       
       setData(transformedData);
       setTotalItems(pagination.total);
       setTotalPages(Math.max(1, pagination.totalPages));
       
     } catch (err) {
-      console.error('Error fetching feedbacks:', err);
+      console.error('❌ Error fetching feedbacks:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response?.data
+      });
+      
       setError(err.message);
-      
-      // Fallback mock data that matches your API structure for development
-      const mockFeedbacks = [
-        {
-          id: 'mock_1',
-          feedbackId: 'mock_1', 
-          type: 'complaint',
-          officer: 'John Doe',
-          station: 'AGO-IWOYE DIVISION',
-          comment: 'ksdksdsd',
-          date: 'Jul 11, 2025',
-          status: 'pending'
-        },
-        {
-          id: 'mock_2',
-          feedbackId: 'mock_2',
-          type: 'complaint', 
-          officer: 'N/A',
-          station: 'AGO-IWOYE DIVISION',
-          comment: 'ksdksdsd',
-          date: 'Jul 11, 2025',
-          status: 'pending'
-        },
-        {
-          id: 'mock_3',
-          feedbackId: 'mock_3',
-          type: 'complaint',
-          officer: 'John Doe', 
-          station: 'AGO-IWOYE DIVISION',
-          comment: 'bill',
-          date: 'Jul 11, 2025',
-          status: 'pending'
-        }
-      ];
-      
-      setData(mockFeedbacks);
-      setTotalItems(mockFeedbacks.length);
+      setData([]);
+      setTotalItems(0);
       setTotalPages(1);
     } finally {
       setLoading(false);
@@ -238,61 +359,83 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     }
   };
 
-  // Safe data processing with proper array checks
-  const filterOptions = useMemo(() => {
-    try {
-      const safeData = Array.isArray(data) ? data : [];
-      const validData = safeData.filter(item => item && typeof item === 'object');
-      
-      return {
-        types: [...new Set(validData.map(item => item?.type).filter(type => type && typeof type === 'string'))].sort(),
-        officers: [...new Set(validData.map(item => item?.officer).filter(officer => officer && typeof officer === 'string'))].sort(),
-        stations: [...new Set(validData.map(item => item?.station).filter(station => station && typeof station === 'string'))].sort()
-      };
-    } catch (err) {
-      console.error('Error processing filter options:', err);
-      return { types: [], officers: [], stations: [] };
-    }
-  }, [data]);
+  // Sorting function
+  const sortData = (data, sortConfig) => {
+    if (!sortConfig.key) return data;
 
+    return [...data].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      // Handle different data types
+      if (sortConfig.key === 'date') {
+        // Use raw date for proper sorting
+        aVal = new Date(a.dateRaw || a.date || 0);
+        bVal = new Date(b.dateRaw || b.date || 0);
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal ? bVal.toLowerCase() : '';
+      }
+
+      // Handle null/undefined values
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      let comparison = 0;
+      if (aVal > bVal) comparison = 1;
+      if (aVal < bVal) comparison = -1;
+
+      return sortConfig.direction === 'desc' ? -comparison : comparison;
+    });
+  };
+
+  // Handle sorting
+  const handleSort = (key) => {
+    setSortConfig(prevSort => ({
+      key,
+      direction: prevSort.key === key && prevSort.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  // Filter data based on search term
   const filteredData = useMemo(() => {
+    if (!Array.isArray(data)) return [];
+    
     try {
-      const safeData = Array.isArray(data) ? data : [];
-      const validData = safeData.filter(item => item && typeof item === 'object');
+      let filtered = data;
       
-      return validData.filter(item => {
-        if (selectedType && item.type !== selectedType) return false;
-        if (selectedOfficer && item.officer !== selectedOfficer) return false;
-        if (selectedStation && item.station !== selectedStation) return false;
-        if (searchTerm) {
-          const safeSearchTerm = searchTerm.toLowerCase();
-          return Object.values(item).some(val => {
-            if (val && typeof val === 'string') {
-              return val.toLowerCase().includes(safeSearchTerm);
-            }
-            return false;
-          });
-        }
-        return true;
-      });
+      // Apply search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filtered = filtered.filter(item => 
+          Object.values(item).some(val => 
+            val && typeof val === 'string' && val.toLowerCase().includes(searchLower)
+          )
+        );
+      }
+      
+      return filtered;
     } catch (err) {
       console.error('Error filtering data:', err);
       return [];
     }
-  }, [data, selectedType, selectedOfficer, selectedStation, searchTerm]);
+  }, [data, searchTerm]);
 
-  const paginatedData = useMemo(() => {
+  // Sort and paginate filtered data
+  const sortedAndPaginatedData = useMemo(() => {
     try {
-      const safeFilteredData = Array.isArray(filteredData) ? filteredData : [];
+      const sortedData = sortData(filteredData, sortConfig);
       const start = (currentPage - 1) * itemsPerPage;
-      return safeFilteredData.slice(start, start + itemsPerPage);
+      return sortedData.slice(start, start + itemsPerPage);
     } catch (err) {
-      console.error('Error paginating data:', err);
+      console.error('Error sorting/paginating data:', err);
       return [];
     }
-  }, [filteredData, currentPage]);
+  }, [filteredData, sortConfig, currentPage]);
 
-  // Handle actions with error handling using centralized API
+  // Handle delete action
   const handleDelete = async (feedbackId) => {
     if (!apiClient) {
       alert('API client not available');
@@ -302,14 +445,10 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     try {
       setActionLoading(prev => ({ ...prev, [feedbackId]: true }));
       
-      // Use centralized API client
       await generalFeedbackApi.deleteFeedback(apiClient, feedbackId);
       
-      setData(prev => {
-        const safeData = Array.isArray(prev) ? prev : [];
-        return safeData.filter(item => (item.id || item.feedbackId) !== feedbackId);
-      });
-      
+      // Remove from local state
+      setData(prev => prev.filter(item => (item.id || item.feedbackId) !== feedbackId));
       setTotalItems(prev => Math.max(0, prev - 1));
       setConfirmModal({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
       
@@ -321,6 +460,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     }
   };
 
+  // Handle publish action
   const handlePublish = async (feedbackId) => {
     if (!apiClient) {
       alert('API client not available');
@@ -330,15 +470,12 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     try {
       setActionLoading(prev => ({ ...prev, [feedbackId]: true }));
       
-      // Use centralized API client
       await generalFeedbackApi.publishFeedback(apiClient, feedbackId);
       
-      setData(prev => {
-        const safeData = Array.isArray(prev) ? prev : [];
-        return safeData.map(item => 
-          (item.id || item.feedbackId) === feedbackId ? { ...item, status: 'published' } : item
-        );
-      });
+      // Update local state
+      setData(prev => prev.map(item => 
+        (item.id || item.feedbackId) === feedbackId ? { ...item, status: 'published' } : item
+      ));
       
       setConfirmModal({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
       
@@ -365,21 +502,16 @@ const GeneralFeedbackTable = ({ apiClient }) => {
 
   const handleExportCSV = () => {
     try {
-      const dataToExport = Array.isArray(filteredData) ? filteredData : [];
-      const headers = ['Feedback Type', 'Officer', 'Station', 'Comment', 'Date', 'Status'];
+      const headers = ['Feedback Type', 'Officer', 'Station', 'Comment Text', 'Submission Date'];
       const csvContent = [
         headers.join(','),
-        ...dataToExport.map(row => {
-          const safeRow = [
-            row?.type || '',
-            row?.officer || '',
-            row?.station || '',
-            (row?.comment || '').replace(/"/g, '""'),
-            row?.date || '',
-            row?.status || 'pending'
-          ];
-          return safeRow.map(val => `"${val}"`).join(',');
-        })
+        ...filteredData.map(row => [
+          row.type || '',
+          row.officer || '',
+          row.station || '',
+          (row.comment || '').replace(/"/g, '""'),
+          row.date || ''
+        ].map(val => `"${val}"`).join(','))
       ].join('\n');
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -395,14 +527,6 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     }
   };
 
-  const clearAllFilters = () => {
-    setSearchTerm('');
-    setSelectedType('');
-    setSelectedOfficer('');
-    setSelectedStation('');
-    setCurrentPage(1);
-  };
-
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
   };
@@ -414,30 +538,37 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     fetchFeedbacks(1, true);
   };
 
-  // Reset page when filters change
+  const getTypeColor = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'compliment': return 'bg-green-100 text-green-800';
+      case 'complaint': return 'bg-red-100 text-red-800';
+      case 'suggestion': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Reset page when search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedType, selectedOfficer, selectedStation, searchTerm]);
+  }, [searchTerm]);
 
   // Initial data fetch
   useEffect(() => {
-    // Only fetch when apiClient is available
     if (apiClient) {
       fetchFeedbacks(1, true);
     }
-  }, [apiClient]); // Add apiClient as dependency
+  }, [apiClient]);
 
-  // Calculate pagination
-  const localTotalPages = Math.ceil((filteredData?.length || 0) / itemsPerPage);
-  const activeFiltersCount = [selectedType, selectedOfficer, selectedStation].filter(Boolean).length;
-  const hasSearchOrFilters = searchTerm || activeFiltersCount > 0;
+  // Calculate pagination info
+  const localTotalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const hasSearch = searchTerm.length > 0;
 
   // Show skeleton during initial load
   if (loading && !initialLoadComplete) {
-    return <SkeletonTable rows={8} />;
+    return <TableSkeleton rows={8} />;
   }
 
-  // Show error state
+  // Show error state if initial load failed
   if (error && !initialLoadComplete) {
     return <ErrorDisplay error={error} onRetry={handleRetry} />;
   }
@@ -445,155 +576,139 @@ const GeneralFeedbackTable = ({ apiClient }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="relative">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search feedback..."
-            className="pl-10 pr-16 w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="pl-10 pr-12 w-full py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={!initialLoadComplete}
+            disabled={loading}
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 text-xs text-gray-500 bg-gray-100 border border-gray-300 rounded">⌘K</kbd>
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-100 text-xs text-gray-500 rounded border">
+            ⌘K
+          </kbd>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handleExportCSV} 
-            className="flex items-center gap-2"
-            disabled={!initialLoadComplete || filteredData.length === 0}
+            onClick={() => setSearchTerm('')}
+            disabled={!hasSearch || loading}
           >
-            <FiDownloadCloud className="w-3 h-3" />
-            Export CSV ({filteredData?.length || 0})
+            Clear Search
           </Button>
+          
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={clearAllFilters} 
-            disabled={!hasSearchOrFilters || !initialLoadComplete}
+            onClick={handleExportCSV}
+            disabled={filteredData.length === 0 || loading}
           >
-            Clear All {activeFiltersCount > 0 && `(${activeFiltersCount})`}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => fetchFeedbacks(currentPage, true)}
-            loading={loading}
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
+            Export CSV
           </Button>
         </div>
       </div>
 
-      {/* Error banner */}
-      {error && initialLoadComplete && (
+      {/* Active Search */}
+      {hasSearch && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-2">
+            Search: "{searchTerm}"
+            <button onClick={() => setSearchTerm('')} className="hover:bg-blue-200 rounded-full p-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* Debug Panel - show when there's an issue or no data */}
+      {(error || data.length === 0 || !initialLoadComplete) && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold text-blue-800">Debug Information</h4>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => fetchFeedbacks(currentPage, true)}
+              loading={loading}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry API Call
+            </Button>
+          </div>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div><strong>API Client:</strong> {apiClient ? '✅ Connected' : '❌ Not Available'}</div>
+            <div><strong>Loading State:</strong> {loading ? 'Loading...' : initialLoadComplete ? 'Complete' : 'Not Started'}</div>
+            <div><strong>Data Length:</strong> {data.length} items</div>
+            <div><strong>Filtered Length:</strong> {filteredData.length} items</div>
+            <div><strong>Sort:</strong> {sortConfig.key} ({sortConfig.direction})</div>
+            <div><strong>Current Page:</strong> {currentPage} of {localTotalPages}</div>
+            {error && <div><strong>Error:</strong> <span className="text-red-600">{error}</span></div>}
+          </div>
+        </div>
+      )}
+
+      {/* Error banner for ongoing issues */}
+      {error && initialLoadComplete && data.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 text-sm">
             <AlertCircle className="w-4 h-4 inline mr-1" />
-            API connection issue: {error}. Showing sample data.
+            API connection issue: {error}. Showing cached data.
           </p>
         </div>
       )}
 
-      {/* Filter tags */}
-      {activeFiltersCount > 0 && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {selectedType && (
-            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm flex items-center gap-2">
-              Type: {selectedType}
-              <button onClick={() => setSelectedType('')} className="hover:bg-green-200 rounded-full p-0.5">×</button>
-            </span>
-          )}
-          {selectedOfficer && (
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-2">
-              Officer: {selectedOfficer}
-              <button onClick={() => setSelectedOfficer('')} className="hover:bg-blue-200 rounded-full p-0.5">×</button>
-            </span>
-          )}
-          {selectedStation && (
-            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm flex items-center gap-2">
-              Station: {selectedStation}
-              <button onClick={() => setSelectedStation('')} className="hover:bg-purple-200 rounded-full p-0.5">×</button>
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Table */}
-      <div className="overflow-x-auto relative">
+      <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Feedback Type</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Officer</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Station</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Comment</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
+              <SortableHeader sortKey="type" currentSort={sortConfig} onSort={handleSort}>
+                Feedback Type
+              </SortableHeader>
+              <SortableHeader sortKey="officer" currentSort={sortConfig} onSort={handleSort}>
+                Officer
+              </SortableHeader>
+              <SortableHeader sortKey="station" currentSort={sortConfig} onSort={handleSort}>
+                Station
+              </SortableHeader>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">Comment Text</th>
+              <SortableHeader sortKey="date" currentSort={sortConfig} onSort={handleSort}>
+                Submission Date
+              </SortableHeader>
               <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedData.length > 0 ? (
-              paginatedData.map(item => {
-                const itemId = item.id || item.feedbackId || item.reportID;
+            {sortedAndPaginatedData.length > 0 ? (
+              sortedAndPaginatedData.map(item => {
+                const itemId = item.id || item.feedbackId;
                 const isLoading = actionLoading[itemId];
                 
                 return (
                   <tr key={itemId} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${{
-                        Compliment: 'bg-green-100 text-green-800',
-                        Complaint: 'bg-red-100 text-red-800',
-                        Suggestion: 'bg-blue-100 text-blue-800'
-                      }[item.type] || 'bg-gray-100 text-gray-800'}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(item.type)}`}>
                         {item.type || 'Unknown'}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm">{item.officer || 'N/A'}</td>
                     <td className="py-3 px-4 text-sm">{item.station || 'N/A'}</td>
                     <td className="py-3 px-4 text-sm">
-                      <div className="max-w-xs truncate" title={item.comment || item.comments || item.feedback}>
-                        {item.comment || item.comments || item.feedback || '-'}
+                      <div className="max-w-xs truncate" title={item.comment}>
+                        {item.comment || '-'}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-500">{item.date || 'N/A'}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.status === 'published' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {item.status || 'pending'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="text-blue-600">
-                          <Eye className="w-4 h-4" />
                           View
                         </Button>
-                        {item.status !== 'published' && (
-                          <Button 
-                            variant="success" 
-                            size="sm"
-                            loading={isLoading}
-                            disabled={isLoading}
-                            onClick={() => showConfirmation(
-                              'publish', 
-                              itemId, 
-                              'Publish Feedback', 
-                              'Are you sure you want to publish this feedback?'
-                            )}
-                          >
-                            <Share className="w-4 h-4" />
-                            Publish
-                          </Button>
-                        )}
                         <button 
                           className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50" 
                           title="Delete"
@@ -613,7 +728,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
                 );
               })
             ) : (
-              <EmptyState hasFilters={hasSearchOrFilters} />
+              <EmptyState hasFilters={hasSearch} error={error} />
             )}
           </tbody>
         </table>
@@ -621,7 +736,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
 
       {/* Pagination */}
       {localTotalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-500">
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} results
           </div>
@@ -630,7 +745,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
               variant="outline" 
               size="sm" 
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))} 
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || loading}
             >
               <ChevronLeft className="w-4 h-4" /> Previous
             </Button>
@@ -641,8 +756,11 @@ const GeneralFeedbackTable = ({ apiClient }) => {
                   <button 
                     key={pageNum} 
                     onClick={() => handlePageChange(pageNum)}
-                    className={`w-8 h-8 rounded text-sm font-medium ${
-                      currentPage === pageNum ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    disabled={loading}
+                    className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
+                      currentPage === pageNum 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-600 hover:bg-gray-100 disabled:opacity-50'
                     }`}
                   >
                     {pageNum}
@@ -654,7 +772,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
               variant="outline" 
               size="sm" 
               onClick={() => handlePageChange(Math.min(localTotalPages, currentPage + 1))} 
-              disabled={currentPage === localTotalPages}
+              disabled={currentPage === localTotalPages || loading}
             >
               Next <ChevronRight className="w-4 h-4" />
             </Button>

@@ -1,4 +1,4 @@
-// src/api.js
+// src/Utils/apiClient.js - PRODUCTION VERSION (Debug removed)
 import axios from 'axios';
 import { useMemo } from 'react';
 import useAccessToken from './useAccessToken';
@@ -63,22 +63,126 @@ export const useApiClient = () => {
   return useMemo(() => createApiClient(accessToken), [accessToken]);
 };
 
+
+// ========== SLA API (CORRECT ENDPOINTS FROM BACKEND) ==========
+export const slaApi = {
+  // Ticket SLAs
+  getTicketSlas: async (client) => {
+    try {
+      const response = await client.get('/settings/ticketSlas/all');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SLA API] Failed to fetch ticket SLAs:', error);
+      throw error;
+    }
+  },
+
+  updateTicketSlas: async (client, data) => {
+    try {
+      const response = await client.put('/settings/ticketSlas/update', data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SLA API] Failed to update ticket SLAs:', error);
+      throw error;
+    }
+  },
+
+  // Incident SLAs
+  getIncidentSlas: async (client) => {
+    try {
+      const response = await client.get('/settings/incidentSlas/all');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SLA API] Failed to fetch incident SLAs:', error);
+      throw error;
+    }
+  },
+
+  updateIncidentSlas: async (client, data) => {
+    try {
+      const response = await client.put('/settings/incidentSlas/update', data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [SLA API] Failed to update incident SLAs:', error);
+      throw error;
+    }
+  },
+
+  // CORRECT: Create new incident - EXACT endpoint and format from backend
+  createIncident: async (client, data) => {
+    try {
+      console.log('🚀 [INCIDENT API] Creating incident with CORRECT endpoint');
+      
+      //  format from backend: {"incidentName": "Man Slaughter", "resolutionSla": 4}
+      const requestData = {
+        incidentName: data.name,
+        resolutionSla: parseInt(data.time) // Convert to number as shown in backend example
+      };
+      
+      console.log('📤 Request data:', requestData);
+      
+      // EXACT endpoint from backend: /settings/incident/new
+      const response = await client.post('/settings/incident/new', requestData);
+      
+      console.log('✅ [INCIDENT API] SUCCESS:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [INCIDENT API] Failed to create incident:', error);
+      console.error('❌ Error details:', error.response?.data);
+      throw error;
+    }
+  }
+};
+
+// ========== CLOSURE REASONS API (CORRECT ENDPOINTS FROM BACKEND) ==========
+export const closureReasonsApi = {
+  getClosureReasons: async (client) => {
+    try {
+      const response = await client.get('/incident/closureReasons/all');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [CLOSURE API] Failed to fetch closure reasons:', error);
+      throw error;
+    }
+  },
+
+  // CORRECT: Create closure reason - EXACT endpoint and format from backend
+  createClosureReason: async (client, data) => {
+    try {
+      console.log('🚀 [CLOSURE API] Creating closure reason with CORRECT endpoint');
+      
+      // EXACT format from backend: {"newClosureReason": "Sigh"}
+      const requestData = {
+        newClosureReason: data.reason
+      };
+      
+      console.log('📤 Request data:', requestData);
+      
+      // EXACT endpoint from backend: /settings/closureReason/new
+      const response = await client.post('/settings/closureReason/new', requestData);
+      
+      console.log('✅ [CLOSURE API] SUCCESS:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [CLOSURE API] Failed to create closure reason:', error);
+      console.error('❌ Error details:', error.response?.data);
+      throw error;
+    }
+  }
+};
+
 // Reusable FormData Builder for News
 const buildNewsFormData = (data, mediaFiles = [], coverFile = null) => {
-  // Use exact field names and types that backend validation expects
   const apiData = {
     title: data.title,
     subtitle: data.subtitle,
     bodyText: data.bodyText,
     tags: data.tags || [],
-    // Backend validation expects booleans, not numbers
     isDraft: Boolean(data.isDraft),
     isActive: Boolean(data.isActive),
-    // Backend validation requires 'coverImageFileName', not 'coverImage'
     coverImageFileName: data.coverImageFileName || ''
   };
 
-  // Add caption if provided
   if (data.caption) {
     apiData.caption = data.caption;
   }
@@ -99,7 +203,355 @@ const buildNewsFormData = (data, mediaFiles = [], coverFile = null) => {
   return formData;
 };
 
-// News API
+// ==========  RESOURCES/HELP HUB API ==========
+
+export const resourcesApi = {
+  getAll: async (client, page = 1, size = 10, filters = {}) => {
+    try {
+      console.log('🚀 [RESOURCES API] Fetching all resources');
+      console.log('📋 Parameters:', { page, size, filters });
+      
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('size', size.toString());
+      
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+      
+      const response = await client.get(`/help/all?${params.toString()}`);
+      
+      console.log('✅ [RESOURCES API] Resources fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to fetch resources:', error);
+      throw error;
+    }
+  },
+
+  getCategories: async (client) => {
+    try {
+      console.log('📁 [RESOURCES API] Fetching categories');
+      const response = await client.get('/help/get-categories');
+      console.log('✅ [RESOURCES API] Categories fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to fetch categories:', error);
+      throw error;
+    }
+  },
+
+  getTags: async (client) => {
+    try {
+      console.log('🏷️ [RESOURCES API] Fetching tags');
+      const response = await client.get('/help/get-tags');
+      console.log('✅ [RESOURCES API] Tags fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to fetch tags:', error);
+      throw error;
+    }
+  },
+
+  create: async (client, resourceData, mediaFile = null) => {
+    try {
+      console.log('🚀 [RESOURCES API] Creating resource');
+      console.log('📤 Resource data:', JSON.stringify(resourceData, null, 2));
+      
+      const requiredFields = ['title', 'description', 'categoryId', 'subCategoryId'];
+      const missingFields = requiredFields.filter(field => 
+        !resourceData.hasOwnProperty(field) || !resourceData[field]?.toString().trim()
+      );
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      const formData = new FormData();
+      
+      const apiData = {
+        title: resourceData.title,
+        description: resourceData.description,
+        caption: resourceData.caption || null,
+        isPublished: Boolean(resourceData.isPublished),
+        tags: resourceData.tags || [],
+        categoryId: resourceData.categoryId,
+        subCategoryId: resourceData.subCategoryId
+      };
+
+      console.log('📋 [RESOURCES API] Prepared API data:', JSON.stringify(apiData, null, 2));
+      
+      formData.append('data', JSON.stringify(apiData));
+      
+      if (mediaFile instanceof File) {
+        formData.append('file', mediaFile);
+      }
+      
+      const response = await client.post('/help/create', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('✅ [RESOURCES API] Resource created successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to create resource:', error);
+      console.error('🔍 Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const enhancedError = new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to create resource'
+      );
+      enhancedError.status = error.response?.status;
+      enhancedError.response = error.response;
+      
+      throw enhancedError;
+    }
+  },
+
+update: async (apiClient, resourceId, data, file = null) => {
+    try {
+      console.log('🔄 [RESOURCES API] Updating resource with PATCH (FormData format)');
+      console.log('🆔 Resource ID:', resourceId);
+      console.log('📤 Update data:', data);
+      console.log('📎 File:', file);
+
+      const endpoint = `/help/edit/${resourceId}`;
+      console.log('🔗 Using endpoint:', endpoint);
+
+      // ALWAYS use FormData (like your curl command)
+      const formData = new FormData();
+      
+      // Add the data as a JSON string in the 'data' field
+      formData.append('data', JSON.stringify(data));
+      console.log('📝 Added data field as JSON string:', JSON.stringify(data));
+      
+      // Add file if provided
+      if (file) {
+        formData.append('file', file);
+        console.log('📎 Added file:', file.name);
+      }
+
+      console.log('🔄 Making PATCH request with FormData...');
+      const response = await apiClient.patch(endpoint, formData);
+
+      console.log('✅ [RESOURCES API] Resource updated successfully');
+      return response.data;
+
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to update resource:', error);
+      console.error('❌ Error response:', error.response?.data);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to update resource');
+    }
+  },
+
+  delete: async (client, resourceId) => {
+    try {
+      console.log('🗑️ [RESOURCES API] Deleting resource');
+      console.log('🆔 Resource ID:', resourceId);
+      
+      if (!resourceId || resourceId.toString().trim() === '') {
+        throw new Error('Resource ID is required for delete operation');
+      }
+      
+      const response = await client.delete(`/help/delete/${resourceId}`);
+      
+      console.log('✅ [RESOURCES API] Resource deleted successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to delete resource:', error);
+      throw error;
+    }
+  },
+
+  getById: async (client, resourceId) => {
+    try {
+      console.log('🎯 [RESOURCES API] Fetching resource by ID');
+      console.log('🆔 Resource ID:', resourceId);
+      
+      if (!resourceId || resourceId.toString().trim() === '') {
+        throw new Error('Resource ID is required');
+      }
+      
+      const response = await client.get(`/help/${resourceId}`);
+      
+      console.log('✅ [RESOURCES API] Resource fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to fetch resource:', error);
+      throw error;
+    }
+  },
+
+  togglePublish: async (client, resourceId) => {
+    try {
+      console.log('🔄 [RESOURCES API] Toggling publish status');
+      console.log('🆔 Resource ID:', resourceId);
+      
+      if (!resourceId || resourceId.toString().trim() === '') {
+        throw new Error('Resource ID is required for toggle publish operation');
+      }
+      
+      const response = await client.patch(`/help/toggle-publish/${resourceId}`);
+      
+      console.log('✅ [RESOURCES API] Publish status toggled successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [RESOURCES API] Failed to toggle publish status:', error);
+      throw error;
+    }
+  }
+};
+
+export const resourcesUtils = {
+  transformResourcesData: (apiData) => {
+    if (!Array.isArray(apiData)) return [];
+    
+    return apiData.map(item => {
+      const categoryName = item.category?.name || item.categoryName || 'Unknown Category';
+      const subCategoryName = item.subCategory?.name || item.subCategoryName || 'Unknown Sub-Category';
+      
+      return {
+        id: item.id || `res_${Math.random().toString(36).substr(2, 9)}`,
+        title: item.title || 'Untitled',
+        category: categoryName,
+        subCategory: subCategoryName,
+        description: item.description || '',
+        caption: item.caption || '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        submissionDate: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }) : 'N/A',
+        status: (item.isPublished === 1 || item.isPublished === true) ? 'Published' : 'Draft',
+        isPublished: Boolean(item.isPublished === 1 || item.isPublished === true),
+        isToday: item.createdAt ? 
+          new Date(item.createdAt).toDateString() === new Date().toDateString() : false,
+        categoryId: item.categoryId || item.category?.id,
+        subCategoryId: item.subCategoryId || item.subCategory?.id,
+        fileUrl: item.mediaUrl?.[0] || null,
+        mediaUrls: Array.isArray(item.mediaUrl) ? item.mediaUrl : [],
+        originalData: item
+      };
+    });
+  },
+
+  transformCategoriesData: (apiData) => {
+    if (!Array.isArray(apiData)) return [];
+    
+    return apiData.map(category => ({
+      id: category.id,
+      name: category.name || 'Unknown Category',
+      description: category.description || '',
+      subCategories: category.subCategories ? 
+        category.subCategories.map(sub => ({
+          id: sub.id,
+          name: sub.name || 'Unknown Sub-Category',
+          description: sub.description || ''
+        })) : [],
+      ...category
+    }));
+  },
+
+  transformTagsData: (apiData) => {
+    if (!Array.isArray(apiData)) return [];
+    
+    return apiData.map(tag => ({
+      id: tag.id || tag,
+      name: tag.name || tag,
+      value: tag.value || tag.name || tag,
+      ...tag
+    }));
+  },
+
+  validateResourceData: (resourceData, isUpdate = false) => {
+    const errors = [];
+    
+    if (!resourceData.title || !resourceData.title.trim()) {
+      errors.push('Title is required');
+    } else if (resourceData.title.length > 200) {
+      errors.push('Title must be 200 characters or less');
+    }
+    
+    if (!resourceData.description || !resourceData.description.trim()) {
+      errors.push('Description is required');
+    } else if (resourceData.description.length > 1000) {
+      errors.push('Description must be 1000 characters or less');
+    }
+    
+    if (!resourceData.categoryId || !resourceData.categoryId.trim()) {
+      errors.push('Category is required');
+    }
+    
+    if (!resourceData.subCategoryId || !resourceData.subCategoryId.trim()) {
+      errors.push('Sub-category is required');
+    }
+    
+    if (resourceData.tags && !Array.isArray(resourceData.tags)) {
+      errors.push('Tags must be an array');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
+  },
+
+  formatResourceData: (formData, isUpdate = false) => {
+    return {
+      title: formData.title?.trim() || '',
+      description: formData.description?.trim() || '',
+      caption: formData.caption?.trim() || null,
+      categoryId: formData.categoryId || '',
+      subCategoryId: formData.subCategoryId || '',
+      tags: formData.tags || [],
+      isPublished: Boolean(formData.isPublished)
+    };
+  },
+
+  extractApiResponseData: (response) => {
+    let data = [];
+    let pagination = {
+      total: 0,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: 10
+    };
+
+    if (response && response.data) {
+      const responseData = response.data;
+      
+      if (responseData.data && Array.isArray(responseData.data)) {
+        data = responseData.data;
+        
+        if (responseData.pagination) {
+          pagination = { ...pagination, ...responseData.pagination };
+        }
+      } else if (Array.isArray(responseData)) {
+        data = responseData;
+        pagination.total = responseData.length;
+      }
+    } else if (Array.isArray(response)) {
+      data = response;
+      pagination.total = response.length;
+    }
+
+    return { data, pagination };
+  }
+};
+
+// ========== NEWS API ==========
+
 export const newsApi = {
   create: async (client, newsData, mediaFiles, coverFile) => {
     const formData = buildNewsFormData(newsData, mediaFiles, coverFile);
@@ -128,12 +580,10 @@ export const newsApi = {
   },
 
   getAll: async (client, page = 1, size = 10, filters = {}) => {
-    // Build query parameters properly
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('size', size.toString());
     
-    // Add optional filters
     if (filters.status) {
       params.append('status', filters.status);
     }
@@ -156,26 +606,16 @@ export const newsApi = {
 
 // ========== FEEDBACK APIS ==========
 
-/**
- * Case Review Feedback API
- * Endpoints for case review feedback operations
- */
 export const caseReviewFeedbackApi = {
-  /**
-   * Get all case review feedbacks with pagination and filters
-   * GET /feedback/caseReview/all-feedbacks?page=1&size=10
-   */
   getAllFeedbacks: async (client, page = 1, size = 10, filters = {}) => {
     try {
       console.log('🚀 [CASE REVIEW API] Fetching all feedbacks');
       console.log('📋 Parameters:', { page, size, filters });
       
-      // Build query parameters
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('size', size.toString());
       
-      // Add filters
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== '' && value !== null) {
           params.append(key, value.toString());
@@ -192,15 +632,10 @@ export const caseReviewFeedbackApi = {
     }
   },
 
-  /**
-   * Get dashboard statistics for case review
-   * GET /feedback/caseReview/dashboard-stats
-   */
   getDashboardStats: async (client, filters = {}) => {
     try {
       console.log('📊 [CASE REVIEW API] Fetching dashboard stats');
       
-      // Build query parameters for filters
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== '' && value !== null) {
@@ -221,16 +656,10 @@ export const caseReviewFeedbackApi = {
     }
   },
 
-  /**
-   * Get stations for case review filters
-   * GET /feedback/caseReview/stations
-   */
   getStations: async (client) => {
     try {
       console.log('🏢 [CASE REVIEW API] Fetching stations');
-      
       const response = await client.get('/feedback/caseReview/stations');
-      
       console.log('✅ [CASE REVIEW API] Stations fetched successfully');
       return response.data;
     } catch (error) {
@@ -239,16 +668,10 @@ export const caseReviewFeedbackApi = {
     }
   },
 
-  /**
-   * Get crime types for case review filters
-   * GET /feedback/caseReview/crime-types
-   */
   getCrimeTypes: async (client) => {
     try {
       console.log('🚨 [CASE REVIEW API] Fetching crime types');
-      
       const response = await client.get('/feedback/caseReview/crime-types');
-      
       console.log('✅ [CASE REVIEW API] Crime types fetched successfully');
       return response.data;
     } catch (error) {
@@ -257,16 +680,10 @@ export const caseReviewFeedbackApi = {
     }
   },
 
-  /**
-   * Get source channels for case review filters  
-   * GET /feedback/caseReview/source-channel
-   */
   getSourceChannels: async (client) => {
     try {
       console.log('📡 [CASE REVIEW API] Fetching source channels');
-      
       const response = await client.get('/feedback/caseReview/source-channel');
-      
       console.log('✅ [CASE REVIEW API] Source channels fetched successfully');
       return response.data;
     } catch (error) {
@@ -276,15 +693,7 @@ export const caseReviewFeedbackApi = {
   }
 };
 
-/**
- * General Feedback API
- * Endpoints for general feedback operations
- */
 export const generalFeedbackApi = {
-  /**
-   * Get dashboard statistics for general feedback
-   * GET /feedback/generalFeedback/dashboard-stats
-   */
   getDashboardStats: async (client, page = 1, size = 10) => {
     try {
       console.log('📊 [GENERAL FEEDBACK API] Fetching dashboard stats');
@@ -303,16 +712,11 @@ export const generalFeedbackApi = {
     }
   },
 
-  /**
-   * Get all general feedbacks with pagination
-   * GET /feedback/generalFeedback/all-feedbacks?page=1&size=10
-   */
   getAllFeedbacks: async (client, page = 1, size = 10) => {
     try {
       console.log('🚀 [GENERAL FEEDBACK API] Fetching all feedbacks');
       console.log('📋 Parameters:', { page, size });
       
-      // Build query parameters
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('size', size.toString());
@@ -330,17 +734,11 @@ export const generalFeedbackApi = {
     }
   },
 
-  /**
-   * Delete a feedback by ID
-   * DELETE /feedback/generalFeedback/delete-feedback
-   * Body: { "feedbackId": "..." }
-   */
   deleteFeedback: async (client, feedbackId) => {
     try {
       console.log('🗑️ [GENERAL FEEDBACK API] Deleting feedback');
       console.log('🎯 Feedback ID:', feedbackId);
       
-      // Validate feedbackId
       if (!feedbackId || feedbackId.toString().trim() === '') {
         throw new Error('Feedback ID is required for delete operation');
       }
@@ -362,17 +760,11 @@ export const generalFeedbackApi = {
     }
   },
 
-  /**
-   * Publish a feedback by ID  
-   * POST /feedback/generalFeedback/publish-feedback
-   * Body: { "feedbackId": "..." }
-   */
   publishFeedback: async (client, feedbackId) => {
     try {
       console.log('📢 [GENERAL FEEDBACK API] Publishing feedback');
       console.log('🎯 Feedback ID:', feedbackId);
       
-      // Validate feedbackId
       if (!feedbackId || feedbackId.toString().trim() === '') {
         throw new Error('Feedback ID is required for publish operation');
       }
@@ -393,15 +785,7 @@ export const generalFeedbackApi = {
   }
 };
 
-/**
- * Utility functions for feedback operations
- */
 export const feedbackUtils = {
-  /**
-   * Transform general feedback data from API format to UI format
-   * @param {Array} apiData - Raw feedback data from API
-   * @returns {Array} Transformed data for UI display
-   */
   transformGeneralFeedbackData: (apiData) => {
     if (!Array.isArray(apiData)) return [];
     
@@ -418,16 +802,10 @@ export const feedbackUtils = {
         year: 'numeric'
       }) : 'N/A',
       status: item.status || 'pending',
-      // Keep original fields for reference
       ...item
     }));
   },
 
-  /**
-   * Transform case review feedback data from API format to UI format
-   * @param {Array} apiData - Raw feedback data from API
-   * @returns {Array} Transformed data for UI display
-   */
   transformCaseReviewFeedbackData: (apiData) => {
     if (!Array.isArray(apiData)) return [];
     
@@ -438,16 +816,10 @@ export const feedbackUtils = {
       feedback: item.comments || item.feedback || item.feedbackText || item.comment || '-',
       rating: item.rating || 0,
       date: item.dateclosed || item.date || item.createdAt || item.dateClosed || 'N/A',
-      // Keep original fields for reference
       ...item
     }));
   },
 
-  /**
-   * Transform dashboard data for general feedback charts
-   * @param {Object} apiData - Raw dashboard data from API
-   * @returns {Object} Transformed data for chart display
-   */
   transformGeneralFeedbackDashboard: (apiData) => {
     if (!apiData) return null;
     
@@ -455,7 +827,6 @@ export const feedbackUtils = {
       averageOfficerRating: apiData.averageOfficerRating || 0,
       averageStationRating: apiData.averageStationRating || 0,
       
-      // Transform officers data to match chart format
       topPerformingOfficers: (apiData.topOfficers || []).map(officer => ({
         name: officer.officerName || 'Unknown Officer',
         value: parseFloat(officer.avgRating || 0)
@@ -466,7 +837,6 @@ export const feedbackUtils = {
         value: parseFloat(officer.avgRating || 0)
       })),
       
-      // Transform stations data to match chart format
       topPerformingStations: (apiData.topStations || []).map(station => ({
         name: station.stationName || 'Unknown Station',
         value: parseFloat(station.avgRating || 0)
@@ -479,11 +849,6 @@ export const feedbackUtils = {
     };
   },
 
-  /**
-   * Extract data from nested API response structures
-   * @param {Object} response - API response
-   * @returns {Object} Extracted data and pagination info
-   */
   extractApiResponseData: (response) => {
     let data = [];
     let pagination = {
@@ -494,13 +859,11 @@ export const feedbackUtils = {
     };
 
     if (response && response.data) {
-      // Handle nested structure: { data: { data: [...], pagination: {...} } }
       const responseData = response.data;
       
       if (responseData.data && Array.isArray(responseData.data)) {
         data = responseData.data;
         
-        // Extract pagination info
         if (responseData.pagination) {
           pagination = { ...pagination, ...responseData.pagination };
         }
@@ -514,22 +877,14 @@ export const feedbackUtils = {
   }
 };
 
-/**
- * CORRECTED BROADCAST API CLIENT
- * Updated with the correct endpoints from your backend
- */
+// ========== BROADCAST API ==========
+
 export const broadcastApi = {
-  
-  /**
-   * Create a new broadcast
-   * POST /adminTools/broadcast/create-broadcast
-   */
   create: async (apiClient, broadcastData) => {
     try {
       console.log('🚀 [BROADCAST API] Creating broadcast');
       console.log('📤 Payload:', JSON.stringify(broadcastData, null, 2));
       
-      // Validate required fields for create
       const requiredFields = ['title', 'body', 'alertType'];
       const missingFields = requiredFields.filter(field => 
         !broadcastData.hasOwnProperty(field) || !broadcastData[field]?.toString().trim()
@@ -566,19 +921,13 @@ export const broadcastApi = {
     }
   },
 
-  /**
-   * Edit an existing broadcast
-   * PATCH /adminTools/broadcast/edit-broadcast
-   */
   edit: async (apiClient, editData) => {
     try {
       console.log('🔄 [BROADCAST API] Editing broadcast');
       console.log('📤 Edit payload:', JSON.stringify(editData, null, 2));
       
-      // Validate all required fields for edit (as per your curl example)
       const requiredFields = ['title', 'body', 'alertType', 'lgaId', 'broadcastId'];
       const missingFields = requiredFields.filter(field => {
-        // Special handling for lgaId which can be null
         if (field === 'lgaId') {
           return !editData.hasOwnProperty(field);
         }
@@ -589,12 +938,10 @@ export const broadcastApi = {
         throw new Error(`Missing required fields for edit: ${missingFields.join(', ')}`);
       }
       
-      // Additional validation for broadcastId
       if (!editData.broadcastId || editData.broadcastId.toString().trim() === '') {
         throw new Error('Broadcast ID is required for edit operation');
       }
       
-      // Use PATCH method as confirmed in your example
       const response = await apiClient.patch('/adminTools/broadcast/edit-broadcast', editData);
       
       console.log('✅ [BROADCAST API] Broadcast edited successfully');
@@ -623,22 +970,16 @@ export const broadcastApi = {
     }
   },
 
-  /**
-   * Get all broadcasts with pagination and filtering
-   * GET /adminTools/broadcast/all?status=Sent&alertType=Missing Person
-   */
   getAll: async (apiClient, page = 1, limit = 10, filters = {}) => {
     try {
       console.log('📋 [BROADCAST API] Fetching broadcasts');
       console.log('🔍 Parameters:', { page, limit, filters });
       
-      // Build query parameters
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString()
       });
       
-      // Add filters to params (based on your example with status and alertType)
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
           params.append(key, value.toString());
@@ -681,22 +1022,15 @@ export const broadcastApi = {
     }
   },
 
-  /**
-   * Delete a broadcast by ID
-   * DELETE /adminTools/broadcast/delete-broadcast
-   * Body: { "broadcastId": "01K022XG2P7JVGK5CCJ014PR6G" }
-   */
   delete: async (apiClient, broadcastId) => {
     try {
       console.log('🗑️ [BROADCAST API] Deleting broadcast');
       console.log('🎯 Broadcast ID:', broadcastId);
       
-      // Validate broadcastId
       if (!broadcastId || broadcastId.toString().trim() === '') {
         throw new Error('Broadcast ID is required for delete operation');
       }
       
-      // Based on your example, delete uses request body with broadcastId, not URL param
       const deletePayload = {
         broadcastId: broadcastId
       };
@@ -733,10 +1067,6 @@ export const broadcastApi = {
     }
   },
 
-  /**
-   * Get available alert types
-   * GET /adminTools/broadcast/alert-types
-   */
   getAlertTypes: async (apiClient) => {
     try {
       console.log('🏷️ [BROADCAST API] Fetching alert types');
@@ -756,21 +1086,16 @@ export const broadcastApi = {
         message: error.message
       });
       
-      // For alert types, we can provide fallback data
       console.log('🔄 Using fallback alert types');
       return ['Red Alert', 'Yellow Alert', 'Green Alert', 'Blue Alert', 'Weather'];
     }
   },
 
-  /**
-   * Get broadcast statistics/summary (if available)
-   */
   getStatistics: async (apiClient, filters = {}) => {
     try {
       console.log('📊 [BROADCAST API] Fetching broadcast statistics');
       console.log('🔍 Filters:', filters);
       
-      // Build query parameters for statistics
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
@@ -792,7 +1117,6 @@ export const broadcastApi = {
         message: error.message
       });
       
-      // Return empty statistics on error
       return {
         total: 0,
         sent: 0,
@@ -802,15 +1126,11 @@ export const broadcastApi = {
     }
   },
 
-  /**
-   * Get a single broadcast by ID (if available)
-   */
   getById: async (apiClient, broadcastId) => {
     try {
       console.log('🎯 [BROADCAST API] Fetching broadcast by ID');
       console.log('🆔 Broadcast ID:', broadcastId);
       
-      // Validate broadcastId
       if (!broadcastId || broadcastId.toString().trim() === '') {
         throw new Error('Broadcast ID is required');
       }
@@ -840,39 +1160,26 @@ export const broadcastApi = {
   }
 };
 
-/**
- * Utility functions for broadcast operations
- */
 export const broadcastUtils = {
-  /**
-   * Validate broadcast data before submission
-   * @param {Object} broadcastData - The broadcast data to validate
-   * @param {boolean} isEdit - Whether this is an edit operation
-   * @returns {Object} Validation result with isValid and errors
-   */
   validateBroadcastData: (broadcastData, isEdit = false) => {
     const errors = [];
     
-    // Title validation
     if (!broadcastData.title || !broadcastData.title.trim()) {
       errors.push('Title is required');
     } else if (broadcastData.title.length > 100) {
       errors.push('Title must be 100 characters or less');
     }
     
-    // Body validation
     if (!broadcastData.body || !broadcastData.body.trim()) {
       errors.push('Message body is required');
     } else if (broadcastData.body.length > 500) {
       errors.push('Message body must be 500 characters or less');
     }
     
-    // Alert type validation
     if (!broadcastData.alertType || !broadcastData.alertType.trim()) {
       errors.push('Alert type is required');
     }
     
-    // Edit-specific validation
     if (isEdit && (!broadcastData.broadcastId || !broadcastData.broadcastId.trim())) {
       errors.push('Broadcast ID is required for edit operations');
     }
@@ -883,12 +1190,6 @@ export const broadcastUtils = {
     };
   },
 
-  /**
-   * Format broadcast data for API submission
-   * @param {Object} formData - Form data from the UI
-   * @param {boolean} isEdit - Whether this is an edit operation
-   * @returns {Object} Formatted data for API
-   */
   formatBroadcastData: (formData, isEdit = false) => {
     const baseData = {
       title: formData.title?.trim() || '',
@@ -904,11 +1205,6 @@ export const broadcastUtils = {
     return baseData;
   },
 
-  /**
-   * Parse API response to extract broadcast array
-   * @param {Object} response - API response
-   * @returns {Object} Parsed response with broadcasts array and pagination
-   */
   parseGetAllResponse: (response) => {
     let broadcasts = [];
     let pagination = {
@@ -920,7 +1216,6 @@ export const broadcastUtils = {
     };
     
     if (response) {
-      // Handle different response structures
       if (Array.isArray(response)) {
         broadcasts = response;
         pagination.total = response.length;
@@ -944,7 +1239,6 @@ export const broadcastUtils = {
           }
         }
         
-        // Extract pagination from top level
         if (response.totalPages) pagination.totalPages = response.totalPages;
         if (response.total) pagination.total = response.total;
         if (response.totalCount) pagination.total = response.totalCount;
@@ -959,25 +1253,8 @@ export const broadcastUtils = {
   }
 };
 
-// SLA API
-export const slaApi = {
-  getAll: async (client) => {
-    const response = await client.get('/adminTools/sla');
-    return response.data;
-  },
+// ========== INCIDENT API ==========
 
-  create: async (client, slaData) => {
-    const response = await client.post('/adminTools/sla', slaData);
-    return response.data;
-  },
-
-  delete: async (client, slaId) => {
-    const response = await client.delete(`/adminTools/sla/${slaId}`);
-    return response.data;
-  },
-};
-
-// Incident API
 export const incidentApi = {
   create: async (client, incidentData) => {
     const response = await client.post('/adminTools/incident/create', incidentData);
@@ -1003,4 +1280,346 @@ export const incidentApi = {
     const response = await client.delete(`/adminTools/incident/${incidentId}`);
     return response.data;
   },
+};
+
+// ========== AUDIT LOGS API ==========
+
+export const auditLogsApi = {
+  getAll: async (client, page = 1, size = 10, filters = {}) => {
+    try {
+      console.log('📋 [AUDIT LOGS API] Fetching all audit logs');
+      console.log('📊 Parameters:', { page, size, filters });
+      
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('size', size.toString());
+      
+      // Add filters if provided
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          if (Array.isArray(value) && value.length > 0) {
+            // For array filters like userRole
+            value.forEach(item => params.append(key, item));
+          } else if (!Array.isArray(value)) {
+            params.append(key, value.toString());
+          }
+        }
+      });
+      
+      const response = await client.get(`/auditLogs/all?${params.toString()}`);
+      
+      console.log('✅ [AUDIT LOGS API] Audit logs fetched successfully');
+      console.log('📊 Response structure:', {
+        dataType: typeof response.data,
+        isArray: Array.isArray(response.data),
+        keys: response.data ? Object.keys(response.data) : 'No data'
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS API] Failed to fetch audit logs:', error);
+      console.error('🔍 Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const enhancedError = new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to fetch audit logs'
+      );
+      enhancedError.status = error.response?.status;
+      enhancedError.response = error.response;
+      
+      throw enhancedError;
+    }
+  },
+
+  exportLogs: async (client, filters = {}) => {
+    try {
+      console.log('📥 [AUDIT LOGS API] Exporting audit logs');
+      console.log('🔍 Export filters:', filters);
+      
+      const params = new URLSearchParams();
+      
+      // Add filters if provided
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          if (Array.isArray(value) && value.length > 0) {
+            value.forEach(item => params.append(key, item));
+          } else if (!Array.isArray(value)) {
+            params.append(key, value.toString());
+          }
+        }
+      });
+      
+      const queryString = params.toString();
+      const endpoint = `/auditLogs/export${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await client.get(endpoint, {
+        responseType: 'blob' // Important for file downloads
+      });
+      
+      console.log('✅ [AUDIT LOGS API] Audit logs exported successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS API] Failed to export audit logs:', error);
+      throw error;
+    }
+  },
+
+  getStatistics: async (client, filters = {}) => {
+    try {
+      console.log('📊 [AUDIT LOGS API] Fetching audit log statistics');
+      
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '' && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+      
+      const queryString = params.toString();
+      const endpoint = `/auditLogs/statistics${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await client.get(endpoint);
+      
+      console.log('✅ [AUDIT LOGS API] Statistics fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS API] Failed to fetch statistics:', error);
+      
+      // Return default stats on error
+      return {
+        totalLogs: 0,
+        totalUsers: 0,
+        todayLogs: 0,
+        byUserRole: {},
+        byAction: {}
+      };
+    }
+  },
+
+  getUserRoles: async (client) => {
+    try {
+      console.log('👥 [AUDIT LOGS API] Fetching user roles');
+      
+      const response = await client.get('/auditLogs/user-roles');
+      
+      console.log('✅ [AUDIT LOGS API] User roles fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS API] Failed to fetch user roles:', error);
+      
+      // Return fallback user roles
+      console.log('🔄 Using fallback user roles');
+      return [
+        'Police Station',
+        'Police Station Officer',
+        'Citizen', 
+        'Comm. Centre Agent'
+      ];
+    }
+  },
+
+  getActionTypes: async (client) => {
+    try {
+      console.log('🎯 [AUDIT LOGS API] Fetching action types');
+      
+      const response = await client.get('/auditLogs/action-types');
+      
+      console.log('✅ [AUDIT LOGS API] Action types fetched successfully');
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS API] Failed to fetch action types:', error);
+      
+      // Return fallback action types
+      console.log('🔄 Using fallback action types');
+      return [
+        'Status Change',
+        'User Login',
+        'User Logout',
+        'Data Creation',
+        'Data Update',
+        'Data Deletion',
+        'Review Submission'
+      ];
+    }
+  }
+};
+
+export const auditLogsUtils = {
+  transformAuditLogsData: (apiData) => {
+    if (!Array.isArray(apiData)) return [];
+    
+    return apiData.map(item => ({
+      id: item.id || item.logId || `log_${Math.random().toString(36).substr(2, 9)}`,
+      logId: item.logId || item.id || `#L${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      userRole: item.userRole || item.role || 'Unknown Role',
+      action: item.action || item.actionType || item.description || 'Unknown Action',
+      timestamp: item.timestamp || item.createdAt || item.time || new Date().toISOString(),
+      time: item.time || (item.timestamp ? new Date(item.timestamp).toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }) : '00:00'),
+      date: item.date || (item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) : 'N/A'),
+      userId: item.userId || null,
+      userName: item.userName || item.user || 'Unknown User',
+      ipAddress: item.ipAddress || null,
+      userAgent: item.userAgent || null,
+      details: item.details || null,
+      ...item
+    }));
+  },
+
+  validateFilters: (filters) => {
+    const validFilters = {};
+    
+    // Validate userRole filter
+    if (filters.userRole && Array.isArray(filters.userRole) && filters.userRole.length > 0) {
+      validFilters.userRole = filters.userRole.filter(role => role && role.trim());
+    }
+    
+    // Validate date filters
+    if (filters.startDate && filters.startDate.trim()) {
+      validFilters.startDate = filters.startDate.trim();
+    }
+    
+    if (filters.endDate && filters.endDate.trim()) {
+      validFilters.endDate = filters.endDate.trim();
+    }
+    
+    // Single date filter (for timeStamp)
+    if (filters.timeStamp && filters.timeStamp.trim()) {
+      validFilters.date = filters.timeStamp.trim();
+    }
+    
+    // Search term
+    if (filters.search && filters.search.trim()) {
+      validFilters.search = filters.search.trim();
+    }
+    
+    // Action type filter
+    if (filters.actionType && filters.actionType.trim()) {
+      validFilters.actionType = filters.actionType.trim();
+    }
+    
+    return validFilters;
+  },
+
+  parseGetAllResponse: (response) => {
+    let logs = [];
+    let pagination = {
+      total: 0,
+      totalPages: 1,
+      currentPage: 1,
+      pageSize: 10,
+      hasNext: false,
+      hasPrev: false
+    };
+    
+    if (response) {
+      if (Array.isArray(response)) {
+        logs = response;
+        pagination.total = response.length;
+      } else if (response.data) {
+        if (Array.isArray(response.data)) {
+          logs = response.data;
+          pagination.total = response.data.length;
+        } else if (response.data.logs && Array.isArray(response.data.logs)) {
+          logs = response.data.logs;
+          if (response.data.pagination) {
+            pagination = { ...pagination, ...response.data.pagination };
+          }
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          logs = response.data.data;
+          if (response.data.pagination) {
+            pagination = { ...pagination, ...response.data.pagination };
+          }
+        }
+        
+        // Extract pagination from top level
+        if (response.total) pagination.total = response.total;
+        if (response.totalPages) pagination.totalPages = response.totalPages;
+        if (response.currentPage) pagination.currentPage = response.currentPage;
+        if (response.pageSize) pagination.pageSize = response.pageSize;
+      }
+    }
+    
+    return { logs, pagination };
+  },
+
+  exportToCSV: (logs, filename = 'audit-logs.csv') => {
+    try {
+      console.log('📁 [AUDIT LOGS UTILS] Exporting to CSV');
+      
+      if (!Array.isArray(logs) || logs.length === 0) {
+        throw new Error('No data to export');
+      }
+      
+      const headers = ['Log ID', 'User Role', 'Action Type', 'Time Stamp', 'User Name'];
+      const csvContent = [
+        headers.join(','),
+        ...logs.map(log => [
+          log.logId || log.id,
+          `"${log.userRole || 'Unknown'}"`,
+          `"${log.action || 'Unknown'}"`,
+          `"${log.time || '00:00'} ${log.date || 'N/A'}"`,
+          `"${log.userName || 'Unknown'}"`
+        ].join(','))
+      ].join('\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ [AUDIT LOGS UTILS] CSV export successful');
+      return true;
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS UTILS] CSV export failed:', error);
+      throw error;
+    }
+  },
+
+  formatDateForAPI: (dateString) => {
+    if (!dateString) return null;
+    
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS UTILS] Invalid date format:', dateString);
+      return null;
+    }
+  },
+
+  formatDateForDisplay: (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      console.error('❌ [AUDIT LOGS UTILS] Invalid date format:', dateString);
+      return 'Invalid Date';
+    }
+  }
 };
