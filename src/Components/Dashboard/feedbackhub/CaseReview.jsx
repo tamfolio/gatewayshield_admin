@@ -1,3 +1,5 @@
+// PRODUCTION-READY CaseReview Component - All debug code removed
+
 import React, { useState, useEffect } from 'react';
 import { Star, ChevronDown, Search } from 'lucide-react';
 import {
@@ -12,6 +14,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { FiDownloadCloud } from 'react-icons/fi';
 import CaseReviewTable from './CaseReviewTable';
+import { useApiClient, caseReviewFeedbackApi } from '../../../Utils/apiClient';
 
 // Register Chart.js components
 ChartJS.register(
@@ -22,69 +25,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-// Working API Integration
-const caseReviewAPI = {
-  baseURL: 'https://admin-api.thegatewayshield.com/api',
-  
-  getAuthToken: () => {
-    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-  },
-
-  async apiCall(endpoint, params = {}) {
-    const token = this.getAuthToken();
-    const url = new URL(`${this.baseURL}${endpoint}`);
-    
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== '' && params[key] !== null) {
-        url.searchParams.append(key, params[key]);
-      }
-    });
-
-    try {
-      console.log(`🚀 API Call: ${endpoint}`, params);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(`✅ Success for ${endpoint}:`, data);
-      return data;
-    } catch (error) {
-      console.error(`❌ API Error for ${endpoint}:`, error);
-      throw error;
-    }
-  },
-
-  async getDashboardStats(filters = {}) {
-    return this.apiCall('/v1/feedback/caseReview/dashboard-stats', filters);
-  },
-
-  async getStations() {
-    return this.apiCall('/v1/feedback/caseReview/stations');
-  },
-
-  async getCrimeTypes() {
-    return this.apiCall('/v1/feedback/caseReview/crime-types');
-  },
-
-  async getSourceChannels() {
-    return this.apiCall('/v1/feedback/caseReview/source-channel');
-  },
-
-  async getAllFeedbacks(params = {}) {
-    return this.apiCall('/v1/feedback/caseReview/all-feedbacks', params);
-  }
-};
 
 // Utility functions
 const formatDateForAPI = (date) => {
@@ -115,25 +55,82 @@ const getDateRange = (rangeType) => {
   };
 };
 
-// Transform API data for charts
-const transformChartData = (apiData, fallbackData) => {
-  if (apiData && Array.isArray(apiData) && apiData.length > 0) {
-    return apiData.map(item => ({
-      name: item.name || item.station || item.formation || 'Unknown',
-      value: parseFloat(item.value || item.rating || Math.random() * 5)
-    }));
+// Chart data transformation
+const transformChartData = (apiData, chartType = 'generic', fallbackData = []) => {
+  if (!apiData) {
+    return fallbackData;
   }
-  return fallbackData;
+
+  let dataArray = apiData;
+  
+  if (!Array.isArray(apiData)) {
+    if (apiData.data && Array.isArray(apiData.data)) {
+      dataArray = apiData.data;
+    } else {
+      return fallbackData;
+    }
+  }
+
+  if (!Array.isArray(dataArray) || dataArray.length === 0) {
+    return fallbackData;
+  }
+  
+  const transformedData = dataArray.map((item, index) => {
+    let name = item.stationName || item.name || `Item ${index + 1}`;
+    let value = 0;
+    
+    if (chartType === 'bottomStations' && item.unresolvedCount !== undefined) {
+      value = parseFloat(item.unresolvedCount) || 0;
+    } else if (chartType === 'topStations' && item.resolvedCount !== undefined) {
+      value = parseFloat(item.resolvedCount) || 0;
+    } else {
+      const possibleFields = ['resolvedCount', 'unresolvedCount', 'rating', 'avgRating', 'value', 'count'];
+      for (const field of possibleFields) {
+        if (item[field] !== undefined && item[field] !== null) {
+          value = parseFloat(item[field]) || 0;
+          break;
+        }
+      }
+    }
+
+    return { name, value };
+  });
+
+  return transformedData;
 };
 
-// Reusable Card Component
+// Dashboard metrics extraction
+const extractDashboardMetrics = (dashboardStats) => {
+  const defaultMetrics = {
+    averageRating: '0.0',
+    totalRatings: 0,
+    resolvedCases: 0,
+    slaBreached: '0'
+  };
+
+  if (!dashboardStats || !dashboardStats.data) {
+    return defaultMetrics;
+  }
+
+  const data = dashboardStats.data;
+  
+  const metrics = {
+    averageRating: String(parseFloat(data.averageRating || 0).toFixed(1)),
+    totalRatings: Number(data.totalRatings || 0),
+    resolvedCases: Number(data.resolvedCases || 0),
+    slaBreached: String(data.slaBreached || '0')
+  };
+  
+  return metrics;
+};
+
+// Reusable Components
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
     {children}
   </div>
 );
 
-// Reusable Button Component
 const Button = ({ children, variant = "primary", size = "md", className = "", disabled = false, ...props }) => {
   const baseClasses = "font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
@@ -158,7 +155,6 @@ const Button = ({ children, variant = "primary", size = "md", className = "", di
   );
 };
 
-// Star Rating Component
 const StarRating = ({ rating, maxRating = 5, size = "sm" }) => {
   const sizeClasses = {
     sm: "w-4 h-4",
@@ -180,14 +176,12 @@ const StarRating = ({ rating, maxRating = 5, size = "sm" }) => {
   );
 };
 
-// Loading Component
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-8">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
   </div>
 );
 
-// Error Message Component
 const ErrorMessage = ({ message, onRetry }) => (
   <div className="flex flex-col items-center justify-center p-8 text-center">
     <div className="text-red-600 mb-4">Error: {message}</div>
@@ -199,8 +193,25 @@ const ErrorMessage = ({ message, onRetry }) => (
   </div>
 );
 
-// Chart.js Bar Chart Component
-const BarChart = ({ data, color = "#10B981", title, loading = false, error = null, onRetry }) => {
+const EnhancedEmptyState = ({ title, message, suggestion }) => (
+  <div className="p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
+    <div className="h-64 flex flex-col items-center justify-center text-center">
+      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+        <span className="text-2xl">📊</span>
+      </div>
+      <div className="text-gray-500 mb-2">{message}</div>
+      {suggestion && (
+        <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg max-w-sm">
+          💡 {suggestion}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// Chart Component
+const BarChart = ({ data, color = "#10B981", title, loading = false, error = null, onRetry, chartType = 'rating' }) => {
   if (loading) return <LoadingSpinner />;
   
   if (error) {
@@ -213,13 +224,23 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
   }
   
   if (!data || data.length === 0) {
+    let emptyMessage = "No data available for this chart";
+    let suggestion = null;
+    
+    if (title.toLowerCase().includes('top performing')) {
+      emptyMessage = "No top performing stations found";
+      suggestion = "This may indicate similar performance levels across stations, or try adjusting the date range.";
+    } else if (title.toLowerCase().includes('bottom') || title.toLowerCase().includes('unresolved')) {
+      emptyMessage = "No stations with unresolved cases";
+      suggestion = "Great news! This might mean all cases are being resolved efficiently.";
+    }
+    
     return (
-      <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
-        <div className="h-64 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      </div>
+      <EnhancedEmptyState 
+        title={title}
+        message={emptyMessage}
+        suggestion={suggestion}
+      />
     );
   }
 
@@ -237,13 +258,16 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
     }]
   };
 
+  const maxValue = Math.max(...data.map(item => item.value));
+  const isRatingChart = chartType === 'rating' || title.toLowerCase().includes('rating');
+  const yAxisMax = isRatingChart ? 5 : Math.ceil(maxValue * 1.1);
+  const stepSize = isRatingChart ? 1 : Math.max(1, Math.ceil(maxValue / 5));
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false
-      },
+      legend: { display: false },
       tooltip: {
         enabled: true,
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -251,67 +275,55 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
         bodyColor: 'white',
         borderColor: color,
         borderWidth: 1,
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed.y;
+            if (isRatingChart) {
+              return `Rating: ${value.toFixed(1)}/5`;
+            } else {
+              return `Count: ${value}`;
+            }
+          }
+        }
       }
     },
     scales: {
       y: {
         beginAtZero: true,
         min: 0,
-        max: 5,
+        max: yAxisMax,
         ticks: {
-          stepSize: 1,
+          stepSize: stepSize,
           color: '#6B7280',
-          font: {
-            size: 12
-          },
-          callback: function(value) {
-            return value;
+          font: { size: 12 },
+          callback: function(value) { 
+            return Number.isInteger(value) ? value : ''; 
           }
         },
-        grid: {
-          color: '#E5E7EB',
-          drawBorder: false
-        },
+        grid: { color: '#E5E7EB', drawBorder: false },
         title: {
           display: true,
-          text: 'Rating',
+          text: isRatingChart ? 'Rating' : 'Count',
           color: '#374151',
-          font: {
-            size: 14,
-            weight: 'bold'
-          }
+          font: { size: 14, weight: 'bold' }
         }
       },
       x: {
         ticks: {
           color: '#6B7280',
-          font: {
-            size: 12
-          },
+          font: { size: 12 },
           maxRotation: 0,
           padding: 8
         },
-        grid: {
-          display: false
-        }
+        grid: { display: false }
       }
     },
     layout: {
-      padding: {
-        top: 30,
-        bottom: 10,
-        left: 10,
-        right: 10
-      }
+      padding: { top: 30, bottom: 10, left: 10, right: 10 }
     },
     animation: {
       duration: 1000,
       easing: 'easeInOutQuart'
-    },
-    onHover: (event, activeElements) => {
-      if (event.native) {
-        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
-      }
     }
   };
 
@@ -321,7 +333,8 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
       chart.data.datasets.forEach((dataset, i) => {
         const meta = chart.getDatasetMeta(i);
         meta.data.forEach((element, index) => {
-          const dataString = dataset.data[index].toString();
+          const dataValue = dataset.data[index];
+          const displayValue = isRatingChart ? dataValue.toFixed(1) : dataValue.toString();
           const x = element.x;
           const y = element.y - 15;
           
@@ -329,7 +342,7 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
           ctx.font = 'bold 14px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillText(dataString, x, y);
+          ctx.fillText(displayValue, x, y);
         });
       });
     }
@@ -345,7 +358,7 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
   );
 };
 
-// Searchable Filter Dropdown Component
+// Filter Components
 const SearchableFilterDropdown = ({ label, options, value, onChange, loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -419,7 +432,6 @@ const SearchableFilterDropdown = ({ label, options, value, onChange, loading = f
   );
 };
 
-// Filter Dropdown Component
 const FilterDropdown = ({ label, options, value, onChange, loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -456,8 +468,10 @@ const FilterDropdown = ({ label, options, value, onChange, loading = false }) =>
   );
 };
 
-// Main Case Review Component
+// Main Component
 const CaseReview = () => {
+  const apiClient = useApiClient();
+  
   const [filters, setFilters] = useState({
     dateRange: 'Last 7 Days',
     crimeType: 'All',
@@ -482,35 +496,53 @@ const CaseReview = () => {
   });
 
   const [errors, setErrors] = useState({});
-
-  // API call wrapper with error handling
-  const safeApiCall = async (apiFunction, errorKey) => {
-    try {
-      const result = await apiFunction();
-      setErrors(prev => ({ ...prev, [errorKey]: null }));
-      return result;
-    } catch (error) {
-      console.error(`Error in ${errorKey}:`, error);
-      setErrors(prev => ({ ...prev, [errorKey]: error.message }));
-      return null;
+  
+  // API call wrapper
+  const safeApiCall = async (apiFunction, errorKey, retryCount = 3) => {
+    for (let attempt = 1; attempt <= retryCount; attempt++) {
+      try {
+        const result = await apiFunction();
+        setErrors(prev => ({ ...prev, [errorKey]: null }));
+        return result;
+      } catch (error) {
+        if (attempt === retryCount) {
+          const errorMessage = error.response?.status === 401
+            ? 'Authentication failed. Please check your login status.'
+            : error.response?.status === 403
+            ? 'Access denied. You may not have permission to view this data.'
+            : error.message || `Failed to load ${errorKey}. Please try again later.`;
+          
+          setErrors(prev => ({ ...prev, [errorKey]: errorMessage }));
+          return null;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
     }
   };
 
   // Load initial filter data
   useEffect(() => {
-    loadStations();
-    loadCrimeTypes();
-    loadSourceChannels();
-  }, []);
+    if (apiClient) {
+      loadStations();
+      loadCrimeTypes();
+      loadSourceChannels();
+    }
+  }, [apiClient]);
 
   // Load dashboard data when filters change
   useEffect(() => {
-    loadDashboardData();
-  }, [filters]);
+    if (apiClient) {
+      loadDashboardData();
+    }
+  }, [filters, apiClient]);
 
   const loadStations = async () => {
     setLoading(prev => ({ ...prev, stations: true }));
-    const result = await safeApiCall(() => caseReviewAPI.getStations(), 'stations');
+    const result = await safeApiCall(
+      () => caseReviewFeedbackApi.getStations(apiClient), 
+      'stations'
+    );
     if (result?.data) {
       setData(prev => ({ ...prev, stations: result.data }));
     }
@@ -519,7 +551,10 @@ const CaseReview = () => {
 
   const loadCrimeTypes = async () => {
     setLoading(prev => ({ ...prev, crimeTypes: true }));
-    const result = await safeApiCall(() => caseReviewAPI.getCrimeTypes(), 'crimeTypes');
+    const result = await safeApiCall(
+      () => caseReviewFeedbackApi.getCrimeTypes(apiClient), 
+      'crimeTypes'
+    );
     if (result?.data) {
       setData(prev => ({ ...prev, crimeTypes: result.data }));
     }
@@ -528,7 +563,10 @@ const CaseReview = () => {
 
   const loadSourceChannels = async () => {
     setLoading(prev => ({ ...prev, sourceChannels: true }));
-    const result = await safeApiCall(() => caseReviewAPI.getSourceChannels(), 'sourceChannels');
+    const result = await safeApiCall(
+      () => caseReviewFeedbackApi.getSourceChannels(apiClient), 
+      'sourceChannels'
+    );
     if (result?.data) {
       setData(prev => ({ ...prev, sourceChannels: result.data }));
     }
@@ -545,7 +583,10 @@ const CaseReview = () => {
       ...dateRange
     };
 
-    const result = await safeApiCall(() => caseReviewAPI.getDashboardStats(apiFilters), 'dashboard');
+    const result = await safeApiCall(
+      () => caseReviewFeedbackApi.getDashboardStats(apiClient, apiFilters), 
+      'dashboard'
+    );
     if (result) {
       setData(prev => ({ ...prev, dashboardStats: result }));
     }
@@ -575,43 +616,54 @@ const CaseReview = () => {
   };
 
   const handleExportPDF = () => {
-    // Export functionality
-    console.log('Exporting PDF with filters:', filters);
+    // TODO: Implement PDF export functionality
     alert('PDF export functionality - integrate with your export API endpoint');
   };
 
-  // Transform API data to chart format with fallbacks
-  const topPerformingStations = transformChartData(
-    data.dashboardStats?.topPerformingStations,
-    [
-      { name: 'Ikeja', value: 4.5 },
-      { name: 'Ikoyi', value: 4.2 },
-      { name: 'Surulere', value: 4.0 },
-      { name: 'R. Okoro', value: 3.8 }
-    ]
-  );
+  // Chart data extraction
+  const getChartDataFromDashboard = (dataPath, chartType = 'generic') => {
+    if (!data.dashboardStats) {
+      return [];
+    }
+    
+    let dashboardData = data.dashboardStats;
+    if (data.dashboardStats.data) {
+      dashboardData = data.dashboardStats.data;
+    }
+    
+    if (!dashboardData || !dashboardData[dataPath]) {
+      return [];
+    }
+    
+    const chartData = dashboardData[dataPath];
+    const transformed = transformChartData(chartData, chartType, []);
+    return transformed;
+  };
 
-  const bottomPerformingStations = transformChartData(
-    data.dashboardStats?.bottomPerformingStations,
-    [
-      { name: 'Station A', value: 2.1 },
-      { name: 'Station B', value: 2.3 },
-      { name: 'Station C', value: 2.5 },
-      { name: 'Station D', value: 2.7 }
-    ]
-  );
+  // Extract metrics and chart data
+  const dashboardMetrics = extractDashboardMetrics(data.dashboardStats);
+  const topPerformingStations = getChartDataFromDashboard('topStations', 'topStations');
+  const bottomPerformingStations = getChartDataFromDashboard('bottomStations', 'bottomStations');
+  
+  const ratingsByStation = [
+    ...topPerformingStations.map(station => ({ ...station, type: 'top' })),
+    ...bottomPerformingStations.map(station => ({ ...station, type: 'bottom' }))
+  ].slice(0, 10);
 
-  const ratingsByStation = transformChartData(
-    data.dashboardStats?.ratingsByStation,
-    [
-      { name: 'Station3', value: 4.2 },
-      { name: 'Station2', value: 4.5 },
-      { name: 'Station4', value: 3.8 },
-      { name: 'Station6', value: 4.1 },
-      { name: 'Station1', value: 3.9 },
-      { name: 'Station7', value: 4.3 }
-    ]
-  );
+  // Check if API client is available
+  if (!apiClient) {
+    return (
+      <div className="p-6 pt-0">
+        <div className="max-w-7xl mx-auto">
+          <Card className="p-6 text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Loading...</h2>
+            <p className="text-gray-600 mb-4">Initializing API client...</p>
+            <LoadingSpinner />
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 pt-0">
@@ -681,10 +733,15 @@ const CaseReview = () => {
                 <div className="text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
+                  ) : dashboardMetrics.averageRating === '0.0' ? (
+                    <div className="flex flex-col items-center">
+                      <span className="text-gray-400">No Ratings</span>
+                      <span className="text-sm text-gray-500 mt-1">Yet</span>
+                    </div>
                   ) : (
                     <>
-                      {data.dashboardStats?.averageRating || '4.0'}/5
-                      <StarRating rating={Math.floor(data.dashboardStats?.averageRating || 4)} size="md" />
+                      {dashboardMetrics.averageRating}/5
+                      <StarRating rating={Math.floor(parseFloat(dashboardMetrics.averageRating))} size="md" />
                     </>
                   )}
                 </div>
@@ -697,8 +754,13 @@ const CaseReview = () => {
                 <div className="text-2xl font-bold text-gray-900">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
+                  ) : dashboardMetrics.totalRatings === 0 ? (
+                    <div className="flex flex-col items-center">
+                      <span className="text-gray-400">0</span>
+                      <span className="text-sm text-gray-500 mt-1">No ratings yet</span>
+                    </div>
                   ) : (
-                    data.dashboardStats?.totalRatings || '250'
+                    dashboardMetrics.totalRatings.toLocaleString()
                   )}
                 </div>
               </div>
@@ -710,8 +772,13 @@ const CaseReview = () => {
                 <div className="text-2xl font-bold text-gray-900">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
+                  ) : dashboardMetrics.resolvedCases === 0 ? (
+                    <div className="flex flex-col items-center">
+                      <span className="text-gray-400">0</span>
+                      <span className="text-sm text-gray-500 mt-1">None resolved</span>
+                    </div>
                   ) : (
-                    data.dashboardStats?.resolvedCases || '1.3K'
+                    dashboardMetrics.resolvedCases.toLocaleString()
                   )}
                 </div>
               </div>
@@ -724,7 +791,14 @@ const CaseReview = () => {
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
                   ) : (
-                    `${data.dashboardStats?.slaBreached || '8'}%`
+                    <div className="flex flex-col items-center">
+                      <span className={`${dashboardMetrics.slaBreached !== '0' && dashboardMetrics.slaBreached !== '0%' ? 'text-red-600' : 'text-green-600'}`}>
+                        {dashboardMetrics.slaBreached}
+                      </span>
+                      {dashboardMetrics.slaBreached !== '0' && dashboardMetrics.slaBreached !== '0%' && (
+                        <span className="text-xs text-red-500 mt-1">Needs attention</span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -732,157 +806,112 @@ const CaseReview = () => {
           </div>
 
           {/* Performance Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <Card>
-              <BarChart 
-                data={topPerformingStations}
-                color="#10B981"
-                title="Top Performing Stations"
-                loading={loading.dashboard}
-                error={errors.dashboard}
-                onRetry={loadDashboardData}
-              />
-            </Card>
-            
-            <Card>
-              <BarChart 
-                data={bottomPerformingStations}
-                color="#EF4444"
-                title="Bottom Performing Stations"
-                loading={loading.dashboard}
-                error={errors.dashboard}
-                onRetry={loadDashboardData}
-              />
-            </Card>
-          </div>
-
-          {/* Ratings Per Station Chart */}
-          <Card className="mb-0">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Ratings Per Station</h3>
-              {loading.dashboard ? (
-                <LoadingSpinner />
-              ) : errors.dashboard ? (
-                <ErrorMessage message={errors.dashboard} onRetry={loadDashboardData} />
-              ) : (
-                <div className="h-64">
-                  <Bar 
-                    data={{
-                      labels: ratingsByStation.map(item => item.name),
-                      datasets: [{
-                        data: ratingsByStation.map(item => item.value),
-                        backgroundColor: '#3B82F6',
-                        borderColor: '#3B82F6',
-                        borderWidth: 0,
-                        borderRadius: 4,
-                        borderSkipped: false,
-                        barThickness: 30,
-                        maxBarThickness: 40,
-                      }]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false
-                        },
-                        tooltip: {
-                          enabled: true,
-                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                          titleColor: 'white',
-                          bodyColor: 'white',
-                          borderColor: '#3B82F6',
-                          borderWidth: 1,
-                        }
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          min: 0,
-                          max: 5,
-                          ticks: {
-                            stepSize: 1,
-                            color: '#6B7280',
-                            font: {
-                              size: 12
-                            },
-                            callback: function(value) {
-                              return value;
-                            }
-                          },
-                          grid: {
-                            color: '#E5E7EB',
-                            drawBorder: false
-                          },
-                          title: {
-                            display: true,
-                            text: 'Rating',
-                            color: '#374151',
-                            font: {
-                              size: 14,
-                              weight: 'bold'
-                            }
-                          }
-                        },
-                        x: {
-                          ticks: {
-                            color: '#6B7280',
-                            font: {
-                              size: 10
-                            },
-                            maxRotation: 45,
-                            padding: 8
-                          },
-                          grid: {
-                            display: false
-                          }
-                        }
-                      },
-                      layout: {
-                        padding: {
-                          top: 30,
-                          bottom: 10,
-                          left: 10,
-                          right: 10
-                        }
-                      },
-                      animation: {
-                        duration: 1000,
-                        easing: 'easeInOutQuart'
-                      }
-                    }}
-                    plugins={[{
-                      afterDatasetsDraw: function(chart) {
-                        const ctx = chart.ctx;
-                        chart.data.datasets.forEach((dataset, i) => {
-                          const meta = chart.getDatasetMeta(i);
-                          meta.data.forEach((element, index) => {
-                            const dataString = dataset.data[index].toFixed(1);
-                            const x = element.x;
-                            const y = element.y - 15;
-                            
-                            ctx.fillStyle = '#374151';
-                            ctx.font = 'bold 12px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'bottom';
-                            ctx.fillText(dataString, x, y);
-                          });
-                        });
-                      }
-                    }]}
+          {topPerformingStations.length === 0 ? (
+            // Show alternative layout when no top stations data
+            <>
+              <div className="mb-8">
+                <Card>
+                  <BarChart 
+                    data={bottomPerformingStations}
+                    color="#EF4444"
+                    title="Stations with Unresolved Cases"
+                    loading={loading.dashboard}
+                    error={errors.dashboard}
+                    onRetry={loadDashboardData}
+                    chartType="count"
                   />
+                </Card>
+              </div>
+              
+              {bottomPerformingStations.length > 0 && (
+                <div className="mb-8">
+                  <Card className="p-6">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">📊</span>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        Current Data Summary
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        The system shows {bottomPerformingStations.length} stations with unresolved cases, 
+                        but no stations with resolved cases in the current timeframe.
+                      </p>
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          💡 <strong>Suggestions:</strong> Try expanding the date range or adjusting filters to see resolved cases and ratings data.
+                        </p>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        <div className="bg-red-50 p-3 rounded">
+                          <div className="font-medium text-red-800">Unresolved Cases</div>
+                          <div className="text-2xl font-bold text-red-600">
+                            {bottomPerformingStations.reduce((sum, station) => sum + station.value, 0)}
+                          </div>
+                        </div>
+                        <div className="bg-yellow-50 p-3 rounded">
+                          <div className="font-medium text-yellow-800">SLA Breach Rate</div>
+                          <div className="text-2xl font-bold text-yellow-600">
+                            {dashboardMetrics.slaBreached}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               )}
+            </>
+          ) : (
+            // Original two-column layout when both charts have data
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <Card>
+                <BarChart 
+                  data={topPerformingStations}
+                  color="#10B981"
+                  title="Top Performing Stations"
+                  loading={loading.dashboard}
+                  error={errors.dashboard}
+                  onRetry={loadDashboardData}
+                  chartType="count"
+                />
+              </Card>
+              
+              <Card>
+                <BarChart 
+                  data={bottomPerformingStations}
+                  color="#EF4444"
+                  title="Stations with Most Unresolved Cases"
+                  loading={loading.dashboard}
+                  error={errors.dashboard}
+                  onRetry={loadDashboardData}
+                  chartType="count"
+                />
+              </Card>
             </div>
-          </Card>
+          )}
+
+          {/* Combined Ratings Chart - Only show if there's data */}
+          {ratingsByStation.length > 0 && (
+            <Card className="mb-0">
+              <BarChart 
+                data={ratingsByStation}
+                color="#3B82F6"
+                title="Station Performance Overview"
+                loading={loading.dashboard}
+                error={errors.dashboard}
+                onRetry={loadDashboardData}
+                chartType="count"
+              />
+            </Card>
+          )}
         </Card>
 
         {/* Feedback Table Component */}
         <CaseReviewTable 
           filters={filters}
           onFilterChange={setFilters}
-          caseReviewAPI={caseReviewAPI}
+          apiClient={apiClient}
+          caseReviewFeedbackApi={caseReviewFeedbackApi}
           loading={loading}
           errors={errors}
         />
