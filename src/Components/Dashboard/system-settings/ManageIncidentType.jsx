@@ -16,7 +16,7 @@ const ManageIncidentType = () => {
   
   const [incidents, setIncidents] = useState([]);
 
-  // Load incidents on component mount
+  // Load incidents
   useEffect(() => {
     let isMounted = true;
     
@@ -32,8 +32,8 @@ const ManageIncidentType = () => {
         if (response?.data) {
           const formattedIncidents = response.data.map((item, index) => ({
             id: item.id || index + 1,
-            name: item.incidentName || item.name || '',
-            resolution: item.resolutionSla ? `${item.resolutionSla}hrs` : '4hrs'
+            name: item.incidentType?.name || item.name || `Incident Type ${index + 1}`,
+            resolution: `${item.time || '4'}hrs`
           }));
           setIncidents(formattedIncidents);
         }
@@ -54,7 +54,7 @@ const ManageIncidentType = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [apiClient]);
 
   // Add Incident Modal
   const AddIncidentModal = ({ isOpen, onClose }) => {
@@ -67,20 +67,21 @@ const ManageIncidentType = () => {
       if (incidentName.trim()) {
         try {
           setSaving(true);
+          setError(null);
           
+          // Use CORRECT API format: {name: "text", time: "4"}
           const response = await slaApi.createIncident(apiClient, {
             name: incidentName.trim(),
-            resolutionSla: resolutionSLA
+            time: resolutionSLA
           });
 
-          if (response?.data) {
-            const newIncident = {
-              id: response.data.id || incidents.length + 1,
-              name: incidentName.trim(),
-              resolution: `${resolutionSLA}hrs`
-            };
-            setIncidents(prev => [...prev, newIncident]);
-          }
+          // SUCCESS: Add to local state
+          const newIncident = {
+            id: response?.data?.id || Date.now(),
+            name: incidentName.trim(),
+            resolution: `${resolutionSLA}hrs`
+          };
+          setIncidents(prev => [...prev, newIncident]);
 
           setIncidentName('');
           setResolutionSLA('4');
@@ -88,7 +89,7 @@ const ManageIncidentType = () => {
           setShowSuccessModal(true);
         } catch (err) {
           console.error('Error creating incident:', err);
-          setError('Failed to create incident. Please try again.');
+          setError(`Failed to create incident: ${err.response?.data?.message || err.message}`);
         } finally {
           setSaving(false);
         }
@@ -99,7 +100,7 @@ const ManageIncidentType = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Add New Incident</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Add New Incident Type</h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
@@ -109,16 +110,22 @@ const ManageIncidentType = () => {
             </button>
           </div>
           
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Incident Name
+                Incident Type Name
               </label>
               <input
                 type="text"
                 value={incidentName}
                 onChange={(e) => setIncidentName(e.target.value)}
-                placeholder="Enter incident name"
+                placeholder="Enter incident type name"
                 disabled={saving}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               />
@@ -158,7 +165,7 @@ const ManageIncidentType = () => {
               disabled={saving || !incidentName.trim()}
               className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Creating...' : 'Create'}
             </button>
           </div>
         </div>
@@ -179,22 +186,14 @@ const ManageIncidentType = () => {
             </div>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-6">
-            Incident Created successfully
+            Incident Type Created Successfully!
           </h3>
-          <div className="space-y-3">
-            <button
-              onClick={onClose}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-            >
-              Stay on Page
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full py-2 px-4 text-gray-600 hover:text-gray-800"
-            >
-              Redirect to Dashboard
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+          >
+            Continue
+          </button>
         </div>
       </div>
     );
@@ -204,7 +203,6 @@ const ManageIncidentType = () => {
     incident.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Sort incidents
   const sortedIncidents = [...filteredIncidents].sort((a, b) => {
     if (sortBy === 'name') {
       return a.name.localeCompare(b.name);
@@ -225,12 +223,12 @@ const ManageIncidentType = () => {
     return <DataTableSkeleton />;
   }
 
-  if (error) {
+  if (error && !incidents.length) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="text-center text-red-600">
           <p className="text-lg font-medium mb-2">Error Loading Data</p>
-          <p>{error}</p>
+          <p className="text-sm mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -246,14 +244,13 @@ const ManageIncidentType = () => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Manage Incident Type</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Manage Incident Types</h2>
         <div className="flex items-center space-x-4">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Search incident types"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -261,7 +258,6 @@ const ManageIncidentType = () => {
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">⌘K</span>
           </div>
           
-          {/* Sort By */}
           <div className="relative">
             <select
               value={sortBy}
@@ -274,13 +270,12 @@ const ManageIncidentType = () => {
             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
           
-          {/* Add Button */}
           <button 
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Incident
+            Add Incident Type
           </button>
         </div>
       </div>
@@ -291,20 +286,10 @@ const ManageIncidentType = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <div className="flex items-center">
-                  Incident
-                  <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
-                </div>
+                Incident Type
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <div className="flex items-center justify-end">
-                  Resolution SLA
-                  <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
-                </div>
+                Resolution SLA
               </th>
             </tr>
           </thead>
@@ -323,7 +308,7 @@ const ManageIncidentType = () => {
             ) : (
               <tr>
                 <td colSpan="2" className="px-6 py-8 text-center text-gray-500">
-                  {searchTerm ? 'No incidents found matching your search.' : 'No incidents available.'}
+                  {searchTerm ? 'No incident types found matching your search.' : 'No incident types available.'}
                 </td>
               </tr>
             )}

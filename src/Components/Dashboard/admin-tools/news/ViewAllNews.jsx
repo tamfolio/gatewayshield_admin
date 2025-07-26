@@ -4,6 +4,7 @@ import { useApiClient, newsApi } from '../../../../Utils/apiClient';
 import useAccessToken from '../../../../Utils/useAccessToken';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
 import DeletedSuccessModal from './components/DeletedSuccessModal';
+import NewsDetails from './components/NewsDetails';
 
 const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [newsData, setNewsData] = useState([]);
@@ -825,147 +826,13 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
       )}
     </div>
 
-      {/* News Details Overlay */}
-      {newsDetailsOverlay.isOpen && (
-        <div className="fixed inset-0 bg-gray-200 bg-opacity-75 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto">
-            {/* Overlay Header */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <h2 className="text-xl font-semibold text-gray-900">News Details</h2>
-              <button
-                onClick={closeNewsDetailsOverlay}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Overlay Content */}
-            <div className="p-6">
-              {newsDetailsOverlay.loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading news details...</p>
-                </div>
-              ) : newsDetailsOverlay.newsData ? (
-                <div className="space-y-6">
-                  {/* News Image */}
-                  {(newsDetailsOverlay.newsData.coverImage || newsDetailsOverlay.newsData.coverImageUrl || newsDetailsOverlay.newsData.thumbnail) && (
-                    <div className="w-full h-64 rounded-lg overflow-hidden bg-gray-100">
-                      <img
-                        src={newsDetailsOverlay.newsData.coverImage || newsDetailsOverlay.newsData.coverImageUrl || newsDetailsOverlay.newsData.thumbnail}
-                        alt={newsDetailsOverlay.newsData.title || 'News image'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.parentElement.innerHTML = `
-                            <div class="w-full h-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center">
-                              <span class="text-white text-4xl font-bold">
-                                ${(newsDetailsOverlay.newsData.title || 'N').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          `;
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* News Title */}
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                      {newsDetailsOverlay.newsData.title || 'Untitled'}
-                    </h1>
-                    
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-3 mb-4">
-                      {getStatusBadge(newsDetailsOverlay.newsData)}
-                      <span className="text-sm text-gray-500">
-                        Published: {formatDate(newsDetailsOverlay.newsData.datePublished)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* News Subtitle */}
-                  {(newsDetailsOverlay.newsData.subtitle || newsDetailsOverlay.newsData.subHeading) && (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h2 className="text-xl font-medium text-gray-800 leading-relaxed">
-                        {newsDetailsOverlay.newsData.subtitle || newsDetailsOverlay.newsData.subHeading}
-                      </h2>
-                    </div>
-                  )}
-
-                  {/* News Body */}
-                  {newsDetailsOverlay.newsData.body && (
-                    <div className="prose prose-lg max-w-none">
-                      <div 
-                        className="text-gray-700 leading-relaxed whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ 
-                          __html: newsDetailsOverlay.newsData.body.replace(/\n/g, '<br />') 
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {(newsDetailsOverlay.newsData.tags || newsDetailsOverlay.newsData.categories) && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-3">Tags</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {(newsDetailsOverlay.newsData.tags || newsDetailsOverlay.newsData.categories || []).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full"
-                          >
-                            {typeof tag === 'string' ? tag : tag.name || tag.title || 'Tag'}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Additional Details */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">Article Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Author ID:</span>
-                        <p className="text-sm text-gray-900">
-                          {newsDetailsOverlay.newsData.createdById ? 
-                            `User ${newsDetailsOverlay.newsData.createdById.slice(-8)}` : 
-                            'Unknown Author'
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Date Created:</span>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(newsDetailsOverlay.newsData.createdAt || newsDetailsOverlay.newsData.dateCreated)}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Last Updated:</span>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(newsDetailsOverlay.newsData.updatedAt || newsDetailsOverlay.newsData.dateUpdated)}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">Article ID:</span>
-                        <p className="text-sm text-gray-900 font-mono">
-                          {newsDetailsOverlay.newsData.id}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <p className="text-lg font-medium mb-2">Failed to load news details</p>
-                  <p className="text-sm">Please try again later</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* News Details Component */}
+      <NewsDetails
+        isOpen={newsDetailsOverlay.isOpen}
+        newsData={newsDetailsOverlay.newsData}
+        loading={newsDetailsOverlay.loading}
+        onClose={closeNewsDetailsOverlay}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

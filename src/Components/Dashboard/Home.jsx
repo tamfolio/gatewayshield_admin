@@ -25,6 +25,7 @@ const Home = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedTab, setSelectedTab] = useState("General");
   const [dashboardData, setDashboardData] = useState([]);
+  const [dashboardData2, setDashboardData2] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = useAccessToken();
 
@@ -42,12 +43,24 @@ const Home = () => {
       }
     };
 
+    const fetchDashboardData2 = async () => {
+      try {
+        const res = await userRequest(token).get(`/feedback/generalFeedback/dashboard-stats`);
+        setDashboardData2(res.data.data);
+      } catch (error) {
+        console.error("❌ Failed to fetch Dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (token) {
       fetchDashboardData();
+      fetchDashboardData2()
     }
   }, [token]);
 
-  console.log("dashboardData", dashboardData);
+  console.log("dashboardData", dashboardData2);
 
   // Sample data for charts
   const resolutionTimeData = [
@@ -110,6 +123,21 @@ const Home = () => {
       color: colorPalette[index % colorPalette.length],
     })
   );
+
+  // Updated station data using dashboardData2
+  const bottomStationsData = (dashboardData2?.bottomStations || []).map(station => ({
+    name: station.stationName?.replace(' DIVISION', '') || 'Unknown Station',
+    rating: Number(station.avgRating) || 0,
+    totalFeedbacks: station.totalFeedbacks,
+    stationId: station.stationId
+  }));
+
+  const topStationsData = (dashboardData2?.topStations || []).map(station => ({
+    name: station.stationName?.replace(' DIVISION', '') || 'Unknown Station',
+    rating: Number(station.avgRating) || 0,
+    totalFeedbacks: station.totalFeedbacks,
+    stationId: station.stationId
+  }));
 
   const timeframes = ["12 months", "3 months", "30 days", "7 days", "24 hours"];
 
@@ -184,22 +212,6 @@ const Home = () => {
     </div>
   );
 
-  const bottomStationsData = [
-    { name: "Ikeja", rating: 2.5 },
-    { name: "Ikoyi", rating: 2.5 },
-    { name: "Surulere", rating: 2.0 },
-    { name: "R. Okoro", rating: 2.5 },
-    { name: "R. Okoro", rating: 2.0 },
-  ];
-
-  const topStationsData = [
-    { name: "Ikeja", rating: 2.5 },
-    { name: "Ikoyi", rating: 2.5 },
-    { name: "Surulere", rating: 2.0 },
-    { name: "R. Okoro", rating: 2.5 },
-    { name: "R. Okoro", rating: 2.0 },
-  ];
-
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const { name, value, color } = payload[0];
@@ -208,6 +220,25 @@ const Home = () => {
           style={{ background: "#fff", padding: 10, border: "1px solid #ccc" }}
         >
           <strong style={{ color }}>{name}:</strong> {value}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom tooltip for station bar charts
+  const StationTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded shadow-lg">
+          <p className="font-medium text-gray-900">{label}</p>
+          <p className="text-sm text-gray-600">
+            Rating: <span className="font-medium">{data.rating}</span>
+          </p>
+          <p className="text-sm text-gray-600">
+            Feedbacks: <span className="font-medium">{data.totalFeedbacks}</span>
+          </p>
         </div>
       );
     }
@@ -386,11 +417,7 @@ const Home = () => {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-
-                    {/* ✅ Add Tooltip here */}
-                    <Tooltip
-                      content={<CustomTooltip />} // Or just remove this line to use default
-                    />
+                    <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -435,7 +462,12 @@ const Home = () => {
             </div>
 
             <div className="text-center mb-6">
-              <div className="text-4xl font-bold text-gray-900">4.5 star</div>
+              <div className="text-4xl font-bold text-gray-900">
+                {dashboardData2?.averageStationRating ? 
+                  `${dashboardData2.averageStationRating.toFixed(1)} star` : 
+                  '4.5 star'
+                }
+              </div>
             </div>
 
             <div className="h-32">
@@ -516,38 +548,45 @@ const Home = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-6">
               Bottom Performing Stations
             </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={bottomStationsData}
-                  layout="horizontal"
-                  margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 5]}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#666" }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#666" }}
-                    width={60}
-                  />
-                  <Bar
-                    dataKey="rating"
-                    fill="#EF4444"
-                    radius={[0, 4, 4, 0]}
-                    barSize={30}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {bottomStationsData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={bottomStationsData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#666" }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      domain={[0, 5]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: "#666" }}
+                      ticks={[1, 2, 3, 4, 5]}
+                    />
+                    <Tooltip content={<StationTooltip />} />
+                    <Bar
+                      dataKey="rating"
+                      fill="#EF4444"
+                      radius={[4, 4, 0, 0]}
+                      barSize={60}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No station data available
+              </div>
+            )}
           </div>
 
           {/* Top Performing Stations */}
@@ -555,38 +594,45 @@ const Home = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-6">
               Top Performing Stations
             </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={topStationsData}
-                  layout="horizontal"
-                  margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 5]}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#666" }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#666" }}
-                    width={60}
-                  />
-                  <Bar
-                    dataKey="rating"
-                    fill="#10B981"
-                    radius={[0, 4, 4, 0]}
-                    barSize={30}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {topStationsData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={topStationsData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "#666" }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      domain={[0, 5]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: "#666" }}
+                      ticks={[1, 2, 3, 4, 5]}
+                    />
+                    <Tooltip content={<StationTooltip />} />
+                    <Bar
+                      dataKey="rating"
+                      fill="#10B981"
+                      radius={[4, 4, 0, 0]}
+                      barSize={60}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No station data available
+              </div>
+            )}
           </div>
         </div>
       </div>

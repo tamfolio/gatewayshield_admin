@@ -33,19 +33,23 @@ const SLASettings = () => {
 
         if (!isMounted) return;
 
-        // Process ticket SLA data
+        // Process ticket SLA data based on actual API structure
         if (ticketSlaResponse?.data) {
           setTicketStatuses(ticketSlaResponse.data.map((item, index) => ({
             id: item.id || index + 1,
-            initial: item.initialStatus || '',
-            updated: item.updatedStatus || '',
-            stage: item.stageSla ? `${item.stageSla} hrs` : '2 hrs'
+            initial: item.initialStatus?.name || item.initialStatus?.description || '',
+            updated: item.finalStatus?.name || item.finalStatus?.description || '',
+            stage: `${item.time || '2'} hrs`
           })));
         }
 
-        // Process incident SLA data
+        // Process incident SLA data based on actual API structure
         if (incidentSlaResponse?.data) {
-          setIncidentSlas(incidentSlaResponse.data);
+          setIncidentSlas(incidentSlaResponse.data.map((item, index) => ({
+            id: item.id || index + 1,
+            category: item.initialStatus?.description || item.name || 'Unknown',
+            sla: item.time || '2'
+          })));
         }
 
       } catch (err) {
@@ -65,7 +69,7 @@ const SLASettings = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [apiClient]);
 
   // Success Modal for SLA Settings
   const SuccessModal = ({ isOpen, onClose, title = "SLA Settings Updated successfully" }) => {
@@ -124,24 +128,33 @@ const SLASettings = () => {
       setSaving(true);
       setError(null);
 
-      // Format data for API
+      // Format data for API based on expected structure
       const ticketSlaData = ticketStatuses.map(status => ({
         id: status.id,
-        initialStatus: status.initial,
-        updatedStatus: status.updated,
-        stageSla: parseInt(status.stage.replace(' hrs', ''))
+        time: parseInt(status.stage.replace(' hrs', '')),
+        initialStatus: {
+          name: status.initial.toLowerCase().replace(/\s+/g, ''),
+          description: status.initial
+        },
+        finalStatus: {
+          name: status.updated.toLowerCase().replace(/\s+/g, ''),
+          description: status.updated
+        }
       }));
 
       const incidentSlaData = incidentSlas.map(incident => ({
         id: incident.id,
-        category: incident.category,
-        sla: parseInt(incident.sla)
+        time: parseInt(incident.sla),
+        initialStatus: {
+          name: incident.category.toLowerCase().replace(/\s+/g, ''),
+          description: incident.category
+        }
       }));
 
       // Save to API
       await Promise.all([
-        slaApi.updateTicketSlas(apiClient, { ticketSlas: ticketSlaData }),
-        slaApi.updateIncidentSlas(apiClient, { incidentSlas: incidentSlaData })
+        slaApi.updateTicketSlas(apiClient, { data: ticketSlaData }),
+        slaApi.updateIncidentSlas(apiClient, { data: incidentSlaData })
       ]);
 
       setShowSuccessModal(true);
@@ -208,6 +221,7 @@ const SLASettings = () => {
                     onChange={(e) => handleTicketStatusChange(status.id, 'initial', e.target.value)}
                     className="w-full appearance-none bg-white border border-gray-300 rounded-md px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
+                    <option value="New">New</option>
                     <option value="General">General</option>
                     <option value="Treated">Treated</option>
                     <option value="SOS">SOS</option>
