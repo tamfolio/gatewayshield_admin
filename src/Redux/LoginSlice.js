@@ -3,6 +3,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   currentUser: {},
+  adminRoles: [], // Add this
   isFetching: false,
   error: false,
   success: false,
@@ -44,6 +45,10 @@ const loginSlice = createSlice({
       state.success = true;
       state.error = false;
     },
+    // Add these new actions
+    setAdminRoles: (state, action) => {
+      state.adminRoles = action.payload;
+    },
     resetSuccess: (state) => {
       state.success = false;
     },
@@ -54,6 +59,7 @@ const loginSlice = createSlice({
     },
     LogOut: (state) => {
       state.currentUser = {};
+      state.adminRoles = []; // Clear admin roles on logout
       state.error = false;
       state.success = false;
       state.otpSuccess = false;
@@ -62,5 +68,13 @@ const loginSlice = createSlice({
   },
 });
 
-export const { loginStart, loginSuccess, LoginFailure,LogOut,resetSuccess } = loginSlice.actions;
+export const { 
+  loginStart, 
+  loginSuccess, 
+  LoginFailure, 
+  LogOut, 
+  resetSuccess,
+  setAdminRoles // Export the new action
+} = loginSlice.actions;
+
 export default loginSlice.reducer;
