@@ -1,89 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, X, Edit2, Trash2, ChevronDown, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Search, X, Edit2, Trash2, ChevronDown, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
 import { useApiClient, broadcastApi } from '../../../../Utils/apiClient';
+import DeleteConfirmationModal from './components/DeleteConfirmationModal';
+import DeletedSuccessModal from './components/DeletedSuccessModal';
+import BroadcastDetails from './components/BroadcastDetails';
 
-// Delete Confirmation Modal Component
-const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, isLoading = false, broadcastTitle }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Delete Broadcast</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Are you sure you want to delete "{broadcastTitle}"? This action cannot be undone.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            No I don't
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="flex-1 py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-          >
-            {isLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            ) : (
-              'Yes I do'
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Delete Success Modal Component
-const DeletedSuccessModal = ({ isOpen, onClose, message = "Broadcast deleted successfully" }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 relative">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
-        {/* Content */}
-        <div className="text-center">
-          {/* Success Icon */}
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-16 h-16 text-green-500" />
-          </div>
-
-          {/* Title */}
-          <h2 className="text-xl font-semibold text-gray-900 mb-8">
-            {message}
-          </h2>
-
-          {/* OK Button */}
-          <button
-            onClick={onClose}
-            className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
   // State management
@@ -104,6 +25,10 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [deletingBroadcast, setDeletingBroadcast] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Broadcast Details Modal states
+  const [selectedBroadcast, setSelectedBroadcast] = useState(null);
+  const [showBroadcastDetails, setShowBroadcastDetails] = useState(false);
   
   // Dropdown states
   const [alertTypeDropdown, setAlertTypeDropdown] = useState(false);
@@ -287,6 +212,18 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
     
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
+
+  // Handle view details click
+  const handleViewDetails = (broadcast) => {
+    setSelectedBroadcast(broadcast);
+    setShowBroadcastDetails(true);
+  };
+
+  // Handle close details modal
+  const handleCloseDetails = () => {
+    setShowBroadcastDetails(false);
+    setSelectedBroadcast(null);
+  };
 
   // Handle delete click - show confirmation modal
   const handleDeleteClick = (broadcast) => {
@@ -704,6 +641,13 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button 
+                          onClick={() => handleViewDetails(broadcast)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
+                          title="View broadcast details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
                           onClick={() => handleEdit(broadcast)}
                           className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
                           title="Edit broadcast"
@@ -758,7 +702,6 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
-        broadcastTitle={deletingBroadcast?.title || 'this broadcast'}
       />
 
       {/* Delete Success Modal */}
@@ -766,6 +709,13 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
         isOpen={showDeleteSuccess}
         onClose={handleCloseSuccessModal}
         message="Broadcast deleted successfully"
+      />
+
+      {/* Broadcast Details Modal */}
+      <BroadcastDetails
+        broadcast={selectedBroadcast}
+        isOpen={showBroadcastDetails}
+        onClose={handleCloseDetails}
       />
     </>
   );
