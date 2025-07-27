@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, ChevronDown, Check, X } from 'lucide-react';
+import { Search, Plus, ChevronDown, X } from 'lucide-react';
 import { useApiClient, slaApi } from '../../../Utils/apiClient';
-import { DataTableSkeleton } from './LoadingSkeleton';
+import { DataTableSkeleton } from './components/LoadingSkeleton';
+import SuccessModal from './components/SuccessModal';
 
 const ManageIncidentType = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,13 +98,13 @@ const ManageIncidentType = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+      <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-2xl border border-gray-200 p-6 max-w-sm w-full mx-4 pointer-events-auto">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Add New Incident Type</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
               disabled={saving}
             >
               <X className="w-5 h-5" />
@@ -156,44 +157,18 @@ const ManageIncidentType = () => {
             <button
               onClick={onClose}
               disabled={saving}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
+              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50 transition-colors duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !incidentName.trim()}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
+              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 transition-colors duration-200"
             >
               {saving ? 'Creating...' : 'Create'}
             </button>
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Success Modal
-  const SuccessModal = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <Check className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-6">
-            Incident Type Created Successfully!
-          </h3>
-          <button
-            onClick={onClose}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-          >
-            Continue
-          </button>
         </div>
       </div>
     );
@@ -231,7 +206,7 @@ const ManageIncidentType = () => {
           <p className="text-sm mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
           >
             Retry
           </button>
@@ -272,7 +247,7 @@ const ManageIncidentType = () => {
           
           <button 
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Incident Type
@@ -322,7 +297,7 @@ const ManageIncidentType = () => {
           <button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
             ← Previous
           </button>
@@ -332,7 +307,7 @@ const ManageIncidentType = () => {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                   page === currentPage
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
@@ -346,7 +321,7 @@ const ManageIncidentType = () => {
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
             Next →
           </button>
@@ -361,7 +336,10 @@ const ManageIncidentType = () => {
       
       <SuccessModal 
         isOpen={showSuccessModal} 
-        onClose={() => setShowSuccessModal(false)} 
+        onClose={() => setShowSuccessModal(false)}
+        title="Incident Type Created Successfully!"
+        showRedirectOption={false}
+        stayButtonText="Continue"
       />
     </div>
   );

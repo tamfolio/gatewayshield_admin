@@ -1,5 +1,3 @@
-// PRODUCTION-READY CaseReview Component - All debug code removed
-
 import React, { useState, useEffect } from 'react';
 import { Star, ChevronDown, Search } from 'lucide-react';
 import {
@@ -76,13 +74,15 @@ const transformChartData = (apiData, chartType = 'generic', fallbackData = []) =
   }
   
   const transformedData = dataArray.map((item, index) => {
-    let name = item.stationName || item.name || `Item ${index + 1}`;
+    let name = item.stationName || item.name || `Station ${index + 1}`;
     let value = 0;
     
     if (chartType === 'bottomStations' && item.unresolvedCount !== undefined) {
       value = parseFloat(item.unresolvedCount) || 0;
     } else if (chartType === 'topStations' && item.resolvedCount !== undefined) {
       value = parseFloat(item.resolvedCount) || 0;
+    } else if (chartType === 'ratings' && item.avgRating !== undefined) {
+      value = parseFloat(item.avgRating) || 0;
     } else {
       const possibleFields = ['resolvedCount', 'unresolvedCount', 'rating', 'avgRating', 'value', 'count'];
       for (const field of possibleFields) {
@@ -105,7 +105,7 @@ const extractDashboardMetrics = (dashboardStats) => {
     averageRating: '0.0',
     totalRatings: 0,
     resolvedCases: 0,
-    slaBreached: '0'
+    slaBreached: '0%'
   };
 
   if (!dashboardStats || !dashboardStats.data) {
@@ -118,7 +118,7 @@ const extractDashboardMetrics = (dashboardStats) => {
     averageRating: String(parseFloat(data.averageRating || 0).toFixed(1)),
     totalRatings: Number(data.totalRatings || 0),
     resolvedCases: Number(data.resolvedCases || 0),
-    slaBreached: String(data.slaBreached || '0')
+    slaBreached: data.slaBreached ? String(data.slaBreached).includes('%') ? data.slaBreached : `${data.slaBreached}%` : '0%'
   };
   
   return metrics;
@@ -193,25 +193,8 @@ const ErrorMessage = ({ message, onRetry }) => (
   </div>
 );
 
-const EnhancedEmptyState = ({ title, message, suggestion }) => (
-  <div className="p-6">
-    <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
-    <div className="h-64 flex flex-col items-center justify-center text-center">
-      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-        <span className="text-2xl">📊</span>
-      </div>
-      <div className="text-gray-500 mb-2">{message}</div>
-      {suggestion && (
-        <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg max-w-sm">
-          💡 {suggestion}
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-// Chart Component
-const BarChart = ({ data, color = "#10B981", title, loading = false, error = null, onRetry, chartType = 'rating' }) => {
+// Enhanced Chart Component 
+const DashboardBarChart = ({ data, color = "#10B981", title, loading = false, error = null, onRetry, chartType = 'count' }) => {
   if (loading) return <LoadingSpinner />;
   
   if (error) {
@@ -224,43 +207,39 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
   }
   
   if (!data || data.length === 0) {
-    let emptyMessage = "No data available for this chart";
-    let suggestion = null;
-    
-    if (title.toLowerCase().includes('top performing')) {
-      emptyMessage = "No top performing stations found";
-      suggestion = "This may indicate similar performance levels across stations, or try adjusting the date range.";
-    } else if (title.toLowerCase().includes('bottom') || title.toLowerCase().includes('unresolved')) {
-      emptyMessage = "No stations with unresolved cases";
-      suggestion = "Great news! This might mean all cases are being resolved efficiently.";
-    }
-    
     return (
-      <EnhancedEmptyState 
-        title={title}
-        message={emptyMessage}
-        suggestion={suggestion}
-      />
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
+        <div className="h-64 flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <span className="text-2xl">📊</span>
+          </div>
+          <div className="text-gray-500 mb-2">No data available</div>
+        </div>
+      </div>
     );
   }
 
   const chartData = {
-    labels: data.map(item => item.name),
+    labels: data.map(item => {
+      const cleanName = item.name.replace(/Police Station|Station/gi, '').trim();
+      return cleanName.length > 8 ? cleanName.substring(0, 8) + '...' : cleanName;
+    }),
     datasets: [{
       data: data.map(item => item.value),
       backgroundColor: color,
       borderColor: color,
       borderWidth: 0,
-      borderRadius: 4,
+      borderRadius: 6,
       borderSkipped: false,
-      barThickness: 40,
-      maxBarThickness: 50,
+      barThickness: 45,
+      maxBarThickness: 55,
     }]
   };
 
   const maxValue = Math.max(...data.map(item => item.value));
   const isRatingChart = chartType === 'rating' || title.toLowerCase().includes('rating');
-  const yAxisMax = isRatingChart ? 5 : Math.ceil(maxValue * 1.1);
+  const yAxisMax = isRatingChart ? 5 : Math.ceil(maxValue * 1.2);
   const stepSize = isRatingChart ? 1 : Math.max(1, Math.ceil(maxValue / 5));
 
   const options = {
@@ -300,29 +279,35 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
             return Number.isInteger(value) ? value : ''; 
           }
         },
-        grid: { color: '#E5E7EB', drawBorder: false },
-        title: {
-          display: true,
-          text: isRatingChart ? 'Rating' : 'Count',
-          color: '#374151',
-          font: { size: 14, weight: 'bold' }
-        }
+        grid: { 
+          color: '#E5E7EB', 
+          drawBorder: false,
+          lineWidth: 1
+        },
       },
       x: {
         ticks: {
           color: '#6B7280',
-          font: { size: 12 },
+          font: { size: 11 },
           maxRotation: 0,
-          padding: 8
+          padding: 8,
+          callback: function(value, index) {
+            const label = this.getLabelForValue(value);
+            // Truncate long station names
+            if (label.length > 12) {
+              return label.substring(0, 10) + '...';
+            }
+            return label;
+          }
         },
         grid: { display: false }
       }
     },
     layout: {
-      padding: { top: 30, bottom: 10, left: 10, right: 10 }
+      padding: { top: 35, bottom: 15, left: 15, right: 15 }
     },
     animation: {
-      duration: 1000,
+      duration: 800,
       easing: 'easeInOutQuart'
     }
   };
@@ -336,10 +321,10 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
           const dataValue = dataset.data[index];
           const displayValue = isRatingChart ? dataValue.toFixed(1) : dataValue.toString();
           const x = element.x;
-          const y = element.y - 15;
+          const y = element.y - 10;
           
           ctx.fillStyle = '#374151';
-          ctx.font = 'bold 14px Arial';
+          ctx.font = 'bold 12px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
           ctx.fillText(displayValue, x, y);
@@ -351,7 +336,7 @@ const BarChart = ({ data, color = "#10B981", title, loading = false, error = nul
   return (
     <div className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
-      <div className="h-64">
+      <div className="h-80">
         <Bar data={chartData} options={options} plugins={plugins} />
       </div>
     </div>
@@ -644,11 +629,21 @@ const CaseReview = () => {
   const dashboardMetrics = extractDashboardMetrics(data.dashboardStats);
   const topPerformingStations = getChartDataFromDashboard('topStations', 'topStations');
   const bottomPerformingStations = getChartDataFromDashboard('bottomStations', 'bottomStations');
-  
-  const ratingsByStation = [
-    ...topPerformingStations.map(station => ({ ...station, type: 'top' })),
-    ...bottomPerformingStations.map(station => ({ ...station, type: 'bottom' }))
-  ].slice(0, 10);
+  const ratingsByStation = getChartDataFromDashboard('ratingsByStation', 'ratings');
+
+  // Format metrics for display
+  const formatMetricValue = (value, type) => {
+    switch (type) {
+      case 'rating':
+        return value === '0.0' ? '0.0' : value;
+      case 'number':
+        return value === 0 ? '0' : value.toLocaleString();
+      case 'percentage':
+        return value || '0%';
+      default:
+        return value;
+    }
+  };
 
   // Check if API client is available
   if (!apiClient) {
@@ -730,20 +725,17 @@ const CaseReview = () => {
             <Card className="p-6">
               <div className="text-center">
                 <div className="text-sm text-gray-500 mb-2">Average Citizen Rating</div>
-                <div className="text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
+                <div className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2 mb-2">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
-                  ) : dashboardMetrics.averageRating === '0.0' ? (
-                    <div className="flex flex-col items-center">
-                      <span className="text-gray-400">No Ratings</span>
-                      <span className="text-sm text-gray-500 mt-1">Yet</span>
-                    </div>
                   ) : (
                     <>
-                      {dashboardMetrics.averageRating}/5
-                      <StarRating rating={Math.floor(parseFloat(dashboardMetrics.averageRating))} size="md" />
+                      {formatMetricValue(dashboardMetrics.averageRating, 'rating')}/5
                     </>
                   )}
+                </div>
+                <div className="flex justify-center">
+                  <StarRating rating={Math.floor(parseFloat(dashboardMetrics.averageRating))} size="md" />
                 </div>
               </div>
             </Card>
@@ -751,16 +743,11 @@ const CaseReview = () => {
             <Card className="p-6">
               <div className="text-center">
                 <div className="text-sm text-gray-500 mb-2">Total Ratings</div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-3xl font-bold text-gray-900">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
-                  ) : dashboardMetrics.totalRatings === 0 ? (
-                    <div className="flex flex-col items-center">
-                      <span className="text-gray-400">0</span>
-                      <span className="text-sm text-gray-500 mt-1">No ratings yet</span>
-                    </div>
                   ) : (
-                    dashboardMetrics.totalRatings.toLocaleString()
+                    formatMetricValue(dashboardMetrics.totalRatings, 'number')
                   )}
                 </div>
               </div>
@@ -769,16 +756,11 @@ const CaseReview = () => {
             <Card className="p-6">
               <div className="text-center">
                 <div className="text-sm text-gray-500 mb-2">Resolved Cases</div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-3xl font-bold text-gray-900">
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
-                  ) : dashboardMetrics.resolvedCases === 0 ? (
-                    <div className="flex flex-col items-center">
-                      <span className="text-gray-400">0</span>
-                      <span className="text-sm text-gray-500 mt-1">None resolved</span>
-                    </div>
                   ) : (
-                    dashboardMetrics.resolvedCases.toLocaleString()
+                    formatMetricValue(dashboardMetrics.resolvedCases, 'number')
                   )}
                 </div>
               </div>
@@ -787,123 +769,58 @@ const CaseReview = () => {
             <Card className="p-6">
               <div className="text-center">
                 <div className="text-sm text-gray-500 mb-2">SLA Breached</div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className={`text-3xl font-bold ${
+                  dashboardMetrics.slaBreached !== '0%' ? 'text-red-600' : 'text-gray-900'
+                }`}>
                   {loading.dashboard ? (
                     <div className="animate-pulse">Loading...</div>
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <span className={`${dashboardMetrics.slaBreached !== '0' && dashboardMetrics.slaBreached !== '0%' ? 'text-red-600' : 'text-green-600'}`}>
-                        {dashboardMetrics.slaBreached}
-                      </span>
-                      {dashboardMetrics.slaBreached !== '0' && dashboardMetrics.slaBreached !== '0%' && (
-                        <span className="text-xs text-red-500 mt-1">Needs attention</span>
-                      )}
-                    </div>
+                    formatMetricValue(dashboardMetrics.slaBreached, 'percentage')
                   )}
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Performance Charts */}
-          {topPerformingStations.length === 0 ? (
-            // Show alternative layout when no top stations data
-            <>
-              <div className="mb-8">
-                <Card>
-                  <BarChart 
-                    data={bottomPerformingStations}
-                    color="#EF4444"
-                    title="Stations with Unresolved Cases"
-                    loading={loading.dashboard}
-                    error={errors.dashboard}
-                    onRetry={loadDashboardData}
-                    chartType="count"
-                  />
-                </Card>
-              </div>
-              
-              {bottomPerformingStations.length > 0 && (
-                <div className="mb-8">
-                  <Card className="p-6">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">📊</span>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        Current Data Summary
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        The system shows {bottomPerformingStations.length} stations with unresolved cases, 
-                        but no stations with resolved cases in the current timeframe.
-                      </p>
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          💡 <strong>Suggestions:</strong> Try expanding the date range or adjusting filters to see resolved cases and ratings data.
-                        </p>
-                      </div>
-                      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                        <div className="bg-red-50 p-3 rounded">
-                          <div className="font-medium text-red-800">Unresolved Cases</div>
-                          <div className="text-2xl font-bold text-red-600">
-                            {bottomPerformingStations.reduce((sum, station) => sum + station.value, 0)}
-                          </div>
-                        </div>
-                        <div className="bg-yellow-50 p-3 rounded">
-                          <div className="font-medium text-yellow-800">SLA Breach Rate</div>
-                          <div className="text-2xl font-bold text-yellow-600">
-                            {dashboardMetrics.slaBreached}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              )}
-            </>
-          ) : (
-            // Original two-column layout when both charts have data
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              <Card>
-                <BarChart 
-                  data={topPerformingStations}
-                  color="#10B981"
-                  title="Top Performing Stations"
-                  loading={loading.dashboard}
-                  error={errors.dashboard}
-                  onRetry={loadDashboardData}
-                  chartType="count"
-                />
-              </Card>
-              
-              <Card>
-                <BarChart 
-                  data={bottomPerformingStations}
-                  color="#EF4444"
-                  title="Stations with Most Unresolved Cases"
-                  loading={loading.dashboard}
-                  error={errors.dashboard}
-                  onRetry={loadDashboardData}
-                  chartType="count"
-                />
-              </Card>
-            </div>
-          )}
-
-          {/* Combined Ratings Chart - Only show if there's data */}
-          {ratingsByStation.length > 0 && (
-            <Card className="mb-0">
-              <BarChart 
-                data={ratingsByStation}
-                color="#3B82F6"
-                title="Station Performance Overview"
+          {/* Charts Layout matching the design */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <Card>
+              <DashboardBarChart 
+                data={topPerformingStations}
+                color="#10B981"
+                title="Top Performing Stations"
                 loading={loading.dashboard}
                 error={errors.dashboard}
                 onRetry={loadDashboardData}
                 chartType="count"
               />
             </Card>
-          )}
+            
+            <Card>
+              <DashboardBarChart 
+                data={bottomPerformingStations}
+                color="#EF4444"
+                title="Bottom Performing Stations"
+                loading={loading.dashboard}
+                error={errors.dashboard}
+                onRetry={loadDashboardData}
+                chartType="count"
+              />
+            </Card>
+          </div>
+
+          {/* Ratings Per Station Chart  */}
+          <Card className="mb-0">
+            <DashboardBarChart 
+              data={ratingsByStation}
+              color="#3B82F6"
+              title="Ratings Per Station"
+              loading={loading.dashboard}
+              error={errors.dashboard}
+              onRetry={loadDashboardData}
+              chartType="rating"
+            />
+          </Card>
         </Card>
 
         {/* Feedback Table Component */}

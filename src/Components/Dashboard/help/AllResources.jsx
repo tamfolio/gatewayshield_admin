@@ -152,32 +152,6 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
     setActiveFilters([]);
   };
 
-  // Handle publish/unpublish toggle
-  const handleTogglePublish = async (resourceId) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [resourceId]: 'toggle' }));
-      setError('');
-      
-      console.log('🔄 Toggling publish status for resource:', resourceId);
-      
-      await resourcesApi.togglePublish(apiClient, resourceId);
-      
-      setSuccess('Resource status updated successfully!');
-      
-      // Reload the current page to reflect changes
-      loadResources(pagination.currentPage, buildApiFilters());
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
-      
-    } catch (err) {
-      console.error('❌ Failed to toggle publish status:', err);
-      setError(err.message || 'Failed to update resource status');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [resourceId]: null }));
-    }
-  };
-
   // Handle delete initiation - show confirmation modal
   const handleDeleteInitiate = (resource) => {
     console.log('🗑️ Initiating delete for resource:', resource);
@@ -450,7 +424,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 min-w-24">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4 min-w-64">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-48">
                     Actions
                   </th>
                 </tr>
@@ -506,24 +480,6 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                           >
                             <FileDown className="h-4 w-4 mr-1.5" />
                             Download
-                          </button>
-
-                          {/* Publish/Unpublish Button */}
-                          <button 
-                            onClick={() => handleTogglePublish(resource.id)}
-                            disabled={actionLoading[resource.id] === 'toggle'}
-                            className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 whitespace-nowrap ${
-                              resource.status === 'Published'
-                                ? 'text-red-600 hover:text-red-700'
-                                : 'text-blue-600 hover:text-blue-700'
-                            }`}
-                            title={resource.status === 'Published' ? 'Unpublish' : 'Publish'}
-                          >
-                            {actionLoading[resource.id] === 'toggle' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              resource.status === 'Published' ? 'Unpublish' : 'Publish'
-                            )}
                           </button>
 
                           {/* Edit Button */}

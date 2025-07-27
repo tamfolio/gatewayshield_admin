@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
-import BroadcastLogs from './BroadcastLogs';
-import EmergencyBroadcastForm from './EmergencyBroadcastForm';
+import React, { useState } from "react";
+import { Plus } from "lucide-react";
+import BroadcastLogs from "./BroadcastLogs";
+import EmergencyBroadcastForm from "./EmergencyBroadcastForm";
 
 export default function EmergencyBroadcastPage() {
-  const [currentView, setCurrentView] = useState('logs'); // 'logs' or 'form'
+  const [currentView, setCurrentView] = useState("logs");
   const [showForm, setShowForm] = useState(false);
   const [editingBroadcast, setEditingBroadcast] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -28,12 +28,12 @@ export default function EmergencyBroadcastPage() {
     setShowForm(false);
     setEditingBroadcast(null);
     // Trigger refresh of the logs
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   const handleTabChange = (tab) => {
     setCurrentView(tab);
-    if (tab === 'form') {
+    if (tab === "form") {
       handleNewBroadcast();
     }
   };
@@ -48,7 +48,9 @@ export default function EmergencyBroadcastPage() {
             <span>/</span>
             <span>Admin Tools</span>
             <span>/</span>
-            <span className="text-gray-900 font-medium">Emergency Broadcast</span>
+            <span className="text-gray-900 font-medium">
+              Emergency Broadcast
+            </span>
           </div>
         </div>
       </div>
@@ -60,21 +62,21 @@ export default function EmergencyBroadcastPage() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               <button
-                onClick={() => handleTabChange('form')}
+                onClick={() => handleTabChange("form")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  currentView === 'form'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  currentView === "form"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 Send Emergency Broadcast
               </button>
               <button
-                onClick={() => handleTabChange('logs')}
+                onClick={() => handleTabChange("logs")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  currentView === 'logs'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  currentView === "logs"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 Broadcast Logs
@@ -84,12 +86,14 @@ export default function EmergencyBroadcastPage() {
         </div>
 
         {/* Tab Content */}
-        {currentView === 'logs' && (
+        {currentView === "logs" && (
           <div>
             {/* Action Bar */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Broadcast Management</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Broadcast Management
+                </h1>
                 <p className="text-gray-600 mt-1">
                   View and manage all emergency broadcasts sent to your users.
                 </p>
@@ -104,21 +108,22 @@ export default function EmergencyBroadcastPage() {
             </div>
 
             {/* Broadcast Logs Component */}
-            <BroadcastLogs 
+            <BroadcastLogs
               onEdit={handleEditBroadcast}
               onRefresh={refreshTrigger}
             />
           </div>
         )}
 
-        {currentView === 'form' && !showForm && (
+        {currentView === "form" && !showForm && (
           <div className="text-center py-12">
             <div className="max-w-md mx-auto">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Ready to Send a Broadcast?
               </h2>
               <p className="text-gray-600 mb-6">
-                Create and send emergency broadcasts to keep your users informed about important updates and alerts.
+                Create and send emergency broadcasts to keep your users informed
+                about important updates and alerts.
               </p>
               <button
                 onClick={handleNewBroadcast}
