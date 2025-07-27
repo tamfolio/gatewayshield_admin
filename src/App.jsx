@@ -48,8 +48,6 @@ function App() {
           <Route path="audit" element={<AuditLogs />} /> 
           <Route path="settings" element={<SLAHub />} /> 
           <Route path="help" element={<ResourcesHub />} /> 
-          
-
         </Route>
       </Routes>
     </>
