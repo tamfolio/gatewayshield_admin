@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Search, Plus, Check, X } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 import { useApiClient, closureReasonsApi } from "../../../Utils/apiClient";
-import { ListSkeleton } from "./LoadingSkeleton";
+import { ListSkeleton } from "./components/LoadingSkeleton";
+import SuccessModal from './components/SuccessModal';
 
 const ClosureReasons = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,15 +131,15 @@ const ClosureReasons = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+      <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-2xl border border-gray-200 p-6 max-w-sm w-full mx-4 pointer-events-auto">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">
               Add New Closure Reason
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
               disabled={saving}
             >
               <X className="w-5 h-5" />
@@ -171,44 +172,18 @@ const ClosureReasons = () => {
             <button
               onClick={onClose}
               disabled={saving}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
+              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50 transition-colors duration-200"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !closureReason.trim()}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50"
+              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 transition-colors duration-200"
             >
               {saving ? "Creating..." : "Create"}
             </button>
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Success Modal
-  const SuccessModal = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <Check className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-6">
-            Closure Reason Created Successfully!
-          </h3>
-          <button
-            onClick={onClose}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-          >
-            Continue
-          </button>
         </div>
       </div>
     );
@@ -246,7 +221,7 @@ const ClosureReasons = () => {
           <p className="text-sm mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
           >
             Retry
           </button>
@@ -280,7 +255,7 @@ const ClosureReasons = () => {
           {/* Add Button */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Closure Reason
@@ -330,6 +305,9 @@ const ClosureReasons = () => {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
+        title="Closure Reason Created Successfully!"
+        showRedirectOption={false}
+        stayButtonText="Continue"
       />
     </div>
   );

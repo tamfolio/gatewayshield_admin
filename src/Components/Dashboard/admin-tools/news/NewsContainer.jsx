@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import ViewAllNews from './ViewAllNews';
-import CreateNewsForm from './CreateNewsForm';
-import { ChevronRight } from 'lucide-react';
+import React, { useState } from "react";
+import ViewAllNews from "./ViewAllNews";
+import CreateNewsForm from "./CreateNewsForm";
+import { ChevronRight } from "lucide-react";
 
 const NewsContainer = () => {
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState("create");
   const [editingNewsId, setEditingNewsId] = useState(null);
 
   return (
@@ -19,32 +19,39 @@ const NewsContainer = () => {
 
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => setActiveTab('create')}
+          onClick={() => setActiveTab("create")}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'create' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            activeTab === "create"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
           }`}
         >
           Create News Article
         </button>
         <button
-          onClick={() => setActiveTab('view')}
+          onClick={() => setActiveTab("view")}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'view' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            activeTab === "view"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
           }`}
         >
           View All News
         </button>
       </div>
 
-      {activeTab === 'create' ? (
-        <CreateNewsForm editingNewsId={editingNewsId} setEditingNewsId={setEditingNewsId} />
+      {activeTab === "create" ? (
+        <CreateNewsForm
+          editingNewsId={editingNewsId}
+          setEditingNewsId={setEditingNewsId}
+        />
       ) : (
         <ViewAllNews
           onEditNews={(id) => {
             setEditingNewsId(id);
-            setActiveTab('create');
+            setActiveTab("create");
           }}
-          onSwitchToCreate={() => setActiveTab('create')}
+          onSwitchToCreate={() => setActiveTab("create")}
         />
       )}
     </div>

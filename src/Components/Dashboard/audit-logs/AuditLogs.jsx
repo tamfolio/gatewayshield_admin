@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, Search, Calendar, X, Loader2, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { ChevronDown, Search, Calendar, X, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { FiDownloadCloud } from 'react-icons/fi';
 import { auditLogsApi, auditLogsUtils, useApiClient } from '../../../Utils/apiClient';
 
-// Simple inline SuccessModal component
+// Constants
+const DEBOUNCE_DELAY = 300;
+const DEFAULT_PAGE_SIZE = 10;
+
+// Success Modal Component
 const SuccessModal = ({ 
   isOpen, 
   onClose, 
@@ -11,14 +15,40 @@ const SuccessModal = ({
   message = "Operation completed successfully.", 
   buttonText = "Continue"
 }) => {
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="success-modal-title"
+      aria-describedby="success-modal-description"
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Close modal"
         >
           <X className="w-5 h-5" />
         </button>
@@ -29,11 +59,11 @@ const SuccessModal = ({
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+        <h3 id="success-modal-title" className="text-lg font-semibold text-gray-900 text-center mb-2">
           {title}
         </h3>
 
-        <p className="text-gray-600 text-center mb-6">
+        <p id="success-modal-description" className="text-gray-600 text-center mb-6">
           {message}
         </p>
 
@@ -41,6 +71,7 @@ const SuccessModal = ({
           <button
             onClick={onClose}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            autoFocus
           >
             {buttonText}
           </button>
@@ -50,8 +81,81 @@ const SuccessModal = ({
   );
 };
 
+// Error Alert Component
+const ErrorAlert = ({ error, onDismiss, onRetry }) => {
+  if (!error) return null;
+
+  return (
+    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-start gap-3">
+      <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+      <div className="flex-1">
+        <p className="text-red-800 text-sm">{error}</p>
+        <div className="flex gap-3 mt-2">
+          {onRetry && (
+            <button 
+              onClick={onRetry}
+              className="text-red-600 hover:text-red-800 text-xs underline flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Retry
+            </button>
+          )}
+          <button 
+            onClick={onDismiss}
+            className="text-red-600 hover:text-red-800 text-xs underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Custom hook for debounced search
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Custom hook for outside click detection
+const useOutsideClick = (refs, callback) => {
+  useEffect(() => {
+    const handleClick = (event) => {
+      const isOutside = refs.every(ref => 
+        ref.current && !ref.current.contains(event.target)
+      );
+      
+      if (isOutside) {
+        callback();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [refs, callback]);
+};
+
+// Main AuditLogs Component
 const AuditLogs = () => {
   const apiClient = useApiClient();
+  
+  // Refs for dropdown management
+  const userRoleDropdownRef = useRef(null);
+  const datePickerRef = useRef(null);
   
   // State management
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,53 +175,64 @@ const AuditLogs = () => {
     total: 0,
     totalPages: 1,
     currentPage: 1,
-    pageSize: 10
+    pageSize: DEFAULT_PAGE_SIZE
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [isApiAvailable, setIsApiAvailable] = useState(false);
+
+  // Debounced search term
+  const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAY);
+
+  // Close dropdowns when clicking outside
+  useOutsideClick([userRoleDropdownRef, datePickerRef], () => {
+    setShowUserRoleDropdown(false);
+    setShowDatePicker(false);
+  });
+
+  // Check API availability on mount
+  useEffect(() => {
+    const checkApiAvailability = () => {
+      const available = Boolean(apiClient && auditLogsApi && auditLogsUtils);
+      setIsApiAvailable(available);
+      
+      if (!available) {
+        console.warn('API not available - please check API configuration');
+        setError('API configuration is missing. Please contact your administrator.');
+        setLoading(false);
+      }
+    };
+
+    checkApiAvailability();
+  }, [apiClient]);
 
   // Load initial data
   useEffect(() => {
-    // Check if API functions are available
-    if (apiClient && auditLogsApi && auditLogsUtils) {
-      loadAuditLogs();
+    if (isApiAvailable) {
       loadUserRoles();
-    } else {
-      console.warn('⚠️ API client or audit logs API not available, using mock data');
-      // Use mock data immediately
-      setAuditLogs([
-        { id: '#F234567', logId: '#F234567', userRole: 'Police Station', action: 'Changed status to "Rejected"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234568', logId: '#F234568', userRole: 'Comm. Centre Agent', action: 'Changed status to "Assigned to Station"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234569', logId: '#F234569', userRole: 'Police Station Officer', action: 'Changed status to "In Progress"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234570', logId: '#F234570', userRole: 'Comm. Centre Agent', action: 'Changed status to "Treated"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234571', logId: '#F234571', userRole: 'Citizen', action: 'Left 5 Star review on "xxx"', time: '23:00', date: 'Jan 4, 2025' }
-      ]);
-      setUserRoles(['Police Station', 'Police Station Officer', 'Citizen', 'Comm. Centre Agent']);
-      setPagination(prev => ({ ...prev, total: 5 }));
-      setLoading(false);
+      loadAuditLogs();
     }
-  }, [apiClient]);
+  }, [isApiAvailable]);
 
   // Load logs when filters or pagination change
   useEffect(() => {
-    loadAuditLogs();
-  }, [selectedFilters, pagination.currentPage, searchTerm]);
+    if (isApiAvailable) {
+      loadAuditLogs();
+    }
+  }, [selectedFilters, pagination.currentPage, debouncedSearchTerm, isApiAvailable]);
 
-  const loadAuditLogs = async () => {
+  const loadAuditLogs = useCallback(async () => {
+    if (!isApiAvailable) return;
+
     try {
       setLoading(true);
       setError(null);
       
-      // Check if API functions are available
-      if (!auditLogsApi || !auditLogsUtils) {
-        throw new Error('Audit logs API not available');
-      }
-      
       const filters = auditLogsUtils.validateFilters({
         userRole: selectedFilters.userRole,
         timeStamp: selectedFilters.timeStamp,
-        search: searchTerm
+        search: debouncedSearchTerm
       });
       
       console.log('🔍 Loading audit logs with filters:', filters);
@@ -138,65 +253,46 @@ const AuditLogs = () => {
       console.log('✅ Audit logs loaded successfully:', transformedLogs.length, 'logs');
     } catch (error) {
       console.error('❌ Failed to load audit logs:', error);
-      setError(error.message || 'Failed to load audit logs');
-      
-      // Fallback to mock data if API fails
-      console.log('🔄 Using mock data fallback');
-      setAuditLogs([
-        { id: '#F234567', logId: '#F234567', userRole: 'Police Station', action: 'Changed status to "Rejected"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234568', logId: '#F234568', userRole: 'Comm. Centre Agent', action: 'Changed status to "Assigned to Station"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234569', logId: '#F234569', userRole: 'Police Station Officer', action: 'Changed status to "In Progress"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234570', logId: '#F234570', userRole: 'Comm. Centre Agent', action: 'Changed status to "Treated"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234571', logId: '#F234571', userRole: 'Citizen', action: 'Left 5 Star review on "xxx"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234572', logId: '#F234572', userRole: 'Police Station', action: 'Changed status to "Treated"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234573', logId: '#F234573', userRole: 'Comm. Centre Agent', action: 'Changed status to "In Progress"', time: '23:00', date: 'Jan 4, 2025' },
-        { id: '#F234574', logId: '#F234574', userRole: 'Police Station Officer', action: 'Changed status to "Rejected"', time: '23:00', date: 'Jan 4, 2025' }
-      ]);
-      setPagination(prev => ({ ...prev, total: 8 }));
+      const errorMessage = error?.response?.data?.message || error.message || 'Failed to load audit logs';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isApiAvailable, apiClient, selectedFilters, pagination.currentPage, pagination.pageSize, debouncedSearchTerm]);
 
-  const loadUserRoles = async () => {
+  const loadUserRoles = useCallback(async () => {
+    if (!isApiAvailable) return;
+
     try {
-      if (!auditLogsApi) {
-        throw new Error('Audit logs API not available');
-      }
-      
       console.log('👥 Loading user roles...');
       const roles = await auditLogsApi.getUserRoles(apiClient);
-      setUserRoles(Array.isArray(roles) ? roles : []);
-      console.log('✅ User roles loaded:', roles);
+      const validRoles = Array.isArray(roles) ? roles : [];
+      setUserRoles(validRoles);
+      console.log('✅ User roles loaded:', validRoles);
     } catch (error) {
       console.error('❌ Failed to load user roles:', error);
-      // Use fallback roles
-      setUserRoles([
-        'Police Station',
-        'Police Station Officer', 
-        'Citizen',
-        'Comm. Centre Agent'
-      ]);
+      setError('Failed to load user roles. Some filters may not be available.');
     }
-  };
+  }, [isApiAvailable, apiClient]);
 
-  const handleUserRoleFilter = (role) => {
+  const handleUserRoleFilter = useCallback((role) => {
     setSelectedFilters(prev => ({
       ...prev,
       userRole: prev.userRole.includes(role) 
         ? prev.userRole.filter(r => r !== role)
         : [...prev.userRole, role]
     }));
-  };
+    setShowUserRoleDropdown(false);
+  }, []);
 
-  const handleDateChange = (e) => {
+  const handleDateChange = useCallback((e) => {
     const date = e.target.value;
     setSelectedDate(date);
     setSelectedFilters(prev => ({ ...prev, timeStamp: date }));
     setShowDatePicker(false);
-  };
+  }, []);
 
-  const removeFilter = (type, value) => {
+  const removeFilter = useCallback((type, value) => {
     if (type === 'userRole') {
       setSelectedFilters(prev => ({
         ...prev,
@@ -206,31 +302,30 @@ const AuditLogs = () => {
       setSelectedFilters(prev => ({ ...prev, timeStamp: null }));
       setSelectedDate('');
     }
-  };
+  }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setSelectedFilters({ userRole: [], timeStamp: null });
     setSelectedDate('');
     setSearchTerm('');
-  };
+  }, []);
 
-  const exportToPDF = async () => {
+  const exportToPDF = useCallback(async () => {
     try {
       setExporting(true);
+      setError(null);
       
-      // Try to export from API first if available
-      if (auditLogsApi && auditLogsUtils) {
+      if (isApiAvailable && auditLogsApi) {
         try {
           const filters = auditLogsUtils.validateFilters({
             userRole: selectedFilters.userRole,
             timeStamp: selectedFilters.timeStamp,
-            search: searchTerm
+            search: debouncedSearchTerm
           });
           
           console.log('📥 Exporting logs from API with filters:', filters);
           const blob = await auditLogsApi.exportLogs(apiClient, filters);
           
-          // Create download link for API response
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
@@ -243,55 +338,27 @@ const AuditLogs = () => {
           console.log('✅ API export successful');
         } catch (apiError) {
           console.warn('⚠️ API export failed, falling back to client-side export:', apiError);
-          
-          // Fallback to client-side export
-          const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
-          
-          if (auditLogsUtils && auditLogsUtils.exportToCSV) {
-            auditLogsUtils.exportToCSV(filteredLogs, filename);
-          } else {
-            // Manual CSV export if utility not available
-            const headers = ['Log ID', 'User Role', 'Action Type', 'Time Stamp'];
-            const csvContent = [
-              headers.join(','),
-              ...filteredLogs.map(log => [
-                log.logId || log.id,
-                `"${log.userRole}"`,
-                `"${log.action}"`,
-                `"${log.time} ${log.date}"`
-              ].join(','))
-            ].join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-          }
+          throw apiError;
         }
       } else {
-        // Direct client-side export if API not available
-        console.log('📥 Using direct client-side export');
+        // Client-side CSV export
         const headers = ['Log ID', 'User Role', 'Action Type', 'Time Stamp'];
         const csvContent = [
           headers.join(','),
-          ...filteredLogs.map(log => [
-            log.logId || log.id,
-            `"${log.userRole}"`,
-            `"${log.action}"`,
-            `"${log.time} ${log.date}"`
+          ...auditLogs.map(log => [
+            `"${log.logId || log.id}"`,
+            `"${log.userRole || ''}"`,
+            `"${log.action || ''}"`,
+            `"${log.time || ''} ${log.date || ''}"`
           ].join(','))
         ].join('\n');
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -305,51 +372,106 @@ const AuditLogs = () => {
     } finally {
       setExporting(false);
     }
-  };
+  }, [isApiAvailable, auditLogs, selectedFilters, debouncedSearchTerm, apiClient]);
 
-  const handlePageChange = (page) => {
-    setPagination(prev => ({ ...prev, currentPage: page }));
-  };
+  const handlePageChange = useCallback((page) => {
+    if (page >= 1 && page <= pagination.totalPages) {
+      setPagination(prev => ({ ...prev, currentPage: page }));
+    }
+  }, [pagination.totalPages]);
 
-  const closeSuccessModal = () => {
-    setShowSuccessModal(false);
-  };
+  const retryLoadData = useCallback(() => {
+    setError(null);
+    if (isApiAvailable) {
+      loadAuditLogs();
+      loadUserRoles();
+    }
+  }, [isApiAvailable, loadAuditLogs, loadUserRoles]);
 
-  // Filter logs based on search term (client-side fallback)
-  const filteredLogs = auditLogs.filter(log => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      log.logId?.toLowerCase().includes(searchLower) ||
-      log.userRole?.toLowerCase().includes(searchLower) ||
-      log.action?.toLowerCase().includes(searchLower) ||
-      log.userName?.toLowerCase().includes(searchLower)
-    );
-  });
+  // Memoized filtered logs for client-side filtering when API is not available
+  const filteredLogs = useMemo(() => {
+    if (isApiAvailable) return auditLogs;
+    
+    return auditLogs.filter(log => {
+      // Search filter
+      if (debouncedSearchTerm) {
+        const searchLower = debouncedSearchTerm.toLowerCase();
+        const matchesSearch = [
+          log.logId,
+          log.userRole,
+          log.action,
+          log.userName
+        ].some(field => field?.toLowerCase().includes(searchLower));
+        
+        if (!matchesSearch) return false;
+      }
+      
+      // User role filter
+      if (selectedFilters.userRole.length > 0) {
+        if (!selectedFilters.userRole.includes(log.userRole)) return false;
+      }
+      
+      // Date filter (simplified for client-side)
+      if (selectedFilters.timeStamp) {
+        if (!log.date?.includes(selectedFilters.timeStamp)) return false;
+      }
+      
+      return true;
+    });
+  }, [auditLogs, debouncedSearchTerm, selectedFilters, isApiAvailable]);
+
+  // Memoized pagination info
+  const paginationInfo = useMemo(() => {
+    const totalLogs = isApiAvailable ? pagination.total : filteredLogs.length;
+    const currentPage = pagination.currentPage;
+    const pageSize = pagination.pageSize;
+    const totalPages = Math.ceil(totalLogs / pageSize);
+    
+    const startIndex = (currentPage - 1) * pageSize + 1;
+    const endIndex = Math.min(currentPage * pageSize, totalLogs);
+    
+    return {
+      startIndex: totalLogs > 0 ? startIndex : 0,
+      endIndex,
+      totalLogs,
+      totalPages
+    };
+  }, [pagination, filteredLogs.length, isApiAvailable]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeydown = (e) => {
+      // CMD/Ctrl + K to focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Search logs..."]');
+        searchInput?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Breadcrumb */}
-      <div className="mb-6">
-        <nav className="flex text-sm text-gray-500">
-          <span>Dashboard</span>
-          <span className="mx-2">›</span>
-          <span className="text-gray-900">Audit Logs</span>
-        </nav>
-      </div>
+      <nav className="mb-6" aria-label="Breadcrumb">
+        <ol className="flex text-sm text-gray-500">
+          <li>
+            <a href="/dashboard" className="hover:text-gray-700">Dashboard</a>
+          </li>
+          <li className="mx-2" aria-hidden="true">›</li>
+          <li className="text-gray-900" aria-current="page">Audit Logs</li>
+        </ol>
+      </nav>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800 text-sm">{error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="text-red-600 hover:text-red-800 text-xs underline mt-1"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+      {/* Error Alert */}
+      <ErrorAlert 
+        error={error} 
+        onDismiss={() => setError(null)}
+        onRetry={retryLoadData}
+      />
 
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -357,45 +479,44 @@ const AuditLogs = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold text-gray-900">Audit Logs</h1>
-              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                {loading ? '...' : pagination.total}
+              <span 
+                className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                aria-label={`${loading ? 'Loading' : paginationInfo.totalLogs} total logs`}
+              >
+                {loading ? '...' : paginationInfo.totalLogs}
               </span>
             </div>
+            
             <div className="flex items-center gap-3">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" aria-hidden="true" />
                 <input
                   type="text"
                   placeholder="Search logs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-16 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-label="Search audit logs"
                 />
                 <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                   ⌘K
                 </kbd>
               </div>
               
-              {/* Export Log Button */}
+              {/* Export Button */}
               <button 
                 onClick={exportToPDF}
-                disabled={exporting || loading}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={exporting || loading || filteredLogs.length === 0}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label={exporting ? 'Exporting logs...' : 'Export audit logs'}
               >
                 {exporting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <FiDownloadCloud className="w-4 h-4" />
+                  <FiDownloadCloud className="w-4 h-4" aria-hidden="true" />
                 )}
                 {exporting ? 'Exporting...' : 'Export Log'}
-              </button>
-              
-              {/* More Actions */}
-              <button className="p-2 text-gray-400 hover:text-gray-600">
-                <div className="w-1 h-1 bg-current rounded-full"></div>
-                <div className="w-1 h-1 bg-current rounded-full mt-1"></div>
-                <div className="w-1 h-1 bg-current rounded-full mt-1"></div>
               </button>
             </div>
           </div>
@@ -403,11 +524,15 @@ const AuditLogs = () => {
           {/* Active Filters */}
           {(selectedFilters.userRole.length > 0 || selectedFilters.timeStamp || searchTerm) && (
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap" role="group" aria-label="Active filters">
                 {selectedFilters.userRole.map((role) => (
                   <span key={role} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md">
                     {role}
-                    <button onClick={() => removeFilter('userRole', role)}>
+                    <button 
+                      onClick={() => removeFilter('userRole', role)}
+                      className="hover:bg-blue-200 rounded p-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      aria-label={`Remove ${role} filter`}
+                    >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -415,8 +540,12 @@ const AuditLogs = () => {
                 
                 {selectedFilters.timeStamp && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md">
-                    {auditLogsUtils.formatDateForDisplay(selectedFilters.timeStamp)}
-                    <button onClick={() => removeFilter('timeStamp')}>
+                    {auditLogsUtils?.formatDateForDisplay?.(selectedFilters.timeStamp) || selectedFilters.timeStamp}
+                    <button 
+                      onClick={() => removeFilter('timeStamp')}
+                      className="hover:bg-blue-200 rounded p-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      aria-label="Remove date filter"
+                    >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -425,7 +554,11 @@ const AuditLogs = () => {
                 {searchTerm && (
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-md">
                     Search: "{searchTerm}"
-                    <button onClick={() => setSearchTerm('')}>
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="hover:bg-green-200 rounded p-0.5 focus:outline-none focus:ring-1 focus:ring-green-400"
+                      aria-label="Clear search"
+                    >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -434,7 +567,7 @@ const AuditLogs = () => {
 
               <button
                 onClick={clearAllFilters}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                className="text-xs text-gray-500 hover:text-gray-700 underline focus:outline-none focus:ring-1 focus:ring-gray-400 rounded px-1"
               >
                 Clear All
               </button>
@@ -445,28 +578,36 @@ const AuditLogs = () => {
         {/* Table */}
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+            <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" aria-hidden="true" />
               <span className="text-gray-600">Loading audit logs...</span>
             </div>
           ) : (
-            <table className="w-full">
+            <table className="w-full" role="table">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Log ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
                     <button 
-                      className="flex items-center gap-1 hover:text-gray-700"
+                      className="flex items-center gap-1 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
                       onClick={() => setShowUserRoleDropdown(!showUserRoleDropdown)}
+                      aria-expanded={showUserRoleDropdown}
+                      aria-haspopup="true"
+                      aria-label="Filter by user role"
                     >
                       User Role
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3" aria-hidden="true" />
                     </button>
                     
                     {showUserRoleDropdown && (
-                      <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      <div 
+                        ref={userRoleDropdownRef}
+                        className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10"
+                        role="listbox"
+                        aria-label="User role filters"
+                      >
                         {userRoles.map((role) => (
                           <label key={role} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer">
                             <input
@@ -474,29 +615,45 @@ const AuditLogs = () => {
                               checked={selectedFilters.userRole.includes(role)}
                               onChange={() => handleUserRoleFilter(role)}
                               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              aria-describedby={`role-${role.replace(/\s+/g, '-').toLowerCase()}`}
                             />
-                            <span className="text-sm text-gray-700">{role}</span>
+                            <span 
+                              id={`role-${role.replace(/\s+/g, '-').toLowerCase()}`}
+                              className="text-sm text-gray-700"
+                            >
+                              {role}
+                            </span>
                           </label>
                         ))}
                       </div>
                     )}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative">
                     <button 
-                      className="flex items-center gap-1 hover:text-gray-700"
+                      className="flex items-center gap-1 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
                       onClick={() => setShowDatePicker(!showDatePicker)}
+                      aria-expanded={showDatePicker}
+                      aria-haspopup="true"
+                      aria-label="Filter by date"
                     >
-                      <Calendar className="w-3 h-3" />
+                      <Calendar className="w-3 h-3" aria-hidden="true" />
                       Time Stamp
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3" aria-hidden="true" />
                     </button>
                     
                     {showDatePicker && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 p-3">
+                      <div 
+                        ref={datePickerRef}
+                        className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 p-3"
+                      >
+                        <label htmlFor="date-filter" className="sr-only">
+                          Filter by date
+                        </label>
                         <input
+                          id="date-filter"
                           type="date"
                           value={selectedDate}
                           onChange={handleDateChange}
@@ -511,25 +668,38 @@ const AuditLogs = () => {
                 {filteredLogs.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                      No audit logs found matching your criteria.
+                      <div className="flex flex-col items-center gap-2">
+                        <Search className="w-8 h-8 text-gray-300" aria-hidden="true" />
+                        <p>No audit logs found matching your criteria.</p>
+                        {(selectedFilters.userRole.length > 0 || selectedFilters.timeStamp || searchTerm) && (
+                          <button
+                            onClick={clearAllFilters}
+                            className="text-blue-600 hover:text-blue-700 text-sm underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                          >
+                            Clear all filters
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   filteredLogs.map((log, index) => (
-                    <tr key={log.id || index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <tr key={log.id || index} className="hover:bg-gray-50 focus-within:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                         {log.logId || log.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {log.userRole}
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {log.userRole}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={log.action}>
                         {log.action}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div>
-                          <div>{log.time}</div>
-                          <div className="text-xs">{log.date}</div>
+                        <div className="flex flex-col">
+                          <time className="font-medium">{log.time}</time>
+                          <time className="text-xs text-gray-400">{log.date}</time>
                         </div>
                       </td>
                     </tr>
@@ -541,20 +711,22 @@ const AuditLogs = () => {
         </div>
 
         {/* Pagination */}
-        {!loading && filteredLogs.length > 0 && (
+        {!loading && filteredLogs.length > 0 && paginationInfo.totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <button 
               onClick={() => handlePageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage <= 1}
-              className="flex items-center gap-1 text-sm px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 text-sm px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Go to previous page"
             >
-              Previous
               <span>←</span>
+              Previous
             </button>
             
-            <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-2" aria-label="Pagination">
               {(() => {
-                const { currentPage, totalPages } = pagination;
+                const { currentPage } = pagination;
+                const { totalPages } = paginationInfo;
                 const pages = [];
                 
                 // Always show first page
@@ -562,46 +734,64 @@ const AuditLogs = () => {
                   pages.push(1);
                 }
                 
-                // Show pages around current page
-                if (currentPage > 3) {
+                // Show ellipsis if needed
+                if (currentPage > 4) {
                   pages.push('...');
                 }
                 
-                for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-                  if (i > 1) pages.push(i);
+                // Show pages around current page
+                const startPage = Math.max(2, currentPage - 1);
+                const endPage = Math.min(totalPages - 1, currentPage + 1);
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  if (i > 1 && i < totalPages) {
+                    pages.push(i);
+                  }
+                }
+                
+                // Show ellipsis if needed
+                if (currentPage < totalPages - 3) {
+                  pages.push('...');
                 }
                 
                 // Show last page if there are multiple pages
                 if (totalPages > 1) {
-                  if (currentPage < totalPages - 2) {
-                    pages.push('...');
-                  }
                   pages.push(totalPages);
                 }
                 
-                return pages.map((page, index) => (
-                  <button
-                    key={index}
-                    onClick={() => typeof page === 'number' ? handlePageChange(page) : null}
-                    className={`px-3 py-1 text-sm rounded ${
-                      page === currentPage
-                        ? 'bg-blue-600 text-white' 
-                        : page === '...' 
-                          ? 'text-gray-400 cursor-default'
+                return pages.map((page, index) => {
+                  if (page === '...') {
+                    return (
+                      <span key={`ellipsis-${index}`} className="px-3 py-1 text-sm text-gray-400">
+                        {page}
+                      </span>
+                    );
+                  }
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-1 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        page === currentPage
+                          ? 'bg-blue-600 text-white' 
                           : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                    disabled={page === '...' || loading}
-                  >
-                    {page}
-                  </button>
-                ));
+                      }`}
+                      aria-label={`Go to page ${page}`}
+                      aria-current={page === currentPage ? 'page' : undefined}
+                    >
+                      {page}
+                    </button>
+                  );
+                });
               })()}
-            </div>
+            </nav>
             
             <button 
               onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage >= pagination.totalPages}
-              className="flex items-center gap-1 text-sm px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={pagination.currentPage >= paginationInfo.totalPages}
+              className="flex items-center gap-1 text-sm px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Go to next page"
             >
               Next
               <span>→</span>
@@ -611,9 +801,8 @@ const AuditLogs = () => {
 
         {/* Pagination Info */}
         {!loading && (
-          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
-            Showing {filteredLogs.length > 0 ? ((pagination.currentPage - 1) * pagination.pageSize) + 1 : 0} to{' '}
-            {Math.min(pagination.currentPage * pagination.pageSize, pagination.total)} of {pagination.total} results
+          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-500" role="status" aria-live="polite">
+            Showing {paginationInfo.startIndex} to {paginationInfo.endIndex} of {paginationInfo.totalLogs} results
           </div>
         )}
       </div>
@@ -621,22 +810,11 @@ const AuditLogs = () => {
       {/* Success Modal */}
       <SuccessModal
         isOpen={showSuccessModal}
-        onClose={closeSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
         title="Export Successful!"
         message="Your audit logs have been successfully exported as a CSV file."
         buttonText="Continue"
       />
-
-      {/* Click outside to close dropdowns */}
-      {(showUserRoleDropdown || showDatePicker) && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => {
-            setShowUserRoleDropdown(false);
-            setShowDatePicker(false);
-          }}
-        />
-      )}
     </div>
   );
 };
