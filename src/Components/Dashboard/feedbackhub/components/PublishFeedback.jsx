@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { X, Star } from 'lucide-react';
 import axios from 'axios';
-import useAccessToken from "../../../../Utils/useAccessToken";
+import useAccessToken from '../../../../Utils/useAccessToken'
+import SuccessModal from './SuccessModal'; // Adjust path as needed
 
 const PublishFeedback = ({ isOpen, onClose, feedback }) => {
   const [isPublishing, setIsPublishing] = useState(false);
-  const accessToken = useAccessToken(); 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const accessToken = useAccessToken(); // Get access token from Redux store
+
   if (!feedback) {
     return (
       <div className="text-center py-8">
@@ -17,7 +20,7 @@ const PublishFeedback = ({ isOpen, onClose, feedback }) => {
   // Extract feedback details without fallbacks
   const feedbackType = feedback.type;
   const stationName = feedback.station;
-  const citizenName = feedback.citizenName || feedback.submitterName;
+  const citizenName = feedback.citizenName;
   const officerName = feedback.officer;
   const comment = feedback.comment;
   const submissionDate = feedback.date;
@@ -56,8 +59,7 @@ const PublishFeedback = ({ isOpen, onClose, feedback }) => {
       );
       
       console.log('✅ Feedback published successfully:', response.data);
-      alert('Feedback published successfully!');
-      onClose();
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('❌ Error publishing feedback:', error);
       console.error('❌ Error response data:', error.response?.data);
@@ -138,6 +140,17 @@ const PublishFeedback = ({ isOpen, onClose, feedback }) => {
           {isPublishing ? 'Publishing...' : 'Publish to homepage'}
         </button>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          onClose(); // Close the main modal too
+        }}
+        title="Feedback Published!"
+        message="The feedback has been successfully published to the homepage."
+      />
     </div>
   );
 };

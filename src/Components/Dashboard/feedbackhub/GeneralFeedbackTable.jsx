@@ -4,13 +4,11 @@ import { FiDownloadCloud } from 'react-icons/fi';
 import { IoIosArrowDown } from 'react-icons/io';
 import { generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
 import PublishFeedback from './components/PublishFeedback';
-import DeleteConfirmationModal from './components/DeleteConfirmationModal';
-import DeleteSuccessModal from './components/DeleteSuccessModal';
 
 // Table Utility Functions
 const tableUtils = {
   extractApiResponseData: (response) => {
-    // Handle the nested data structure 
+    // Handle the nested data structure from your API
     if (response?.data?.data) {
       return {
         data: response.data.data,
@@ -49,13 +47,16 @@ const tableUtils = {
     }
 
     return rawData.map((item, index) => {
-      // Handle different possible field names from API
+      // Handle different possible field names from API - ID should be first priority
       const feedbackId = item.id || item.feedbackId || `temp-${index}`;
       const feedbackType = item.feedbackType || item.type || 'Unknown';
       const officerName = item.officerName || item.officer || '';
       const stationName = item.stationName || item.station || '';
       const comment = item.comment || item.commentText || '';
       const createdAt = item.createdAt || item.date || item.submissionDate || '';
+      
+      // Debug logging for ID extraction
+      console.log(`🔍 Item ${index} - Original ID: ${item.id}, Extracted ID: ${feedbackId}`);
       
       // Format date
       let formattedDate = '';
@@ -80,11 +81,12 @@ const tableUtils = {
         type: feedbackType,
         officer: officerName || 'N/A',
         station: stationName,
+        citizenName: item.citizenName, // Keep original citizenName field
         comment: comment,
         date: formattedDate,
-        dateRaw: createdAt, 
+        dateRaw: createdAt, // Keep raw date for sorting
         status: item.status || 'pending',
-        // Keep original data 
+        // Keep original data for reference
         original: item
       };
     });
@@ -181,6 +183,27 @@ const Button = ({ children, variant = "primary", size = "md", className = "", di
       {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
       {children}
     </button>
+  );
+};
+
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading = false, variant = "danger" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant={variant} onClick={onConfirm} loading={loading}>
+            Confirm
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -472,17 +495,12 @@ const GeneralFeedbackTable = ({ apiClient }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [actionLoading, setActionLoading] = useState({});
-
-  // Modal states
-  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ 
+  const [confirmModal, setConfirmModal] = useState({ 
     isOpen: false, 
+    type: '', 
     feedbackId: '', 
     title: '', 
     message: '' 
-  });
-  const [deleteSuccessModal, setDeleteSuccessModal] = useState({
-    isOpen: false,
-    message: ''
   });
 
   // Filter states
@@ -558,6 +576,10 @@ const GeneralFeedbackTable = ({ apiClient }) => {
       
       // Use the table-specific utility functions
       const { data: extractedData, pagination } = tableUtils.extractApiResponseData(response);
+      
+      // Debug: Log the raw extracted data before transformation
+      console.log('🔍 Raw extracted data before transformation:', extractedData);
+      console.log('🔍 Sample raw item:', extractedData[0]);
       
       // Transform data using table-specific utility function
       const transformedData = tableUtils.transformGeneralFeedbackData(extractedData);
@@ -737,13 +759,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
       // Remove from local state
       setData(prev => prev.filter(item => (item.id || item.feedbackId) !== feedbackId));
       setTotalItems(prev => Math.max(0, prev - 1));
-      
-      // Close confirmation modal and show success modal
-      setDeleteConfirmModal({ isOpen: false, feedbackId: '', title: '', message: '' });
-      setDeleteSuccessModal({
-        isOpen: true,
-        message: 'Feedback has been successfully deleted.'
-      });
+      setConfirmModal({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
       
     } catch (err) {
       console.error('Error deleting feedback:', err);
@@ -770,6 +786,8 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         (item.id || item.feedbackId) === feedbackId ? { ...item, status: 'published' } : item
       ));
       
+      setConfirmModal({ isOpen: false, type: '', feedbackId: '', title: '', message: '' });
+      
     } catch (err) {
       console.error('Error publishing feedback:', err);
       alert('Failed to publish feedback: ' + err.message);
@@ -778,13 +796,17 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     }
   };
 
-  const showDeleteConfirmation = (feedbackId, title, message) => {
-    setDeleteConfirmModal({ isOpen: true, feedbackId, title, message });
+  const showConfirmation = (type, feedbackId, title, message) => {
+    setConfirmModal({ isOpen: true, type, feedbackId, title, message });
   };
 
-  const handleDeleteConfirm = () => {
-    const { feedbackId } = deleteConfirmModal;
-    handleDelete(feedbackId);
+  const handleConfirm = () => {
+    const { type, feedbackId } = confirmModal;
+    if (type === 'delete') {
+      handleDelete(feedbackId);
+    } else if (type === 'publish') {
+      handlePublish(feedbackId);
+    }
   };
 
   const handleExportCSV = () => {
@@ -952,6 +974,32 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         </div>
       )}
 
+      {/* Debug Panel - show when there's an issue or no data */}
+      {(error || data.length === 0 || !initialLoadComplete) && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold text-blue-800">Debug Information</h4>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => fetchFeedbacks(currentPage, true)}
+              loading={loading}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry API Call
+            </Button>
+          </div>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div><strong>API Client:</strong> {apiClient ? '✅ Connected' : '❌ Not Available'}</div>
+            <div><strong>Loading State:</strong> {loading ? 'Loading...' : initialLoadComplete ? 'Complete' : 'Not Started'}</div>
+            <div><strong>Data Length:</strong> {data.length} items</div>
+            <div><strong>Filtered Length:</strong> {filteredData.length} items</div>
+            <div><strong>Sort:</strong> {sortConfig.key} ({sortConfig.direction})</div>
+            <div><strong>Current Page:</strong> {currentPage} of {localTotalPages}</div>
+            {error && <div><strong>Error:</strong> <span className="text-red-600">{error}</span></div>}
+          </div>
+        </div>
+      )}
 
       {/* Error banner for ongoing issues */}
       {error && initialLoadComplete && data.length > 0 && (
@@ -1060,7 +1108,8 @@ const GeneralFeedbackTable = ({ apiClient }) => {
                           className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50" 
                           title="Delete"
                           disabled={isLoading}
-                          onClick={() => showDeleteConfirmation(
+                          onClick={() => showConfirmation(
+                            'delete', 
                             itemId, 
                             'Delete Feedback', 
                             'Are you sure you want to delete this feedback? This action cannot be undone.'
@@ -1126,30 +1175,22 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmationModal
-        isOpen={deleteConfirmModal.isOpen}
-        onClose={() => setDeleteConfirmModal({ isOpen: false, feedbackId: '', title: '', message: '' })}
-        onConfirm={handleDeleteConfirm}
-        title={deleteConfirmModal.title}
-        message={deleteConfirmModal.message}
-        loading={actionLoading[deleteConfirmModal.feedbackId]}
-      />
-
-      {/* Delete Success Modal */}
-      <DeleteSuccessModal
-        isOpen={deleteSuccessModal.isOpen}
-        onClose={() => setDeleteSuccessModal({ isOpen: false, message: '' })}
-        message={deleteSuccessModal.message}
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, type: '', feedbackId: '', title: '', message: '' })}
+        onConfirm={handleConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        loading={actionLoading[confirmModal.feedbackId]}
+        variant={confirmModal.type === 'delete' ? 'danger' : 'success'}
       />
 
       {/* Publish Feedback Modal */}
       {publishModalOpen && (
-        <div 
-          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
-        >
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
           <div 
-            className="bg-gray-200 rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto shadow-2xl border border-gray-200 pointer-events-auto"
+            className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto shadow-2xl border border-gray-200 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
