@@ -9,25 +9,25 @@ const SuccessModal = ({ isOpen, onClose, type, onRedirectToDashboard }) => {
       case 'published':
         return {
           title: 'News Published Successfully',
-          icon: <CheckCircle className="w-16 h-16 text-green-500" />,
+          icon: <CheckCircle className="w-12 h-12 text-green-500" />,
           iconBg: 'bg-green-100'
         };
       case 'updated':
         return {
           title: 'News Updated Successfully',
-          icon: <CheckCircle className="w-16 h-16 text-green-500" />,
+          icon: <CheckCircle className="w-12 h-12 text-green-500" />,
           iconBg: 'bg-green-100'
         };
       case 'draft':
         return {
           title: 'Saved as Draft',
-          icon: <CheckCircle className="w-16 h-16 text-blue-500" />,
+          icon: <CheckCircle className="w-12 h-12 text-blue-500" />,
           iconBg: 'bg-blue-100'
         };
       default:
         return {
           title: 'Action Completed Successfully',
-          icon: <CheckCircle className="w-16 h-16 text-green-500" />,
+          icon: <CheckCircle className="w-12 h-12 text-green-500" />,
           iconBg: 'bg-green-100'
         };
     }
@@ -37,38 +37,38 @@ const SuccessModal = ({ isOpen, onClose, type, onRedirectToDashboard }) => {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 max-w-md w-full mx-4 relative pointer-events-auto">
+      <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-6 max-w-sm w-full mx-4 relative pointer-events-auto">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5" />
         </button>
 
         {/* Content */}
         <div className="text-center">
           {/* Icon */}
-          <div className={`w-20 h-20 rounded-full ${config.iconBg} flex items-center justify-center mx-auto mb-6`}>
+          <div className={`w-14 h-14 rounded-full ${config.iconBg} flex items-center justify-center mx-auto mb-4`}>
             {config.icon}
           </div>
 
           {/* Title */}
-          <h2 className="text-xl font-semibold text-gray-900 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">
             {config.title}
           </h2>
 
           {/* Buttons */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <button
               onClick={onClose}
-              className="w-full py-3 px-4 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors"
+              className="w-full py-2.5 px-4 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors text-sm"
             >
               Stay on Page
             </button>
             <button
               onClick={onRedirectToDashboard}
-              className="w-full py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              className="w-full py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
             >
               Redirect to Dashboard
             </button>

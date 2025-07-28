@@ -144,6 +144,34 @@ const CreateNewsForm = ({
     return el.textContent || el.innerText || "";
   };
 
+  // ADDED: Function to check if form is valid (without setting errors)
+  const isFormValid = () => {
+    // Check if API client is available
+    if (!apiClient) return false;
+
+    // Title validation
+    if (!formData.title?.trim() || formData.title.length > TITLE_LIMIT) {
+      return false;
+    }
+
+    // Subtitle validation
+    if (!getTextContent(subtitleRef.current)) {
+      return false;
+    }
+
+    // Body text validation
+    if (!getTextContent(bodyTextRef.current)) {
+      return false;
+    }
+
+    // Tags validation
+    if (!formData.tags || formData.tags.length === 0) {
+      return false;
+    }
+
+    return true;
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -413,6 +441,9 @@ const CreateNewsForm = ({
     }));
   };
 
+  // ADDED: Check if buttons should be disabled
+  const areButtonsDisabled = isSubmitting || !apiClient || !isFormValid();
+
   // Show loading state when loading news for editing
   if (isLoading) {
     return (
@@ -613,15 +644,15 @@ const CreateNewsForm = ({
               )}
               <button
                 onClick={() => handleSave(true)}
-                disabled={isSubmitting || !apiClient}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+                disabled={areButtonsDisabled}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Saving..." : "Save as Draft"}
               </button>
               <button
                 onClick={() => handleSave(false)}
-                disabled={isSubmitting || !apiClient}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                disabled={areButtonsDisabled}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 {isSubmitting
                   ? "Publishing..."

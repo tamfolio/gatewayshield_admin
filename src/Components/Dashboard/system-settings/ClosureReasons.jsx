@@ -281,9 +281,6 @@ const ClosureReasons = () => {
                 className="flex items-center py-3 border-b border-gray-100 last:border-b-0"
               >
                 <span className="text-gray-900">{reason.reason}</span>
-                <span className="ml-auto text-xs text-gray-500">
-                  ID: {reason.id}
-                </span>
               </div>
             ))
           ) : (
