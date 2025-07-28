@@ -4,7 +4,6 @@ import { useApiClient, newsApi } from "../../../../Utils/apiClient";
 import useAccessToken from "../../../../Utils/useAccessToken";
 import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
 import DeletedSuccessModal from "./components/DeletedSuccessModal";
-import NewsDetails from "./components/NewsDetails";
 
 const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [newsData, setNewsData] = useState([]);
@@ -30,13 +29,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({
     isOpen: false,
     message: "",
-  });
-
-  // News details overlay state
-  const [newsDetailsOverlay, setNewsDetailsOverlay] = useState({
-    isOpen: false,
-    newsData: null,
-    loading: false,
   });
 
   const itemsPerPage = 10;
@@ -393,58 +385,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   // Close delete success modal
   const closeDeleteSuccessModal = useCallback(() => {
     setDeleteSuccessModal({ isOpen: false, message: "" });
-  }, []);
-
-  //  View news function with overlay
-  const handleViewNews = useCallback(
-    async (newsId) => {
-      if (!newsId) return;
-
-      try {
-        setNewsDetailsOverlay({
-          isOpen: true,
-          newsData: null,
-          loading: true,
-        });
-
-        const response = await newsApi.getOne(apiClient, newsId);
-
-        // Parse the response to get the news data
-        let newsDetails = null;
-        if (response?.data?.news) {
-          newsDetails = response.data.news;
-        } else if (response?.data?.data?.news) {
-          newsDetails = response.data.data.news;
-        } else if (response?.data) {
-          newsDetails = response.data;
-        } else {
-          newsDetails = response;
-        }
-
-        setNewsDetailsOverlay({
-          isOpen: true,
-          newsData: newsDetails,
-          loading: false,
-        });
-      } catch (err) {
-        setError("Failed to load news details");
-        setNewsDetailsOverlay({
-          isOpen: false,
-          newsData: null,
-          loading: false,
-        });
-      }
-    },
-    [apiClient]
-  );
-
-  // Close news details overlay
-  const closeNewsDetailsOverlay = useCallback(() => {
-    setNewsDetailsOverlay({
-      isOpen: false,
-      newsData: null,
-      loading: false,
-    });
   }, []);
 
   // FIXED: Optimized status filter handler
@@ -901,14 +841,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           </div>
         )}
       </div>
-
-      {/* News Details Component */}
-      <NewsDetails
-        isOpen={newsDetailsOverlay.isOpen}
-        newsData={newsDetailsOverlay.newsData}
-        loading={newsDetailsOverlay.loading}
-        onClose={closeNewsDetailsOverlay}
-      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

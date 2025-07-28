@@ -7,6 +7,16 @@ const NewsContainer = () => {
   const [activeTab, setActiveTab] = useState("create");
   const [editingNewsId, setEditingNewsId] = useState(null);
 
+  const handleSwitchToViewAll = () => {
+    setActiveTab("view");
+    setEditingNewsId(null); // Clear any editing state
+  };
+
+  const handleSwitchToCreate = () => {
+    setActiveTab("create");
+    setEditingNewsId(null); // Clear any editing state
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
@@ -19,7 +29,7 @@ const NewsContainer = () => {
 
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => setActiveTab("create")}
+          onClick={handleSwitchToCreate}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             activeTab === "create"
               ? "bg-white text-gray-900 shadow-sm"
@@ -29,7 +39,7 @@ const NewsContainer = () => {
           Create News Article
         </button>
         <button
-          onClick={() => setActiveTab("view")}
+          onClick={handleSwitchToViewAll}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             activeTab === "view"
               ? "bg-white text-gray-900 shadow-sm"
@@ -44,6 +54,7 @@ const NewsContainer = () => {
         <CreateNewsForm
           editingNewsId={editingNewsId}
           setEditingNewsId={setEditingNewsId}
+          onRedirectToDashboard={handleSwitchToViewAll}
         />
       ) : (
         <ViewAllNews
@@ -51,7 +62,7 @@ const NewsContainer = () => {
             setEditingNewsId(id);
             setActiveTab("create");
           }}
-          onSwitchToCreate={() => setActiveTab("create")}
+          onSwitchToCreate={handleSwitchToCreate}
         />
       )}
     </div>

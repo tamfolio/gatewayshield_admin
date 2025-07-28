@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle, X } from 'lucide-react';
 
-const SuccessModal = ({ isOpen, onClose, type, onRedirectToDashboard }) => {
+const SuccessModal = ({ isOpen, onClose, type, onRedirectToDashboard, onViewAllNews }) => {
   if (!isOpen) return null;
 
   const getConfig = () => {
@@ -64,13 +64,13 @@ const SuccessModal = ({ isOpen, onClose, type, onRedirectToDashboard }) => {
               onClick={onClose}
               className="w-full py-2.5 px-4 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors text-sm"
             >
-              Stay on Page
+              Create New Article
             </button>
             <button
-              onClick={onRedirectToDashboard}
+              onClick={onViewAllNews || onRedirectToDashboard}
               className="w-full py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
             >
-              Redirect to Dashboard
+              View All News
             </button>
           </div>
         </div>

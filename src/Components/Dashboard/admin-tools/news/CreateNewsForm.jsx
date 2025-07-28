@@ -36,12 +36,12 @@ const CreateNewsForm = ({
   const subtitleRef = useRef(null);
   const bodyTextRef = useRef(null);
 
-  const TITLE_LIMIT = 100,
-    SUBTITLE_LIMIT = 150,
-    BODYTEXT_LIMIT = 2000,
-    TAG_LIMIT = 20;
+  const TITLE_LIMIT = 100;
+  const SUBTITLE_LIMIT = 150;
+  const BODYTEXT_LIMIT = 2000;
+  const TAG_LIMIT = 20;
 
-  // ADDED: Effect to load news data when editing
+  // Effect to load news data when editing
   useEffect(() => {
     const loadNewsForEditing = async () => {
       if (!editingNewsId || !apiClient) return;
@@ -51,7 +51,6 @@ const CreateNewsForm = ({
 
       try {
         const newsData = await newsApi.getOne(apiClient, editingNewsId);
-
         console.log("Loaded news for editing:", newsData);
 
         // Parse the response to get actual news data
@@ -67,13 +66,38 @@ const CreateNewsForm = ({
         }
 
         if (article) {
+          // Debug logging
+          console.log("Full article data:", article);
+          console.log("Media files check:", {
+            hasMediaFiles: !!article.mediaFiles,
+            mediaFilesType: typeof article.mediaFiles,
+            mediaFilesArray: Array.isArray(article.mediaFiles),
+            mediaFiles: article.mediaFiles,
+            hasImages: !!article.images,
+            images: article.images,
+            hasAttachments: !!article.attachments,
+            attachments: article.attachments,
+            coverImageFileName: article.coverImageFileName,
+            coverImageName: article.coverImageName,
+            coverImageUrl: article.coverImageUrl,
+          });
+
+          // Check all properties that might contain image data
+          Object.keys(article).forEach(key => {
+            if (key.toLowerCase().includes('image') || key.toLowerCase().includes('media') || key.toLowerCase().includes('file')) {
+              console.log(`Image-related property ${key}:`, article[key]);
+            }
+          });
+
+          console.log("Article keys:", Object.keys(article));
+          console.log("Article values:", Object.values(article));
+
           setFormData({
             title: article.title || "",
             subtitle: article.subtitle || "",
             bodyText: article.bodyText || article.body || "",
             tags: article.tags || [],
-            coverImageName:
-              article.coverImageFileName || article.coverImageName || "",
+            coverImageName: article.coverImageFileName || article.coverImageName || "",
             isDraft: article.isDraft !== false,
             isActive: article.isActive === true,
           });
@@ -83,26 +107,166 @@ const CreateNewsForm = ({
             subtitleRef.current.innerHTML = article.subtitle || "";
           }
           if (bodyTextRef.current) {
-            bodyTextRef.current.innerHTML =
-              article.bodyText || article.body || "";
+            bodyTextRef.current.innerHTML = article.bodyText || article.body || "";
           }
 
-          // Handle existing media files if any
-          if (article.mediaFiles && Array.isArray(article.mediaFiles)) {
-            const existingFiles = article.mediaFiles.map((media, index) => ({
-              id: `existing-${index}`,
-              name: media.filename || media.name || `media-${index}`,
-              size: media.size || 0,
-              type: media.type || "image/*",
-              progress: 100,
-              completed: true,
-              isUploading: false,
-              makeCoverImage: media.filename === article.coverImageFileName,
-              caption: media.caption || "",
-              uploadedUrl: media.url || media.path,
-              file: null, // Existing files don't have File objects
-            }));
-            setUploadedFiles(existingFiles);
+          // Handle existing media files
+          let existingMediaFiles = [];
+          const possibleMediaProperties = ['mediaFiles', 'images', 'attachments', 'files', 'uploads', 'media'];
+
+          let mediaArray = null;
+          for (const prop of possibleMediaProperties) {
+            if (article[prop] && Array.isArray(article[prop]) && article[prop].length > 0) {
+              mediaArray = article[prop];
+              console.log(`Found media files in property: ${prop}`, mediaArray);
+              break;
+            }
+          }
+
+          if (mediaArray) {
+            existingMediaFiles = mediaArray.map((media, index) => {
+              if (typeof media === 'string') {
+                // Direct URL format
+                const urlParts = media.split('/');
+                let fileName = urlParts[urlParts.length - 1];
+                if (fileName.includes('-') && fileName.match(/^\d+\-/)) {
+                  fileName = fileName.replace(/^\d+\-/, '');
+                }
+                
+                console.log(`Processing media URL ${index}:`, {
+                  url: media,
+                  extractedFileName: fileName
+                });
+
+                return {
+                  id: `existing-${index}`,
+                  name: fileName,
+                  size: 150000,
+                  type: "image/*",
+                  progress: 100,
+                  completed: true,
+                  isUploading: false,
+                  makeCoverImage: media === (article.coverImageUrl || article.coverImage),
+                  caption: "",
+                  uploadedUrl: media,
+                  file: null,
+                };
+              } else {
+                // Object format with properties
+                const fileName = media.filename || media.fileName || media.name || media.originalName || `media-${index}`;
+                const fileUrl = media.url || media.path || media.fileUrl || media.filePath || media.src || media.uploadedUrl;
+                const fileSize = media.size || media.fileSize || 150000;
+                const fileType = media.type || media.mimeType || media.contentType || "image/*";
+                const fileCaption = media.caption || media.description || media.alt || "";
+                
+                console.log(`Processing media object ${index}:`, {
+                  fileName,
+                  fileUrl,
+                  fileSize,
+                  fileType,
+                  originalMedia: media
+                });
+
+                return {
+                  id: `existing-${index}`,
+                  name: fileName,
+                  size: fileSize,
+                  type: fileType,
+                  progress: 100,
+                  completed: true,
+                  isUploading: false,
+                  makeCoverImage: fileName === (article.coverImageFileName || article.coverImageName) || fileUrl === (article.coverImageUrl || article.coverImage),
+                  caption: fileCaption,
+                  uploadedUrl: fileUrl,
+                  file: null,
+                };
+              }
+            });
+
+            // Check if there's a separate coverImage that's not in the media array
+            const coverImageUrl = article.coverImageUrl || article.coverImage;
+            if (coverImageUrl) {
+              const coverImageAlreadyExists = existingMediaFiles.some(file => file.uploadedUrl === coverImageUrl);
+              
+              if (!coverImageAlreadyExists) {
+                console.log("Found separate cover image not in media array:", coverImageUrl);
+                
+                const urlParts = coverImageUrl.split('/');
+                let fileName = urlParts[urlParts.length - 1];
+                if (fileName.includes('-') && fileName.match(/^\d+\-/)) {
+                  fileName = fileName.replace(/^\d+\-/, '');
+                }
+                
+                const coverFileEntry = {
+                  id: `existing-cover-${existingMediaFiles.length}`,
+                  name: fileName,
+                  size: 150000,
+                  type: "image/*",
+                  progress: 100,
+                  completed: true,
+                  isUploading: false,
+                  makeCoverImage: true,
+                  caption: "",
+                  uploadedUrl: coverImageUrl,
+                  file: null,
+                };
+                
+                existingMediaFiles.push(coverFileEntry);
+                console.log("Added separate cover image to files list");
+              } else {
+                existingMediaFiles = existingMediaFiles.map(file => ({
+                  ...file,
+                  makeCoverImage: file.uploadedUrl === coverImageUrl
+                }));
+                console.log("Marked existing file as cover image");
+              }
+            }
+            
+            console.log("Final processed existing files:", existingMediaFiles);
+            setUploadedFiles(existingMediaFiles);
+          } else {
+            console.log("No media files found in article data");
+            
+            const coverImageUrl = article.coverImageUrl || article.coverImage || article.thumbnail;
+            const coverImageName = article.coverImageFileName || article.coverImageName;
+            
+            if (coverImageUrl) {
+              let fileName = coverImageName;
+              if (!fileName && coverImageUrl) {
+                const urlParts = coverImageUrl.split('/');
+                fileName = urlParts[urlParts.length - 1];
+                if (fileName.includes('-') && fileName.match(/^\d+\-/)) {
+                  fileName = fileName.replace(/^\d+\-/, '');
+                }
+              }
+              
+              let fileSize = 150000;
+              
+              console.log("Creating file entry from cover image:", { 
+                coverImageUrl, 
+                coverImageName, 
+                extractedFileName: fileName,
+                fileSize 
+              });
+              
+              const coverFileEntry = {
+                id: `existing-cover`,
+                name: fileName || 'cover-image',
+                size: fileSize,
+                type: "image/*",
+                progress: 100,
+                completed: true,
+                isUploading: false,
+                makeCoverImage: true,
+                caption: "",
+                uploadedUrl: coverImageUrl,
+                file: null,
+              };
+              
+              setUploadedFiles([coverFileEntry]);
+            } else {
+              setUploadedFiles([]);
+            }
           }
         }
       } catch (error) {
@@ -118,7 +282,7 @@ const CreateNewsForm = ({
     loadNewsForEditing();
   }, [editingNewsId, apiClient]);
 
-  // ADDED: Effect to clear form when not editing
+  // Effect to clear form when not editing
   useEffect(() => {
     if (!editingNewsId) {
       setFormData({
@@ -133,7 +297,6 @@ const CreateNewsForm = ({
       setUploadedFiles([]);
       setErrors({});
 
-      // Clear editors
       if (subtitleRef.current) subtitleRef.current.innerHTML = "";
       if (bodyTextRef.current) bodyTextRef.current.innerHTML = "";
     }
@@ -144,62 +307,38 @@ const CreateNewsForm = ({
     return el.textContent || el.innerText || "";
   };
 
-  // ADDED: Function to check if form is valid (without setting errors)
   const isFormValid = () => {
-    // Check if API client is available
     if (!apiClient) return false;
-
-    // Title validation
-    if (!formData.title?.trim() || formData.title.length > TITLE_LIMIT) {
-      return false;
-    }
-
-    // Subtitle validation
-    if (!getTextContent(subtitleRef.current)) {
-      return false;
-    }
-
-    // Body text validation
-    if (!getTextContent(bodyTextRef.current)) {
-      return false;
-    }
-
-    // Tags validation
-    if (!formData.tags || formData.tags.length === 0) {
-      return false;
-    }
-
+    if (!formData.title?.trim() || formData.title.length > TITLE_LIMIT) return false;
+    if (!getTextContent(subtitleRef.current)) return false;
+    if (!getTextContent(bodyTextRef.current)) return false;
+    if (!formData.tags || formData.tags.length === 0) return false;
     return true;
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Check if API client is available
     if (!apiClient) {
       newErrors.general = "You must be logged in to save news articles.";
       setErrors(newErrors);
       return false;
     }
 
-    // Title validation
     if (!formData.title?.trim()) {
       newErrors.title = "Title is required";
     } else if (formData.title.length > TITLE_LIMIT) {
       newErrors.title = `Max ${TITLE_LIMIT} chars`;
     }
 
-    // Subtitle validation
     if (!getTextContent(subtitleRef.current)) {
       newErrors.subtitle = "Subtitle required";
     }
 
-    // Body text validation
     if (!getTextContent(bodyTextRef.current)) {
       newErrors.bodyText = "Body text required";
     }
 
-    // Tags validation
     if (!formData.tags || formData.tags.length === 0) {
       newErrors.tags = "At least one tag required";
     }
@@ -217,7 +356,6 @@ const CreateNewsForm = ({
     setIsSubmitting(true);
     setErrors({});
 
-    // Build form data matching API expectations
     const newsData = {
       title: formData.title?.trim() || "",
       subtitle: getTextContent(subtitleRef.current) || "",
@@ -227,32 +365,25 @@ const CreateNewsForm = ({
       isActive: !isDraft,
     };
 
-    // Handle cover image - map to API field name
     if (formData.coverImageName?.trim()) {
       newsData.coverImageFileName = formData.coverImageName.trim();
     }
 
-    // Prepare files for upload (only new files, not existing ones)
-    const newFiles = (uploadedFiles || []).filter(
-      (f) => f?.completed && f?.file
-    );
+    const newFiles = (uploadedFiles || []).filter((f) => f?.completed && f?.file);
     let mediaFiles = [];
     let coverFile = null;
 
     if (newFiles.length > 0) {
-      // Set coverImageFileName to first cover image or first image
       const coverImage = newFiles.find((f) => f.makeCoverImage) || newFiles[0];
       if (coverImage && !formData.coverImageName) {
         newsData.coverImageFileName = coverImage.name;
         coverFile = coverImage.file;
       }
 
-      // Add caption from cover image
       if (coverImage?.caption) {
         newsData.caption = coverImage.caption;
       }
 
-      // Collect all new media files
       mediaFiles = newFiles.map((f) => f.file).filter(Boolean);
     }
 
@@ -260,59 +391,33 @@ const CreateNewsForm = ({
       let result;
 
       if (editingNewsId) {
-        // Update existing news article
-        result = await newsApi.update(
-          apiClient,
-          editingNewsId,
-          newsData,
-          mediaFiles,
-          coverFile
-        );
-
-        // Show success modal for update
-        setSuccessModal({
-          isOpen: true,
-          type: "updated",
-        });
+        result = await newsApi.update(apiClient, editingNewsId, newsData, mediaFiles, coverFile);
+        setSuccessModal({ isOpen: true, type: "updated" });
       } else {
-        // Create new news article
-        result = await newsApi.create(
-          apiClient,
-          newsData,
-          mediaFiles,
-          coverFile
-        );
-
-        // Show success modal based on whether it's draft or published
-        setSuccessModal({
-          isOpen: true,
-          type: isDraft ? "draft" : "published",
-        });
-
-        // Reset form if published and not editing
-        if (!isDraft) {
-          setFormData({
-            title: "",
-            subtitle: "",
-            bodyText: "",
-            tags: [],
-            coverImageName: "",
-            isDraft: true,
-            isActive: false,
-          });
-          // Clear the editors
-          if (subtitleRef.current) subtitleRef.current.innerHTML = "";
-          if (bodyTextRef.current) bodyTextRef.current.innerHTML = "";
-          setUploadedFiles([]);
-          setErrors({});
-        }
+        result = await newsApi.create(apiClient, newsData, mediaFiles, coverFile);
+        setSuccessModal({ isOpen: true, type: isDraft ? "draft" : "published" });
       }
+
+      // Always reset form after successful save
+      setFormData({
+        title: "",
+        subtitle: "",
+        bodyText: "",
+        tags: [],
+        coverImageName: "",
+        isDraft: true,
+        isActive: false,
+      });
+      
+      if (subtitleRef.current) subtitleRef.current.innerHTML = "";
+      if (bodyTextRef.current) bodyTextRef.current.innerHTML = "";
+      setUploadedFiles([]);
+      setErrors({});
+
     } catch (error) {
-      // Handle different types of errors
       let errorMessage = "Failed to save news article. Please try again.";
 
       if (error.response) {
-        // Server responded with error status
         const status = error.response.status;
         const data = error.response.data;
 
@@ -321,7 +426,6 @@ const CreateNewsForm = ({
         } else if (status === 403) {
           errorMessage = "You do not have permission to perform this action.";
         } else if (status === 400) {
-          // More detailed error for 400 status
           if (data?.message) {
             errorMessage = `Invalid data: ${data.message}`;
           } else if (data?.errors) {
@@ -329,9 +433,7 @@ const CreateNewsForm = ({
           } else if (data?.error) {
             errorMessage = `Error: ${data.error}`;
           } else {
-            errorMessage = `Invalid data provided. Server response: ${JSON.stringify(
-              data
-            )}`;
+            errorMessage = `Invalid data provided. Server response: ${JSON.stringify(data)}`;
           }
         } else if (status >= 500) {
           errorMessage = "Server error. Please try again later.";
@@ -339,9 +441,7 @@ const CreateNewsForm = ({
 
         console.error("API Error Response:", data);
       } else if (error.request) {
-        // Network error
-        errorMessage =
-          "Network error. Please check your connection and try again.";
+        errorMessage = "Network error. Please check your connection and try again.";
       }
 
       setErrors({ general: errorMessage });
@@ -351,7 +451,6 @@ const CreateNewsForm = ({
     }
   };
 
-  // Success modal handlers
   const handleCloseModal = () => {
     setSuccessModal({ isOpen: false, type: "published" });
   };
@@ -359,14 +458,39 @@ const CreateNewsForm = ({
   const handleRedirectToDashboard = () => {
     setSuccessModal({ isOpen: false, type: "published" });
     if (editingNewsId) {
-      setEditingNewsId(null); // Exit edit mode
+      setEditingNewsId(null);
     }
     if (onRedirectToDashboard) {
       onRedirectToDashboard();
     }
   };
 
-  // File upload handlers
+  const handleViewAllNews = () => {
+    setSuccessModal({ isOpen: false, type: "published" });
+    if (editingNewsId) {
+      setEditingNewsId(null);
+    }
+    
+    setFormData({
+      title: "",
+      subtitle: "",
+      bodyText: "",
+      tags: [],
+      coverImageName: "",
+      isDraft: true,
+      isActive: false,
+    });
+    setUploadedFiles([]);
+    setErrors({});
+    
+    if (subtitleRef.current) subtitleRef.current.innerHTML = "";
+    if (bodyTextRef.current) bodyTextRef.current.innerHTML = "";
+    
+    if (onRedirectToDashboard) {
+      onRedirectToDashboard();
+    }
+  };
+
   const handleFileUpload = (files) => {
     if (!files || files.length === 0) return;
 
@@ -386,7 +510,6 @@ const CreateNewsForm = ({
 
     setUploadedFiles((prev) => [...(prev || []), ...newFiles]);
 
-    // Simulate upload process
     newFiles.forEach((fileObj) => {
       const interval = setInterval(() => {
         setUploadedFiles((prev) =>
@@ -423,28 +546,17 @@ const CreateNewsForm = ({
     );
   };
 
-  // Tags handlers
   const handleTagsChange = (newTags) => {
     if (!Array.isArray(newTags)) return;
-
-    setFormData((prev) => ({
-      ...prev,
-      tags: newTags,
-    }));
+    setFormData((prev) => ({ ...prev, tags: newTags }));
   };
 
-  // Safe form data update
   const updateFormData = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ADDED: Check if buttons should be disabled
   const areButtonsDisabled = isSubmitting || !apiClient || !isFormValid();
 
-  // Show loading state when loading news for editing
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto">
@@ -479,23 +591,17 @@ const CreateNewsForm = ({
               </div>
             )}
 
-            {/* Show authentication warning if no API client */}
             {!apiClient && (
               <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                 <div className="flex items-center gap-2 text-yellow-700">
                   <AlertCircle size={16} />
-                  <span className="text-sm">
-                    Please log in to save news articles.
-                  </span>
+                  <span className="text-sm">Please log in to save news articles.</span>
                 </div>
               </div>
             )}
 
-            {/* Title Section */}
             <div className="grid grid-cols-4 gap-6 items-center mb-6">
-              <label className="text-sm font-medium text-gray-700">
-                Title *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Title *</label>
               <div className="col-span-3">
                 <input
                   type="text"
@@ -514,17 +620,12 @@ const CreateNewsForm = ({
 
             <div className="border-t border-gray-200 mb-6"></div>
 
-            {/* Subtitle Section */}
             <div className="grid grid-cols-4 gap-6 items-start mb-6">
-              <label className="text-sm font-medium text-gray-700 pt-3">
-                Subtitle *
-              </label>
+              <label className="text-sm font-medium text-gray-700 pt-3">Subtitle *</label>
               <div className="col-span-3">
                 <RichTextEditor
                   value={formData.subtitle || ""}
-                  onChange={(content) =>
-                    updateFormData("subtitle", content || "")
-                  }
+                  onChange={(content) => updateFormData("subtitle", content || "")}
                   placeholder="Write a short subtitle..."
                   textRef={subtitleRef}
                   limit={SUBTITLE_LIMIT}
@@ -536,17 +637,12 @@ const CreateNewsForm = ({
 
             <div className="border-t border-gray-200 mb-6"></div>
 
-            {/* Body Text Section */}
             <div className="grid grid-cols-4 gap-6 items-start mb-6">
-              <label className="text-sm font-medium text-gray-700 pt-3">
-                Body Text *
-              </label>
+              <label className="text-sm font-medium text-gray-700 pt-3">Body Text *</label>
               <div className="col-span-3">
                 <RichTextEditor
                   value={formData.bodyText || ""}
-                  onChange={(content) =>
-                    updateFormData("bodyText", content || "")
-                  }
+                  onChange={(content) => updateFormData("bodyText", content || "")}
                   placeholder="Write your article content..."
                   textRef={bodyTextRef}
                   limit={BODYTEXT_LIMIT}
@@ -558,12 +654,9 @@ const CreateNewsForm = ({
 
             <div className="border-t border-gray-200 mb-6"></div>
 
-            {/* File Upload Section */}
             <div className="grid grid-cols-4 gap-6 items-start mb-6">
               <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Upload Images
-                </label>
+                <label className="text-sm font-medium text-gray-700">Upload Images</label>
                 <div className="text-xs text-gray-500 mt-1">
                   Upload images for media and cover image.
                 </div>
@@ -578,18 +671,13 @@ const CreateNewsForm = ({
               </div>
             </div>
 
-            {/* Cover Image Name */}
             {uploadedFiles.length > 0 && (
               <div className="grid grid-cols-4 gap-6 items-center mb-6">
-                <label className="text-sm font-medium text-gray-700">
-                  Cover Image
-                </label>
+                <label className="text-sm font-medium text-gray-700">Cover Image</label>
                 <div className="col-span-3">
                   <select
                     value={formData.coverImageName || ""}
-                    onChange={(e) =>
-                      updateFormData("coverImageName", e.target.value)
-                    }
+                    onChange={(e) => updateFormData("coverImageName", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Auto-select (first image)</option>
@@ -602,8 +690,7 @@ const CreateNewsForm = ({
                       ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Choose which image to use as cover, or leave blank to use
-                    the first uploaded image.
+                    Choose which image to use as cover, or leave blank to use the first uploaded image.
                   </p>
                 </div>
               </div>
@@ -611,12 +698,9 @@ const CreateNewsForm = ({
 
             <div className="border-t border-gray-200 mb-6"></div>
 
-            {/* Tags Section */}
             <div className="grid grid-cols-4 gap-6 items-start mb-6">
               <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Tags (Maximum 20) *
-                </label>
+                <label className="text-sm font-medium text-gray-700">Tags (Maximum 20) *</label>
                 <p className="text-xs text-gray-500 mt-1">
                   Add tags to help categorize your news article.
                 </p>
@@ -631,7 +715,6 @@ const CreateNewsForm = ({
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
               {editingNewsId && (
                 <button
@@ -665,12 +748,12 @@ const CreateNewsForm = ({
         </div>
       </div>
 
-      {/* Success Modal */}
       <SuccessModal
         isOpen={successModal.isOpen}
         type={successModal.type}
         onClose={handleCloseModal}
         onRedirectToDashboard={handleRedirectToDashboard}
+        onViewAllNews={handleViewAllNews}
       />
     </>
   );
