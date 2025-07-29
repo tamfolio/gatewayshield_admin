@@ -29,11 +29,11 @@ const CloseSosTicketModal = ({ handleCloseSosTicketModal, closureReasons }) => {
     const payload = {
       closureReasonId: selectedReason.value,
       closureNote: closureNotes,
-      incidentId: id,
+      sosId: id,
     };
 
     try {
-      const res = await userRequest(token).post("/incident/close", payload);
+      const res = await userRequest(token).post("/sos/close", payload);
 
       console.log("✅ Incident closed successfully", res.data);
       handleCloseSosTicketModal(); // Close modal after successful close

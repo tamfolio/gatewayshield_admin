@@ -19,6 +19,7 @@ import AssignTicketModal from "./AssignTicketModal";
 import ExportTicketSuccessModal from "./ReportExportedSuccessModal";
 import TicketAssignedSuccessModal from "./TicketAssignedSuccessModal";
 import CloseTicketConfirmModal from "./ConfirmCloseTicketModal";
+import RejectTicketGeneralModal from "./RejectTicketGeneralModal"; // Add this import
 import { userRequest } from "../../../requestMethod";
 import { useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -47,9 +48,27 @@ function GeneralDetails() {
   const [exportSuccessModal, setExportSuccessModal] = useState(false);
   const [closeTicketModal, setCloseTicketModal] = useState(false);
   const [assignTicketModal, setAssignTicketModal] = useState(false);
-  const [assignTicketSuccessModal, setAssignTicketSuccessModal] =
-    useState(false);
+  const [assignTicketSuccessModal, setAssignTicketSuccessModal] = useState(false);
   const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
+  const [rejectTicketModal, setRejectTicketModal] = useState(false); // Add this state
+  const [markingAsTreated, setMarkingAsTreated] = useState(false);
+  const [puttingOnHold, setPuttingOnHold] = useState(false);
+
+  // Role detection
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+  const userName = useSelector((state) => state.user?.currentUser?.admin);
+
+  // Get the current user's role name by matching roleId with adminRoles
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
 
   const handleExportModal = () => {
     setExportModal(!exportModal);
@@ -74,16 +93,96 @@ function GeneralDetails() {
   const handleConfirmCloseTicketModal = () => {
     setConfirmCloseTicketModal(!confirmCloseTicketModal);
   };
-  //   const [selectedAll, setSelectedAll] = useState(false);
 
-  //   const handleSelectAll = () => {
-  //     setSelectedAll(!selectedAll);
-  //     if (!selectedAll) {
-  //       setSelectedReports(reports.map((report) => report.id));
-  //     } else {
-  //       setSelectedReports([]);
-  //     }
-  //   };
+  // Update this function to toggle the reject modal
+  const handleRejectTicketModal = () => {
+    setRejectTicketModal(!rejectTicketModal);
+  };
+
+  // Add this function to handle successful rejection
+  const handleRejectTicketSuccess = () => {
+    // Add your rejection logic here - API call, state updates, etc.
+    console.log("Ticket rejected successfully");
+    // You might want to refresh the incident data or show a success message
+  };
+
+  const handleMarkAsTreatedModal = async () => {
+    if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
+      return;
+    }
+  
+    setMarkingAsTreated(true);
+    
+    try {
+      const requestBody = {
+        incidentId: id,
+        stationId: incident.assignedStation
+      };
+  
+      const res = await userRequest(token).patch(
+        `/incident/mark-as-treated/${id}`,
+        requestBody
+      );
+  
+      if (res.data.success) {
+        // Update the incident state to reflect the new status
+        setIncident(prev => ({
+          ...prev,
+          slaStatus: "Treated"
+        }));
+        
+        // Show success message or handle success
+        console.log("Incident marked as treated successfully");
+        
+        // Optionally refresh the incident data
+        // fetchIncident();
+      }
+    } catch (error) {
+      console.error("❌ Failed to mark incident as treated:", error);
+      // Handle error - show error message to user
+    } finally {
+      setMarkingAsTreated(false);
+    }
+  };
+  
+  const handlePutOnHoldModal = async () => {
+    if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
+      return;
+    }
+  
+    setPuttingOnHold(true);
+    
+    try {
+      const requestBody = {
+        incidentId: id,
+        stationId: incident.assignedStation
+      };
+  
+      const res = await userRequest(token).patch(
+        `/incident/put-on-hold/${id}`,
+        requestBody
+      );
+  
+      if (res.data.success) {
+        // Update the incident state to reflect the new status
+        setIncident(prev => ({
+          ...prev,
+          slaStatus: "OnHold"
+        }));
+        
+        // Show success message or handle success
+        console.log("Incident put on hold successfully");
+        
+        // Optionally refresh the incident data
+        // fetchIncident();
+      }
+    } catch (error) {
+      console.error("❌ Failed to put incident on hold:", error);
+      // Handle error - show error message to user
+    } finally {
+      setPuttingOnHold(false);
+    }
+  };
 
   const token = useSelector(
     (state) => state.user?.currentUser?.tokens?.access?.token
@@ -118,8 +217,6 @@ function GeneralDetails() {
       setLoading(false);
     }
   };
-
-  console.log(stations);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -165,8 +262,6 @@ function GeneralDetails() {
       fetchAuditTrail();
     }
   }, [id, token]);
-
-  console.log("audit", auditTrail);
 
   useEffect(() => {
     getStations();
@@ -272,6 +367,155 @@ function GeneralDetails() {
     );
   };
 
+  // Function to render buttons based on role
+  const renderActionButtons = () => {
+    // Helper function to check if incident status allows marking as treated or putting on hold
+    const isIncidentInProgress = () => {
+      const status = incident?.incidentStatus?.toLowerCase();
+      return status === 'new' || status === 'in progress';
+    };
+
+    const isMarkAsTreatedDisabled = 
+      !incident?.assignedStation || 
+      incident?.slaStatus === "Treated" || 
+      !isIncidentInProgress() ||
+      markingAsTreated;
+
+    const isPutOnHoldDisabled = 
+      !incident?.assignedStation || 
+      incident?.slaStatus === "OnHold" || 
+      !isIncidentInProgress() ||
+      puttingOnHold;
+
+    switch (currentUserRole) {
+      case "Command Centre supervisor":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              onClick={handleAssignTicketModal}
+            >
+              {incident?.assignedStation ? "Reassign Ticket" : "Assign Ticket"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleRejectTicketModal}
+            >
+              Reject Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Command Centre Agent":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Police Station":
+        return (
+          <div className="space-y-3">
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isMarkAsTreatedDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              onClick={handleMarkAsTreatedModal}
+              disabled={isMarkAsTreatedDisabled}
+              title={
+                !isIncidentInProgress() 
+                  ? "Incident must be 'New' or 'In Progress' to mark as treated"
+                  : !incident?.assignedStation
+                  ? "Incident must be assigned to a station"
+                  : incident?.slaStatus === "Treated"
+                  ? "Incident is already marked as treated"
+                  : ""
+              }
+            >
+              {markingAsTreated ? "Marking..." : "Mark as Treated"}
+            </button>
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isPutOnHoldDisabled
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
+              }`}
+              onClick={handlePutOnHoldModal}
+              disabled={isPutOnHoldDisabled}
+              title={
+                !isIncidentInProgress() 
+                  ? "Incident must be 'New' or 'In Progress' to put on hold"
+                  : !incident?.assignedStation
+                  ? "Incident must be assigned to a station"
+                  : incident?.slaStatus === "OnHold"
+                  ? "Incident is already on hold"
+                  : ""
+              }
+            >
+              {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Super Admin":
+      case "Admin":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              onClick={handleAssignTicketModal}
+            >
+              Assign Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleCloseTicketModal}
+            >
+              Close Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      default:
+        // Fallback - show only export for unknown roles
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+    }
+  };
+
   const tabs = ["Citizen Report", "Past SOS History", "Audit Trail"];
 
   return (
@@ -303,6 +547,7 @@ function GeneralDetails() {
           handleAssignTicketModal={handleAssignTicketModal}
           stations={stations}
           handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
+          assignedStation={incident.assignedStation}
         />
       )}
       {exportSuccessModal && (
@@ -320,7 +565,16 @@ function GeneralDetails() {
           handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}
         />
       )}
+      {/* Add the RejectTicketGeneralModal */}
+      {rejectTicketModal && (
+        <RejectTicketGeneralModal
+          handleRejectTicketModal={handleRejectTicketModal}
+          handleRejectTicketSuccess={handleRejectTicketSuccess}
+        />
+      )}
+      
       <div className="p-6 bg-gray-50 min-h-screen">
+        {/* Rest of your component remains the same... */}
         {/* Breadcrumb */}
         <div className="flex items-center text-sm text-gray-600 mb-6">
           <span>Dashboard</span>
@@ -385,27 +639,8 @@ function GeneralDetails() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <button
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
-                onClick={handleAssignTicketModal}
-              >
-                Assign Ticket
-              </button>
-              <button
-                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-                onClick={handleCloseTicketModal}
-              >
-                Close Ticket
-              </button>
-              <button
-                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-                onClick={handleExportModal}
-              >
-                Export Report
-              </button>
-            </div>
+            {/* Action Buttons - Now Role Based */}
+            {renderActionButtons()}
 
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow-sm border">
