@@ -64,9 +64,11 @@ export const useApiClient = () => {
 };
 
 
-// ========== SLA API (CORRECT ENDPOINTS FROM BACKEND) ==========
+// ========== SLA API  ==========
+// UPDATED API Methods 
+
 export const slaApi = {
-  // Ticket SLAs
+  // Ticket SLAs (already working)
   getTicketSlas: async (client) => {
     try {
       const response = await client.get('/settings/ticketSlas/all');
@@ -77,12 +79,18 @@ export const slaApi = {
     }
   },
 
-  updateTicketSlas: async (client, data) => {
+  updateTicketSla: async (client, data) => {
     try {
-      const response = await client.put('/settings/ticketSlas/update', data);
+      console.log('🚀 [SLA API] Updating ticket SLA with PATCH');
+      console.log('📤 Request data:', data);
+      
+      // Expected: {"id": "01K13RGQ3Y70H7RBE2DHHFM89C", "sla": 6}
+      const response = await client.patch('/settings/incident/update-ticket-sla', data);
+      
+      console.log('✅ [SLA API] Ticket SLA updated successfully:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ [SLA API] Failed to update ticket SLAs:', error);
+      console.error('❌ [SLA API] Failed to update ticket SLA:', error);
       throw error;
     }
   },
@@ -98,43 +106,46 @@ export const slaApi = {
     }
   },
 
-  updateIncidentSlas: async (client, data) => {
+  // Main method - matches the working API screenshot
+  manageResolutionSla: async (apiClient, data) => {
+    console.log('🚀 [SLA API] Managing resolution SLA');
+    console.log('📤 Request data:', data);
+    
     try {
-      const response = await client.put('/settings/incidentSlas/update', data);
-      return response.data;
+      const response = await apiClient.post('/settings/incident/manage-resolution-sla', data);
+      console.log('✅ [SLA API] Success:', response.data);
+      return response;
     } catch (error) {
-      console.error('❌ [SLA API] Failed to update incident SLAs:', error);
+      console.error('❌ [SLA API] Failed to manage resolution SLA:', error);
+      console.error('❌ [SLA API] Request data that failed:', data);
+      console.error('❌ [SLA API] Response data:', error.response?.data);
       throw error;
     }
   },
 
-  // CORRECT: Create new incident - EXACT endpoint and format from backend
+  // Create new incident
   createIncident: async (client, data) => {
     try {
       console.log('🚀 [INCIDENT API] Creating incident with CORRECT endpoint');
       
-      //  format from backend: {"incidentName": "Man Slaughter", "resolutionSla": 4}
       const requestData = {
         incidentName: data.name,
-        resolutionSla: parseInt(data.time) // Convert to number as shown in backend example
+        resolutionSla: parseInt(data.time)
       };
       
       console.log('📤 Request data:', requestData);
-      
-      // EXACT endpoint from backend: /settings/incident/new
       const response = await client.post('/settings/incident/new', requestData);
       
       console.log('✅ [INCIDENT API] SUCCESS:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ [INCIDENT API] Failed to create incident:', error);
-      console.error('❌ Error details:', error.response?.data);
       throw error;
     }
   }
 };
 
-// ========== CLOSURE REASONS API (CORRECT ENDPOINTS FROM BACKEND) ==========
+// Closure Reasons API (already correct)
 export const closureReasonsApi = {
   getClosureReasons: async (client) => {
     try {
@@ -146,7 +157,6 @@ export const closureReasonsApi = {
     }
   },
 
-  // CORRECT: Create closure reason - EXACT endpoint and format from backend
   createClosureReason: async (client, data) => {
     try {
       console.log('🚀 [CLOSURE API] Creating closure reason with CORRECT endpoint');

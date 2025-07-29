@@ -581,7 +581,7 @@ const GeneralFeedback = () => {
           {/* Header Section */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              Feedback Summary - Top 5 Officers and Stations
+              Feedback Summary 
             </h2>
             <div className="flex items-center gap-4">
               <FilterDropdown 

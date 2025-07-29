@@ -14,7 +14,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('');
-  const [activeFilters, setActiveFilters] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all'); // "all", "published", "draft"
   
   // Modal states
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -46,6 +46,11 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       // Add search term to filters
       if (searchTerm.trim()) {
         apiFilters.search = searchTerm.trim();
+      }
+
+      // Add status filter to API filters
+      if (statusFilter !== 'all') {
+        apiFilters.isPublished = statusFilter === 'published';
       }
 
       console.log('🔍 Loading resources with filters:', apiFilters);
@@ -95,87 +100,23 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (apiClient) {
-        loadResources(1, buildApiFilters());
+        loadResources(1);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  // Reload when active filters change
+  // Reload when status filter changes
   useEffect(() => {
-    if (apiClient && activeFilters.length >= 0) {
-      loadResources(1, buildApiFilters());
+    if (apiClient) {
+      loadResources(1);
     }
-  }, [activeFilters]);
+  }, [statusFilter]);
 
-  // Build API filters from UI state
-  const buildApiFilters = () => {
-    const filters = {};
-    
-    activeFilters.forEach(filter => {
-      switch (filter.type) {
-        case 'status':
-          filters.isPublished = filter.value.toLowerCase() === 'published';
-          break;
-        case 'date':
-          if (filter.value === 'today') {
-            const today = new Date().toISOString().split('T')[0];
-            filters.createdDate = today;
-          }
-          break;
-        default:
-          filters[filter.type] = filter.value;
-      }
-    });
-    
-    return filters;
-  };
-
-  // Function to add filter
-  const addFilter = (filterType, filterValue) => {
-    const newFilter = { type: filterType, value: filterValue };
-    if (!activeFilters.some(f => f.type === filterType && f.value === filterValue)) {
-      setActiveFilters([...activeFilters, newFilter]);
-    }
-  };
-
-  // Function to remove filter
-  const removeFilter = (filterToRemove) => {
-    setActiveFilters(activeFilters.filter(filter => 
-      !(filter.type === filterToRemove.type && filter.value === filterToRemove.value)
-    ));
-  };
-
-  // Function to clear all filters
-  const clearAllFilters = () => {
-    setActiveFilters([]);
-  };
-
-  // Handle publish/unpublish toggle
-  const handleTogglePublish = async (resourceId) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [resourceId]: 'toggle' }));
-      setError('');
-      
-      console.log('🔄 Toggling publish status for resource:', resourceId);
-      
-      await resourcesApi.togglePublish(apiClient, resourceId);
-      
-      setSuccess('Resource status updated successfully!');
-      
-      // Reload the current page to reflect changes
-      loadResources(pagination.currentPage, buildApiFilters());
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
-      
-    } catch (err) {
-      console.error('❌ Failed to toggle publish status:', err);
-      setError(err.message || 'Failed to update resource status');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [resourceId]: null }));
-    }
+  // Handle status filter change
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus);
   };
 
   // Handle delete initiation - show confirmation modal
@@ -204,7 +145,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       setShowDeleteSuccess(true);
       
       // Reload the current page to reflect changes
-      loadResources(pagination.currentPage, buildApiFilters());
+      loadResources(pagination.currentPage);
       
     } catch (err) {
       console.error('❌ Failed to delete resource:', err);
@@ -262,7 +203,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
-      loadResources(newPage, buildApiFilters());
+      loadResources(newPage);
     }
   };
 
@@ -276,6 +217,14 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   // Filter resources based on client-side filters and search
   const getFilteredResources = () => {
     let filtered = [...resources];
+    
+    // Apply client-side status filtering if not handled by API
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(resource => {
+        const isPublished = resource.status.toLowerCase() === 'published';
+        return statusFilter === 'published' ? isPublished : !isPublished;
+      });
+    }
     
     // Apply sorting if selected
     if (sortBy) {
@@ -310,7 +259,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
         </h2>
         
         <button
-          onClick={() => loadResources(pagination.currentPage, buildApiFilters())}
+          onClick={() => loadResources(pagination.currentPage)}
           disabled={loading}
           className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
         >
@@ -335,7 +284,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
         </div>
       )}
 
-      {/* Search and Filters */}
+      {/* Search and Sort */}
       <div className="flex items-center justify-between mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -364,61 +313,8 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
             </select>
             <ChevronDown className="absolute right-2 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
-
-          {/* Quick Filter Buttons */}
-          <div className="flex space-x-2">
-            <button
-              onClick={() => addFilter('date', 'today')}
-              className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-              disabled={loading}
-            >
-              Today
-            </button>
-            <button
-              onClick={() => addFilter('status', 'published')}
-              className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-              disabled={loading}
-            >
-              Published
-            </button>
-            <button
-              onClick={() => addFilter('status', 'draft')}
-              className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-              disabled={loading}
-            >
-              Draft
-            </button>
-          </div>
         </div>
       </div>
-
-      {/* Active Filter Tags */}
-      {activeFilters.length > 0 && (
-        <div className="flex items-center space-x-2 mb-6">
-          <span className="text-sm text-gray-600">Active filters:</span>
-          <div className="flex space-x-2">
-            {activeFilters.map((filter, index) => (
-              <button
-                key={index}
-                onClick={() => removeFilter(filter)}
-                className="px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 flex items-center"
-              >
-                {filter.value === 'today' ? 'Today' : 
-                 filter.value.charAt(0).toUpperCase() + filter.value.slice(1)}
-                <span className="ml-1">×</span>
-              </button>
-            ))}
-            {activeFilters.length > 0 && (
-              <button
-                onClick={clearAllFilters}
-                className="px-3 py-1 rounded-full text-sm bg-gray-800 text-white hover:bg-gray-900"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Loading State */}
       {loading && (
@@ -447,10 +343,63 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-32">
                     Submission Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 min-w-24">
-                    Status
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 min-w-24 relative">
+                    <div className="flex items-center gap-1">
+                      <span>Status</span>
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            const dropdown = document.getElementById('status-dropdown');
+                            dropdown.classList.toggle('hidden');
+                          }}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          title="Filter by status"
+                          data-dropdown-toggle
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                        <div
+                          id="status-dropdown"
+                          className="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]"
+                        >
+                          <button
+                            onClick={() => {
+                              handleStatusFilterChange("all");
+                              document.getElementById('status-dropdown').classList.add('hidden');
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                              statusFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleStatusFilterChange("published");
+                              document.getElementById('status-dropdown').classList.add('hidden');
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                              statusFilter === "published" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            }`}
+                          >
+                            Published
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleStatusFilterChange("draft");
+                              document.getElementById('status-dropdown').classList.add('hidden');
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                              statusFilter === "draft" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            }`}
+                          >
+                            Draft
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4 min-w-64">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-48">
                     Actions
                   </th>
                 </tr>
@@ -508,24 +457,6 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                             Download
                           </button>
 
-                          {/* Publish/Unpublish Button */}
-                          <button 
-                            onClick={() => handleTogglePublish(resource.id)}
-                            disabled={actionLoading[resource.id] === 'toggle'}
-                            className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 whitespace-nowrap ${
-                              resource.status === 'Published'
-                                ? 'text-red-600 hover:text-red-700'
-                                : 'text-blue-600 hover:text-blue-700'
-                            }`}
-                            title={resource.status === 'Published' ? 'Unpublish' : 'Publish'}
-                          >
-                            {actionLoading[resource.id] === 'toggle' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              resource.status === 'Published' ? 'Unpublish' : 'Publish'
-                            )}
-                          </button>
-
                           {/* Edit Button */}
                           <button 
                             onClick={() => handleEdit(resource)}
@@ -556,7 +487,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center">
                       <div className="text-gray-500">
-                        {searchTerm || activeFilters.length > 0 
+                        {searchTerm || statusFilter !== 'all'
                           ? 'No resources found matching your criteria'
                           : 'No resources available'
                         }
