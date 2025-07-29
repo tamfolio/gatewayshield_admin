@@ -219,7 +219,7 @@ const Sidebar = () => {
         `}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-2">
             <Shield className="w-8 h-8 text-blue-600" />
             <span className="font-semibold text-gray-900 text-lg">
@@ -230,7 +230,7 @@ const Sidebar = () => {
 
         {/* Search - Only show if user has access to multiple features */}
         {menuItems.length > 2 && (
-          <div className="p-4">
+          <div className="p-4 flex-shrink-0">
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -250,95 +250,97 @@ const Sidebar = () => {
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = isPathActive(item.path);
-            const isParentRouteActive =
-              item.hasSubmenu && isParentActive(item.submenu);
-            const isExpanded = expandedSections[item.name];
+        <nav className="flex-1 px-4 py-2 min-h-0 overflow-y-auto scrollbar-hide">
+          <div className="space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isPathActive(item.path);
+              const isParentRouteActive =
+                item.hasSubmenu && isParentActive(item.submenu);
+              const isExpanded = expandedSections[item.name];
 
-            return (
-              <div key={item.name}>
-                {item.hasSubmenu ? (
-                  <button
-                    onClick={() =>
-                      setExpandedSections((prev) => ({
-                        ...prev,
-                        [item.name]: !prev[item.name],
-                      }))
-                    }
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors duration-200 ${
-                      isParentRouteActive
-                        ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Icon
-                        className={`w-5 h-5 flex-shrink-0 ${
+              return (
+                <div key={item.name}>
+                  {item.hasSubmenu ? (
+                    <button
+                      onClick={() =>
+                        setExpandedSections((prev) => ({
+                          ...prev,
+                          [item.name]: !prev[item.name],
+                        }))
+                      }
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors duration-200 ${
+                        isParentRouteActive
+                          ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Icon
+                          className={`w-5 h-5 flex-shrink-0 ${
+                            isParentRouteActive ? "text-blue-700" : "text-gray-500"
+                          }`}
+                        />
+                        <span className="font-medium truncate">{item.name}</span>
+                      </div>
+                      <ChevronDown
+                        className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${
+                          isExpanded ? "rotate-180" : ""
+                        } ${
                           isParentRouteActive ? "text-blue-700" : "text-gray-500"
                         }`}
                       />
+                    </button>
+                  ) : (
+                    <Link
+                      to={item.path}
+                      onClick={handleLinkClick}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors duration-200 ${
+                        isActive
+                          ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 flex-shrink-0 ${
+                          isActive ? "text-blue-700" : "text-gray-500"
+                        }`}
+                      />
                       <span className="font-medium truncate">{item.name}</span>
+                    </Link>
+                  )}
+
+                  {item.hasSubmenu && isExpanded && (
+                    <div className="pl-6 mt-1 space-y-1">
+                      {item.submenu.map((subItem) => {
+                        const isSubActive = isPathActive(subItem.path);
+
+                        return (
+                          <Link
+                            key={subItem.name}
+                            to={subItem.path}
+                            onClick={handleLinkClick}
+                            className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors duration-200 ${
+                              isSubActive
+                                ? "bg-blue-100 text-blue-700 border-l-2 border-blue-700"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span className="font-medium truncate">{subItem.name}</span>
+                          </Link>
+                        );
+                      })}
                     </div>
-                    <ChevronDown
-                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${
-                        isExpanded ? "rotate-180" : ""
-                      } ${
-                        isParentRouteActive ? "text-blue-700" : "text-gray-500"
-                      }`}
-                    />
-                  </button>
-                ) : (
-                  <Link
-                    to={item.path}
-                    onClick={handleLinkClick}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors duration-200 ${
-                      isActive
-                        ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-5 h-5 flex-shrink-0 ${
-                        isActive ? "text-blue-700" : "text-gray-500"
-                      }`}
-                    />
-                    <span className="font-medium truncate">{item.name}</span>
-                  </Link>
-                )}
-
-                {item.hasSubmenu && isExpanded && (
-                  <div className="pl-6 mt-1 space-y-1">
-                    {item.submenu.map((subItem) => {
-                      const isSubActive = isPathActive(subItem.path);
-
-                      return (
-                        <Link
-                          key={subItem.name}
-                          to={subItem.path}
-                          onClick={handleLinkClick}
-                          className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors duration-200 ${
-                            isSubActive
-                              ? "bg-blue-100 text-blue-700 border-l-2 border-blue-700"
-                              : "text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          <span className="font-medium truncate">{subItem.name}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Bottom Items */}
         {bottomItems.length > 0 && (
-          <div className="border-t border-gray-200">
+          <div className="border-t border-gray-200 flex-shrink-0">
             <div className="px-4 py-4 space-y-1">
               {bottomItems.map((item) => {
                 const Icon = item.icon;
@@ -369,7 +371,7 @@ const Sidebar = () => {
         )}
 
         {/* User Profile */}
-        <div className="px-4 py-3 border-t border-gray-200">
+        <div className="px-4 py-3 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-white" />

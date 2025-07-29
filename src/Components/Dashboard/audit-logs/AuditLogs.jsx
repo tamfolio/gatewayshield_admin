@@ -210,10 +210,16 @@ const AuditLogs = () => {
   // Load initial data
   useEffect(() => {
     if (isApiAvailable) {
-      loadUserRoles();
       loadAuditLogs();
     }
   }, [isApiAvailable]);
+
+  // Load user roles after audit logs are loaded 
+  useEffect(() => {
+    if (isApiAvailable && auditLogs.length > 0) {
+      loadUserRoles();
+    }
+  }, [isApiAvailable, auditLogs.length]);
 
   // Load logs when filters or pagination change
   useEffect(() => {
@@ -244,11 +250,68 @@ const AuditLogs = () => {
         filters
       );
       
-      const { logs, pagination: newPagination } = auditLogsUtils.parseGetAllResponse(response);
-      const transformedLogs = auditLogsUtils.transformAuditLogsData(logs);
+      // Handle the actual API response structure
+      let logs, newPagination;
+      
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        // Direct API response structure
+        logs = response.data.data;
+        newPagination = response.data.pagination || {};
+      } else if (auditLogsUtils?.parseGetAllResponse) {
+        // Fallback to utility function
+        const parsed = auditLogsUtils.parseGetAllResponse(response);
+        logs = parsed.logs;
+        newPagination = parsed.pagination;
+      } else {
+        logs = [];
+        newPagination = {};
+      }
+      
+      // Transform the logs to match component expectations
+      const transformedLogs = logs.map(log => {
+        // Determine the  (admin or user) and their role
+        const actor = log.admin?.fullname ? log.admin : log.user;
+        const actorName = actor?.fullname || 'System';
+        const userRole = actor?.role || 'Unknown';
+        
+        // Format timestamp
+        const timestamp = new Date(log.timestamp);
+        const time = timestamp.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        const date = timestamp.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        return {
+          id: log.id,
+          logId: log.id,
+          action: log.action,
+          userRole: userRole,
+          userName: actorName,
+          time: time,
+          date: date,
+          timestamp: log.timestamp,
+          originalLog: log // Keep original for reference
+        };
+      });
       
       setAuditLogs(transformedLogs);
-      setPagination(prev => ({ ...prev, ...newPagination }));
+      
+      //  Properly merge pagination data while preserving current page
+      setPagination(prev => ({
+        ...prev,
+        total: newPagination.total || 0,
+        totalPages: newPagination.totalPages || 1,
+        // Only update currentPage if it's explicitly provided and valid
+        ...(newPagination.currentPage && newPagination.currentPage !== prev.currentPage 
+          ? { currentPage: Math.max(1, Math.min(newPagination.currentPage, newPagination.totalPages || 1)) }
+          : {})
+      }));
       
       console.log('✅ Audit logs loaded successfully:', transformedLogs.length, 'logs');
     } catch (error) {
@@ -265,15 +328,44 @@ const AuditLogs = () => {
 
     try {
       console.log('👥 Loading user roles...');
-      const roles = await auditLogsApi.getUserRoles(apiClient);
-      const validRoles = Array.isArray(roles) ? roles : [];
-      setUserRoles(validRoles);
-      console.log('✅ User roles loaded:', validRoles);
+      
+      // First try to get roles from API
+      let roles = [];
+      try {
+        roles = await auditLogsApi.getUserRoles(apiClient);
+      } catch (apiError) {
+        console.warn('⚠️ API getUserRoles failed, extracting from current data:', apiError);
+      }
+      
+      // If API doesn't provide roles or returns empty, extract from current logs
+      if (!Array.isArray(roles) || roles.length === 0) {
+        // Extract unique roles from current audit logs
+        const currentRoles = new Set();
+        auditLogs.forEach(log => {
+          if (log.userRole && log.userRole !== 'Unknown') {
+            currentRoles.add(log.userRole);
+          }
+        });
+        
+        // Add common roles that might appear
+        currentRoles.add('Super Admin');
+        currentRoles.add('Admin');
+        currentRoles.add('Citizen');
+        currentRoles.add('System');
+        
+        roles = Array.from(currentRoles).sort();
+      }
+      
+      setUserRoles(roles);
+      console.log('✅ User roles loaded:', roles);
     } catch (error) {
       console.error('❌ Failed to load user roles:', error);
-      setError('Failed to load user roles. Some filters may not be available.');
+      // Fallback to basic roles
+      const fallbackRoles = ['Super Admin', 'Admin', 'Citizen', 'System'];
+      setUserRoles(fallbackRoles);
+      console.log('🔄 Using fallback roles:', fallbackRoles);
     }
-  }, [isApiAvailable, apiClient]);
+  }, [isApiAvailable, apiClient, auditLogs]);
 
   const handleUserRoleFilter = useCallback((role) => {
     setSelectedFilters(prev => ({
@@ -282,6 +374,8 @@ const AuditLogs = () => {
         ? prev.userRole.filter(r => r !== role)
         : [...prev.userRole, role]
     }));
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
     setShowUserRoleDropdown(false);
   }, []);
 
@@ -289,6 +383,8 @@ const AuditLogs = () => {
     const date = e.target.value;
     setSelectedDate(date);
     setSelectedFilters(prev => ({ ...prev, timeStamp: date }));
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
     setShowDatePicker(false);
   }, []);
 
@@ -302,12 +398,16 @@ const AuditLogs = () => {
       setSelectedFilters(prev => ({ ...prev, timeStamp: null }));
       setSelectedDate('');
     }
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   }, []);
 
   const clearAllFilters = useCallback(() => {
     setSelectedFilters({ userRole: [], timeStamp: null });
     setSelectedDate('');
     setSearchTerm('');
+    // Reset to first page when filters are cleared
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   }, []);
 
   const exportToPDF = useCallback(async () => {
@@ -341,13 +441,14 @@ const AuditLogs = () => {
           throw apiError;
         }
       } else {
-        // Client-side CSV export
-        const headers = ['Log ID', 'User Role', 'Action Type', 'Time Stamp'];
+        // Client-side CSV export fallback
+        const headers = ['Log ID', 'User Role', 'User Name', 'Action Type', 'Time Stamp'];
         const csvContent = [
           headers.join(','),
           ...auditLogs.map(log => [
             `"${log.logId || log.id}"`,
             `"${log.userRole || ''}"`,
+            `"${log.userName || ''}"`,
             `"${log.action || ''}"`,
             `"${log.time || ''} ${log.date || ''}"`
           ].join(','))
@@ -375,10 +476,16 @@ const AuditLogs = () => {
   }, [isApiAvailable, auditLogs, selectedFilters, debouncedSearchTerm, apiClient]);
 
   const handlePageChange = useCallback((page) => {
-    if (page >= 1 && page <= pagination.totalPages) {
-      setPagination(prev => ({ ...prev, currentPage: page }));
+    const targetPage = Math.max(1, Math.min(page, pagination.totalPages));
+    
+    if (targetPage !== pagination.currentPage) {
+      console.log(`📄 Changing page from ${pagination.currentPage} to ${targetPage}`);
+      setPagination(prev => ({ 
+        ...prev, 
+        currentPage: targetPage 
+      }));
     }
-  }, [pagination.totalPages]);
+  }, [pagination.currentPage, pagination.totalPages]);
 
   const retryLoadData = useCallback(() => {
     setError(null);
@@ -392,7 +499,7 @@ const AuditLogs = () => {
   const filteredLogs = useMemo(() => {
     if (isApiAvailable) return auditLogs;
     
-    return auditLogs.filter(log => {
+    let filtered = auditLogs.filter(log => {
       // Search filter
       if (debouncedSearchTerm) {
         const searchLower = debouncedSearchTerm.toLowerCase();
@@ -418,25 +525,88 @@ const AuditLogs = () => {
       
       return true;
     });
-  }, [auditLogs, debouncedSearchTerm, selectedFilters, isApiAvailable]);
+
+    // Client-side pagination
+    const startIndex = (pagination.currentPage - 1) * pagination.pageSize;
+    const endIndex = startIndex + pagination.pageSize;
+    return filtered.slice(startIndex, endIndex);
+  }, [auditLogs, debouncedSearchTerm, selectedFilters, isApiAvailable, pagination.currentPage, pagination.pageSize]);
 
   // Memoized pagination info
   const paginationInfo = useMemo(() => {
-    const totalLogs = isApiAvailable ? pagination.total : filteredLogs.length;
-    const currentPage = pagination.currentPage;
-    const pageSize = pagination.pageSize;
-    const totalPages = Math.ceil(totalLogs / pageSize);
-    
-    const startIndex = (currentPage - 1) * pageSize + 1;
-    const endIndex = Math.min(currentPage * pageSize, totalLogs);
-    
-    return {
-      startIndex: totalLogs > 0 ? startIndex : 0,
-      endIndex,
-      totalLogs,
-      totalPages
-    };
-  }, [pagination, filteredLogs.length, isApiAvailable]);
+    if (isApiAvailable) {
+      // Server-side pagination
+      const totalLogs = pagination.total;
+      const currentPage = pagination.currentPage;
+      const pageSize = pagination.pageSize;
+      const totalPages = pagination.totalPages;
+      
+      const startIndex = (currentPage - 1) * pageSize + 1;
+      const endIndex = Math.min(currentPage * pageSize, totalLogs);
+      
+      return {
+        startIndex: totalLogs > 0 ? startIndex : 0,
+        endIndex,
+        totalLogs,
+        totalPages
+      };
+    } else {
+      // Client-side pagination
+      const allFilteredLogs = auditLogs.filter(log => {
+        // Apply the same filters as above
+        if (debouncedSearchTerm) {
+          const searchLower = debouncedSearchTerm.toLowerCase();
+          const matchesSearch = [
+            log.logId,
+            log.userRole,
+            log.action,
+            log.userName
+          ].some(field => field?.toLowerCase().includes(searchLower));
+          
+          if (!matchesSearch) return false;
+        }
+        
+        if (selectedFilters.userRole.length > 0) {
+          if (!selectedFilters.userRole.includes(log.userRole)) return false;
+        }
+        
+        if (selectedFilters.timeStamp) {
+          if (!log.date?.includes(selectedFilters.timeStamp)) return false;
+        }
+        
+        return true;
+      });
+
+      const totalLogs = allFilteredLogs.length;
+      const currentPage = pagination.currentPage;
+      const pageSize = pagination.pageSize;
+      const totalPages = Math.ceil(totalLogs / pageSize);
+      
+      const startIndex = (currentPage - 1) * pageSize + 1;
+      const endIndex = Math.min(currentPage * pageSize, totalLogs);
+      
+      return {
+        startIndex: totalLogs > 0 ? startIndex : 0,
+        endIndex,
+        totalLogs,
+        totalPages
+      };
+    }
+  }, [pagination, auditLogs, debouncedSearchTerm, selectedFilters, isApiAvailable]);
+
+  // Update pagination state for client-side when total pages change
+  useEffect(() => {
+    if (!isApiAvailable) {
+      const newTotalPages = paginationInfo.totalPages;
+      setPagination(prev => ({
+        ...prev,
+        totalPages: newTotalPages,
+        total: paginationInfo.totalLogs,
+        // Ensure current page is within bounds
+        currentPage: Math.max(1, Math.min(prev.currentPage, newTotalPages))
+      }));
+    }
+  }, [paginationInfo.totalPages, paginationInfo.totalLogs, isApiAvailable]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -507,7 +677,7 @@ const AuditLogs = () => {
               {/* Export Button */}
               <button 
                 onClick={exportToPDF}
-                disabled={exporting || loading || filteredLogs.length === 0}
+                disabled={exporting || loading || (isApiAvailable ? paginationInfo.totalLogs === 0 : filteredLogs.length === 0)}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
                 aria-label={exporting ? 'Exporting logs...' : 'Export audit logs'}
               >
@@ -689,9 +859,22 @@ const AuditLogs = () => {
                         {log.logId || log.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {log.userRole}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            log.userRole === 'Super Admin' 
+                              ? 'bg-purple-100 text-purple-800'
+                              : log.userRole === 'Admin'
+                              ? 'bg-blue-100 text-blue-800'
+                              : log.userRole === 'Citizen'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {log.userRole}
+                          </span>
+                          {log.userName && log.userName !== 'System' && (
+                            <span className="text-xs text-gray-500 mt-1">{log.userName}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={log.action}>
                         {log.action}
@@ -711,7 +894,7 @@ const AuditLogs = () => {
         </div>
 
         {/* Pagination */}
-        {!loading && filteredLogs.length > 0 && paginationInfo.totalPages > 1 && (
+        {!loading && paginationInfo.totalLogs > 0 && paginationInfo.totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <button 
               onClick={() => handlePageChange(pagination.currentPage - 1)}

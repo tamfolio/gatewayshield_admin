@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Trash2, Edit3, X, Eye, RefreshCw } from "lucide-react";
+import { Search, Trash2, Edit3, RefreshCw, ChevronDown } from "lucide-react";
 import { useApiClient, newsApi } from "../../../../Utils/apiClient";
 import useAccessToken from "../../../../Utils/useAccessToken";
 import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
 import DeletedSuccessModal from "./components/DeletedSuccessModal";
-import NewsDetails from "./components/NewsDetails";
 
 const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [newsData, setNewsData] = useState([]);
@@ -14,7 +13,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilters, setActiveFilters] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("all"); // "all", "published", "draft"
   const [selectedItems, setSelectedItems] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(null);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
@@ -32,13 +31,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
     message: "",
   });
 
-  // News details overlay state
-  const [newsDetailsOverlay, setNewsDetailsOverlay] = useState({
-    isOpen: false,
-    newsData: null,
-    loading: false,
-  });
-
   const itemsPerPage = 10;
   const accessToken = useAccessToken();
   const apiClient = useApiClient();
@@ -54,9 +46,24 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
     };
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdown = document.getElementById('status-dropdown');
+      if (dropdown && !dropdown.contains(event.target) && !event.target.closest('[data-dropdown-toggle]')) {
+        dropdown.classList.add('hidden');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   //  Stable fetchNews function with proper parameter handling
   const fetchNews = useCallback(
-    async (pageNum = 1, search = "", filters = []) => {
+    async (pageNum = 1, search = "", filter = "all") => {
       // Prevent multiple simultaneous calls
       if (isFetchingRef.current) {
         console.log("Fetch already in progress, skipping...");
@@ -76,7 +83,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
 
         // Ensure we pass primitive values, not objects
         const searchTrimmed = typeof search === "string" ? search.trim() : "";
-        const filtersArray = Array.isArray(filters) ? filters : [];
         const pageNumber = Number(pageNum) || 1;
         const sizeNumber = Number(itemsPerPage) || 10;
 
@@ -84,7 +90,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           page: pageNumber,
           size: sizeNumber,
           search: searchTrimmed,
-          filters: filtersArray,
+          statusFilter: filter,
         });
 
         //  Call the API with primitive values directly
@@ -146,6 +152,27 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           newsArray = [];
         }
 
+        // Apply client-side status filtering if needed
+        if (filter !== "all") {
+          newsArray = newsArray.filter((article) => {
+            const isDraft =
+              article.isDraft === 1 || article.isDraft === true || article.isDraft === "true";
+            const isActive =
+              article.isActive === 1 || article.isActive === true || article.isActive === "true";
+            const hasPublishedDate = article.datePublished && article.datePublished !== null;
+            const statusField =
+              typeof article.status === "string" ? article.status.toLowerCase() : "";
+
+            const isPublished =
+              (isActive && !isDraft) ||
+              (hasPublishedDate && !isDraft) ||
+              statusField === "published" ||
+              statusField === "active";
+
+            return filter === "published" ? isPublished : !isPublished;
+          });
+        }
+
         // Batch state updates to prevent multiple re-renders
         const newTotalItems = paginationData.total || newsArray.length;
         const newTotalPages =
@@ -205,14 +232,14 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
   // FIXED: Single effect for initial load and auth changes
   useEffect(() => {
     if (apiClient && accessToken) {
-      fetchNews(1, searchTerm, activeFilters);
+      fetchNews(1, searchTerm, statusFilter);
     }
   }, [apiClient, accessToken]);
 
   // FIXED: Separate effect for page changes (not initial load)
   useEffect(() => {
     if (apiClient && accessToken && currentPage !== 1) {
-      fetchNews(currentPage, searchTerm, activeFilters);
+      fetchNews(currentPage, searchTerm, statusFilter);
     }
   }, [currentPage]);
 
@@ -221,20 +248,20 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
     const timeoutId = setTimeout(() => {
       if (apiClient && accessToken) {
         setCurrentPage(1); // Reset to page 1 for new search
-        fetchNews(1, searchTerm, activeFilters);
+        fetchNews(1, searchTerm, statusFilter);
       }
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  //  Filter effect
+  //  Status filter effect
   useEffect(() => {
     if (apiClient && accessToken) {
       setCurrentPage(1); // Reset to page 1 for new filters
-      fetchNews(1, searchTerm, activeFilters);
+      fetchNews(1, searchTerm, statusFilter);
     }
-  }, [activeFilters]);
+  }, [statusFilter]);
 
   //  Memoized delete function
   const handleDeleteNews = useCallback(
@@ -329,7 +356,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
 
       setSelectedItems([]);
       // Refresh after bulk delete
-      await fetchNews(currentPage, searchTerm, activeFilters);
+      await fetchNews(currentPage, searchTerm, statusFilter);
 
       // Close modal
       setDeleteModal({ isOpen: false, newsId: null, isBulk: false });
@@ -346,7 +373,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
     apiClient,
     currentPage,
     searchTerm,
-    activeFilters,
+    statusFilter,
     fetchNews,
   ]);
 
@@ -360,73 +387,13 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
     setDeleteSuccessModal({ isOpen: false, message: "" });
   }, []);
 
-  //  View news function with overlay
-  const handleViewNews = useCallback(
-    async (newsId) => {
-      if (!newsId) return;
-
-      try {
-        setNewsDetailsOverlay({
-          isOpen: true,
-          newsData: null,
-          loading: true,
-        });
-
-        const response = await newsApi.getOne(apiClient, newsId);
-
-        // Parse the response to get the news data
-        let newsDetails = null;
-        if (response?.data?.news) {
-          newsDetails = response.data.news;
-        } else if (response?.data?.data?.news) {
-          newsDetails = response.data.data.news;
-        } else if (response?.data) {
-          newsDetails = response.data;
-        } else {
-          newsDetails = response;
-        }
-
-        setNewsDetailsOverlay({
-          isOpen: true,
-          newsData: newsDetails,
-          loading: false,
-        });
-      } catch (err) {
-        setError("Failed to load news details");
-        setNewsDetailsOverlay({
-          isOpen: false,
-          newsData: null,
-          loading: false,
-        });
-      }
-    },
-    [apiClient]
-  );
-
-  // Close news details overlay
-  const closeNewsDetailsOverlay = useCallback(() => {
-    setNewsDetailsOverlay({
-      isOpen: false,
-      newsData: null,
-      loading: false,
-    });
-  }, []);
-
-  // FIXED: Optimized filter handlers
-  const handleFilterToggle = useCallback((filter) => {
-    setActiveFilters((prev) =>
-      prev.includes(filter)
-        ? prev.filter((f) => f !== filter)
-        : [...prev, filter]
-    );
-  }, []);
-
-  const removeFilter = useCallback((filter) => {
-    setActiveFilters((prev) => prev.filter((f) => f !== filter));
+  // FIXED: Optimized status filter handler
+  const handleStatusFilterChange = useCallback((newStatus) => {
+    setStatusFilter(newStatus);
   }, []);
 
   const clearAllFilters = useCallback(() => {
-    setActiveFilters([]);
+    setStatusFilter("all");
     setSearchTerm("");
   }, []);
 
@@ -532,7 +499,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           <p className="text-sm">{error}</p>
         </div>
         <button
-          onClick={() => fetchNews(1, searchTerm, activeFilters)}
+          onClick={() => fetchNews(1, searchTerm, statusFilter)}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
@@ -578,42 +545,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="px-6 py-3 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleFilterToggle("Published")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
-                activeFilters.includes("Published")
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Published
-              {activeFilters.includes("Published") && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFilter("Published");
-                  }}
-                  className="ml-1 text-white hover:text-gray-200"
-                >
-                  <X className="w-3 h-3 inline" />
-                </button>
-              )}
-            </button>
-
-            {activeFilters.length > 0 && (
-              <button
-                onClick={clearAllFilters}
-                className="px-3 py-1 text-gray-500 hover:text-gray-700 text-xs font-medium"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Show error banner if there's an error but data is still available */}
         {error && newsData.length > 0 && (
           <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200">
@@ -637,7 +568,62 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           <div className="col-span-4">Title</div>
           <div className="col-span-2">Date Created</div>
           <div className="col-span-2">Author</div>
-          <div className="col-span-2">Status</div>
+          <div className="col-span-2 relative">
+            <div className="flex items-center gap-1">
+              <span>Status</span>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const dropdown = document.getElementById('status-dropdown');
+                    dropdown.classList.toggle('hidden');
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  title="Filter by status"
+                  data-dropdown-toggle
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                <div
+                  id="status-dropdown"
+                  className="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]"
+                >
+                  <button
+                    onClick={() => {
+                      handleStatusFilterChange("all");
+                      document.getElementById('status-dropdown').classList.add('hidden');
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                      statusFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleStatusFilterChange("published");
+                      document.getElementById('status-dropdown').classList.add('hidden');
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                      statusFilter === "published" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                    }`}
+                  >
+                    Published
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleStatusFilterChange("draft");
+                      document.getElementById('status-dropdown').classList.add('hidden');
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                      statusFilter === "draft" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                    }`}
+                  >
+                    Draft
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="col-span-1">Actions</div>
         </div>
 
@@ -649,7 +635,7 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
                 No news articles found
               </div>
               <p className="text-sm">
-                {searchTerm || activeFilters.length > 0
+                {searchTerm || statusFilter !== "all"
                   ? "Try adjusting your search or filters"
                   : "Get started by creating your first article"}
               </p>
@@ -749,13 +735,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
 
                   {/* Actions */}
                   <div className="col-span-1 flex items-center gap-1">
-                    <button
-                      onClick={() => handleViewNews(articleId)}
-                      className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                      title="View"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
                     <button
                       onClick={() => onEditNews(articleId)}
                       className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -862,14 +841,6 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
           </div>
         )}
       </div>
-
-      {/* News Details Component */}
-      <NewsDetails
-        isOpen={newsDetailsOverlay.isOpen}
-        newsData={newsDetailsOverlay.newsData}
-        loading={newsDetailsOverlay.loading}
-        onClose={closeNewsDetailsOverlay}
-      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

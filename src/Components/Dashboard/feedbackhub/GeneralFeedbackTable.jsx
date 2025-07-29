@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Trash2, Eye, Share, Filter, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Trash2, Eye, Share, Filter, X, Calendar, ChevronDown } from 'lucide-react';
 import { FiDownloadCloud } from 'react-icons/fi';
 import { IoIosArrowDown } from 'react-icons/io';
 import { generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
+import PublishFeedback from './components/PublishFeedback';
 
 // Table Utility Functions
 const tableUtils = {
@@ -46,13 +47,16 @@ const tableUtils = {
     }
 
     return rawData.map((item, index) => {
-      // Handle different possible field names from API
+      // Handle different possible field names from API - ID should be first priority
       const feedbackId = item.id || item.feedbackId || `temp-${index}`;
       const feedbackType = item.feedbackType || item.type || 'Unknown';
       const officerName = item.officerName || item.officer || '';
       const stationName = item.stationName || item.station || '';
       const comment = item.comment || item.commentText || '';
       const createdAt = item.createdAt || item.date || item.submissionDate || '';
+      
+      // Debug logging for ID extraction
+      console.log(`🔍 Item ${index} - Original ID: ${item.id}, Extracted ID: ${feedbackId}`);
       
       // Format date
       let formattedDate = '';
@@ -77,6 +81,7 @@ const tableUtils = {
         type: feedbackType,
         officer: officerName || 'N/A',
         station: stationName,
+        citizenName: item.citizenName, // Keep original citizenName field
         comment: comment,
         date: formattedDate,
         dateRaw: createdAt, // Keep raw date for sorting
@@ -251,11 +256,214 @@ const EmptyState = ({ hasFilters, error }) => (
   </tr>
 );
 
-// Sortable Header Component
+// Dropdown Components
+const Dropdown = ({ isOpen, onToggle, children, className = "" }) => {
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        onToggle(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen, onToggle]);
+
+  return (
+    <div ref={dropdownRef} className={`relative ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+const FeedbackTypeDropdown = ({ value, onChange, isOpen, onToggle }) => {
+  const feedbackTypes = ['All Types', 'Suggestion', 'Complaint', 'Compliment'];
+
+  return (
+    <Dropdown isOpen={isOpen} onToggle={onToggle}>
+      <button
+        onClick={() => onToggle(!isOpen)}
+        className="flex items-center gap-1"
+      >
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+          <div className="py-1">
+            {feedbackTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => {
+                  onChange(type === 'All Types' ? '' : type);
+                  onToggle(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  (value || 'All Types') === type ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Dropdown>
+  );
+};
+
+const SearchableDropdown = ({ value, onChange, options, placeholder, isOpen, onToggle }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm) return ['All', ...options];
+    return ['All', ...options.filter(option => 
+      option.toLowerCase().includes(searchTerm.toLowerCase())
+    )];
+  }, [options, searchTerm]);
+
+  const handleSelect = (option) => {
+    onChange(option === 'All' ? '' : option);
+    onToggle(false);
+    setSearchTerm('');
+  };
+
+  return (
+    <Dropdown isOpen={isOpen} onToggle={onToggle}>
+      <button
+        onClick={() => onToggle(!isOpen)}
+        className="flex items-center gap-1"
+      >
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+          <div className="p-2 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder={`Search ${placeholder.toLowerCase()}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-7 pr-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="max-h-32 overflow-y-auto py-1">
+            {filteredOptions.map((option, index) => (
+              <button
+                key={`${option}-${index}`}
+                onClick={() => handleSelect(option)}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  (value || 'All') === option ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+            {filteredOptions.length === 1 && (
+              <div className="px-3 py-2 text-xs text-gray-500">No results found</div>
+            )}
+          </div>
+        </div>
+      )}
+    </Dropdown>
+  );
+};
+
+const DatePickerDropdown = ({ value, onChange, isOpen, onToggle }) => {
+  const [selectedDate, setSelectedDate] = useState(value || '');
+
+  const handleDateChange = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    onChange(date);
+    onToggle(false);
+  };
+
+  const clearDate = () => {
+    setSelectedDate('');
+    onChange('');
+    onToggle(false);
+  };
+
+  return (
+    <Dropdown isOpen={isOpen} onToggle={onToggle}>
+      <button
+        onClick={() => onToggle(!isOpen)}
+        className="flex items-center gap-1"
+      >
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+          <div className="p-3">
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Select Date
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={clearDate}
+                className="flex-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Dropdown>
+  );
+};
+
+// Sortable Header Component with Dropdown Filter
+const SortableFilterHeader = ({ children, sortKey, currentSort, onSort, hasFilter, filterComponent, className = "" }) => {
+  const isActive = currentSort.key === sortKey;
+  const isAsc = isActive && currentSort.direction === 'asc';
+
+  return (
+    <th className={`text-left py-3 px-4 font-medium text-gray-600 ${className}`}>
+      <div className="flex flex-col gap-2">
+        <div 
+          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded select-none"
+          onClick={() => onSort(sortKey)}
+        >
+          {children}
+          <IoIosArrowDown 
+            className={`w-4 h-4 transition-transform duration-200 ${
+              isActive 
+                ? (isAsc ? 'rotate-180 text-blue-600' : 'rotate-0 text-blue-600')
+                : 'text-gray-400'
+            }`}
+          />
+        </div>
+        {hasFilter && (
+          <div className="w-full">
+            {filterComponent}
+          </div>
+        )}
+      </div>
+    </th>
+  );
+};
+
 const SortableHeader = ({ children, sortKey, currentSort, onSort, className = "" }) => {
   const isActive = currentSort.key === sortKey;
   const isAsc = isActive && currentSort.direction === 'asc';
-  const isDesc = isActive && currentSort.direction === 'desc';
 
   return (
     <th 
@@ -294,6 +502,26 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     title: '', 
     message: '' 
   });
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    feedbackType: '',
+    officer: '',
+    station: '',
+    date: ''
+  });
+
+  // Dropdown states
+  const [dropdownStates, setDropdownStates] = useState({
+    feedbackType: false,
+    officer: false,
+    station: false,
+    date: false
+  });
+
+  // Modal states
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
   
   // Sorting state
   const [sortConfig, setSortConfig] = useState({
@@ -302,6 +530,25 @@ const GeneralFeedbackTable = ({ apiClient }) => {
   });
 
   const itemsPerPage = 10;
+
+  // Toggle dropdown function
+  const toggleDropdown = (dropdownName, isOpen) => {
+    setDropdownStates(prev => ({
+      ...prev,
+      [dropdownName]: isOpen
+    }));
+  };
+
+  // Get unique values for dropdowns
+  const uniqueOfficers = useMemo(() => {
+    const officers = [...new Set(data.map(item => item.officer).filter(officer => officer && officer !== 'N/A'))];
+    return officers.sort();
+  }, [data]);
+
+  const uniqueStations = useMemo(() => {
+    const stations = [...new Set(data.map(item => item.station).filter(station => station && station !== 'N/A'))];
+    return stations.sort();
+  }, [data]);
 
   // Fetch feedbacks from API
   const fetchFeedbacks = async (page = 1, showLoader = false) => {
@@ -329,6 +576,10 @@ const GeneralFeedbackTable = ({ apiClient }) => {
       
       // Use the table-specific utility functions
       const { data: extractedData, pagination } = tableUtils.extractApiResponseData(response);
+      
+      // Debug: Log the raw extracted data before transformation
+      console.log('🔍 Raw extracted data before transformation:', extractedData);
+      console.log('🔍 Sample raw item:', extractedData[0]);
       
       // Transform data using table-specific utility function
       const transformedData = tableUtils.transformGeneralFeedbackData(extractedData);
@@ -399,7 +650,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     setCurrentPage(1); // Reset to first page when sorting
   };
 
-  // Filter data based on search term
+  // Filter data based on search term and filters
   const filteredData = useMemo(() => {
     if (!Array.isArray(data)) return [];
     
@@ -416,12 +667,43 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         );
       }
       
+      // Apply feedback type filter
+      if (filters.feedbackType) {
+        filtered = filtered.filter(item => 
+          item.type && item.type.toLowerCase() === filters.feedbackType.toLowerCase()
+        );
+      }
+      
+      // Apply officer filter
+      if (filters.officer) {
+        filtered = filtered.filter(item => 
+          item.officer && item.officer.toLowerCase().includes(filters.officer.toLowerCase())
+        );
+      }
+      
+      // Apply station filter
+      if (filters.station) {
+        filtered = filtered.filter(item => 
+          item.station && item.station.toLowerCase().includes(filters.station.toLowerCase())
+        );
+      }
+      
+      // Apply date filter
+      if (filters.date) {
+        const filterDate = new Date(filters.date);
+        filtered = filtered.filter(item => {
+          if (!item.dateRaw) return false;
+          const itemDate = new Date(item.dateRaw);
+          return itemDate.toDateString() === filterDate.toDateString();
+        });
+      }
+      
       return filtered;
     } catch (err) {
       console.error('Error filtering data:', err);
       return [];
     }
-  }, [data, searchTerm]);
+  }, [data, searchTerm, filters]);
 
   // Sort and paginate filtered data
   const sortedAndPaginatedData = useMemo(() => {
@@ -434,6 +716,33 @@ const GeneralFeedbackTable = ({ apiClient }) => {
       return [];
     }
   }, [filteredData, sortConfig, currentPage]);
+
+  // Handle filter changes
+  const handleFilterChange = (filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      feedbackType: '',
+      officer: '',
+      station: '',
+      date: ''
+    });
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  // Handle view feedback
+  const handleViewFeedback = (feedback) => {
+    setSelectedFeedback(feedback);
+    setPublishModalOpen(true);
+  };
 
   // Handle delete action
   const handleDelete = async (feedbackId) => {
@@ -547,10 +856,13 @@ const GeneralFeedbackTable = ({ apiClient }) => {
     }
   };
 
-  // Reset page when search changes
+  // Check if any filters are active
+  const hasActiveFilters = Object.values(filters).some(filter => filter !== '') || searchTerm !== '';
+
+  // Reset page when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, filters]);
 
   // Initial data fetch
   useEffect(() => {
@@ -561,7 +873,6 @@ const GeneralFeedbackTable = ({ apiClient }) => {
 
   // Calculate pagination info
   const localTotalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const hasSearch = searchTerm.length > 0;
 
   // Show skeleton during initial load
   if (loading && !initialLoadComplete) {
@@ -593,14 +904,17 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setSearchTerm('')}
-            disabled={!hasSearch || loading}
-          >
-            Clear Search
-          </Button>
+          {hasActiveFilters && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={clearAllFilters}
+              disabled={loading}
+            >
+              <X className="w-4 h-4" />
+              Clear All Filters
+            </Button>
+          )}
           
           <Button 
             variant="outline" 
@@ -608,20 +922,55 @@ const GeneralFeedbackTable = ({ apiClient }) => {
             onClick={handleExportCSV}
             disabled={filteredData.length === 0 || loading}
           >
+            <FiDownloadCloud className="w-4 h-4" />
             Export CSV
           </Button>
         </div>
       </div>
 
-      {/* Active Search */}
-      {hasSearch && (
+      {/* Active Filters */}
+      {hasActiveFilters && (
         <div className="flex gap-2 mb-4 flex-wrap">
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-2">
-            Search: "{searchTerm}"
-            <button onClick={() => setSearchTerm('')} className="hover:bg-blue-200 rounded-full p-0.5">
-              <X className="w-3 h-3" />
-            </button>
-          </span>
+          {searchTerm && (
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-2">
+              Search: "{searchTerm}"
+              <button onClick={() => setSearchTerm('')} className="hover:bg-blue-200 rounded-full p-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filters.feedbackType && (
+            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm flex items-center gap-2">
+              Type: {filters.feedbackType}
+              <button onClick={() => handleFilterChange('feedbackType', '')} className="hover:bg-green-200 rounded-full p-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filters.officer && (
+            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm flex items-center gap-2">
+              Officer: {filters.officer}
+              <button onClick={() => handleFilterChange('officer', '')} className="hover:bg-purple-200 rounded-full p-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filters.station && (
+            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm flex items-center gap-2">
+              Station: {filters.station}
+              <button onClick={() => handleFilterChange('station', '')} className="hover:bg-orange-200 rounded-full p-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filters.date && (
+            <span className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm flex items-center gap-2">
+              Date: {new Date(filters.date).toLocaleDateString()}
+              <button onClick={() => handleFilterChange('date', '')} className="hover:bg-pink-200 rounded-full p-0.5">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
         </div>
       )}
 
@@ -667,19 +1016,60 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <SortableHeader sortKey="type" currentSort={sortConfig} onSort={handleSort}>
-                Feedback Type
-              </SortableHeader>
-              <SortableHeader sortKey="officer" currentSort={sortConfig} onSort={handleSort}>
-                Officer
-              </SortableHeader>
-              <SortableHeader sortKey="station" currentSort={sortConfig} onSort={handleSort}>
-                Station
-              </SortableHeader>
+              <th className="text-left py-3 px-4 font-medium text-gray-600">
+                <div className="flex items-center gap-2">
+                  <span>Feedback Type</span>
+                  <FeedbackTypeDropdown
+                    value={filters.feedbackType}
+                    onChange={(value) => handleFilterChange('feedbackType', value)}
+                    isOpen={dropdownStates.feedbackType}
+                    onToggle={(isOpen) => toggleDropdown('feedbackType', isOpen)}
+                  />
+                </div>
+              </th>
+              
+              <th className="text-left py-3 px-4 font-medium text-gray-600">
+                <div className="flex items-center gap-2">
+                  <span>Officer</span>
+                  <SearchableDropdown
+                    value={filters.officer}
+                    onChange={(value) => handleFilterChange('officer', value)}
+                    options={uniqueOfficers}
+                    placeholder="officers"
+                    isOpen={dropdownStates.officer}
+                    onToggle={(isOpen) => toggleDropdown('officer', isOpen)}
+                  />
+                </div>
+              </th>
+              
+              <th className="text-left py-3 px-4 font-medium text-gray-600">
+                <div className="flex items-center gap-2">
+                  <span>Station</span>
+                  <SearchableDropdown
+                    value={filters.station}
+                    onChange={(value) => handleFilterChange('station', value)}
+                    options={uniqueStations}
+                    placeholder="stations"
+                    isOpen={dropdownStates.station}
+                    onToggle={(isOpen) => toggleDropdown('station', isOpen)}
+                  />
+                </div>
+              </th>
+              
               <th className="text-left py-3 px-4 font-medium text-gray-600">Comment Text</th>
-              <SortableHeader sortKey="date" currentSort={sortConfig} onSort={handleSort}>
-                Submission Date
-              </SortableHeader>
+              
+              <th className="text-left py-3 px-4 font-medium text-gray-600">
+                <div className="flex items-center gap-2">
+                  <span>Submission Date</span>
+                  <DatePickerDropdown
+                    value={filters.date}
+                    onChange={(value) => handleFilterChange('date', value)}
+                    isOpen={dropdownStates.date}
+                    onToggle={(isOpen) => toggleDropdown('date', isOpen)}
+                  />
+                </div>
+              </th>
+              
               <th className="text-left py-3 px-4 font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
@@ -706,9 +1096,14 @@ const GeneralFeedbackTable = ({ apiClient }) => {
                     <td className="py-3 px-4 text-sm text-gray-500">{item.date || 'N/A'}</td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="text-blue-600">
+                        <button 
+                          onClick={() => handleViewFeedback(item)}
+                          className="flex items-center gap-1 px-3 py-1 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
+                          disabled={isLoading}
+                        >
+                          <Eye className="w-3 h-3" />
                           View
-                        </Button>
+                        </button>
                         <button 
                           className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 disabled:opacity-50" 
                           title="Delete"
@@ -728,7 +1123,7 @@ const GeneralFeedbackTable = ({ apiClient }) => {
                 );
               })
             ) : (
-              <EmptyState hasFilters={hasSearch} error={error} />
+              <EmptyState hasFilters={hasActiveFilters} error={error} />
             )}
           </tbody>
         </table>
@@ -790,6 +1185,27 @@ const GeneralFeedbackTable = ({ apiClient }) => {
         loading={actionLoading[confirmModal.feedbackId]}
         variant={confirmModal.type === 'delete' ? 'danger' : 'success'}
       />
+
+      {/* Publish Feedback Modal */}
+      {publishModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div 
+            className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto shadow-2xl border border-gray-200 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <PublishFeedback
+                isOpen={publishModalOpen}
+                onClose={() => {
+                  setPublishModalOpen(false);
+                  setSelectedFeedback(null);
+                }}
+                feedback={selectedFeedback}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

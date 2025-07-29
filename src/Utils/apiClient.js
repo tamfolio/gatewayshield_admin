@@ -84,7 +84,6 @@ export const slaApi = {
       console.log('🚀 [SLA API] Updating ticket SLA with PATCH');
       console.log('📤 Request data:', data);
       
-
       // Expected: {"id": "01K13RGQ3Y70H7RBE2DHHFM89C", "sla": 6}
       const response = await client.patch('/settings/incident/update-ticket-sla', data);
       
@@ -107,54 +106,19 @@ export const slaApi = {
     }
   },
 
-  // NEW: Update incident SLA directly (like ticket SLA)
-  updateIncidentSla: async (client, data) => {
+  // Main method - matches the working API screenshot
+  manageResolutionSla: async (apiClient, data) => {
+    console.log('🚀 [SLA API] Managing resolution SLA');
+    console.log('📤 Request data:', data);
+    
     try {
-      console.log('🚀 [SLA API] Updating incident SLA directly');
-      console.log('📤 Request data:', data);
-      
-      //PATCH with ID and SLA
-      // Expected: {"id": "01JYHPZ74KG0BRT19MGT840Y8V", "sla": 8}
-      const response = await client.patch('/settings/incidentSlas/update', data);
-      
-      console.log('✅ [SLA API] Incident SLA updated successfully:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ [SLA API] Failed to update incident SLA:', error);
-      throw error;
-    }
-  },
-
-  // APUT instead of PATCH for incident SLAs
-  updateIncidentSlaAlternative: async (client, data) => {
-    try {
-      console.log('🚀 [SLA API] Updating incident SLA with PUT');
-      console.log('📤 Request data:', data);
-      
-      // T PUT /settings/incidentSlas/update
-      // Expected: {"id": "01JYHPZ74KG0BRT19MGT840Y8V", "sla": 8}
-      const response = await client.put('/settings/incidentSlas/update', data);
-      
-      console.log('✅ [SLA API] Incident SLA updated successfully:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ [SLA API] Failed to update incident SLA with PUT:', error);
-      throw error;
-    }
-  },
-
-  // Keep the existing manage method as fallback
-  manageResolutionSla: async (client, data) => {
-    try {
-      console.log('🚀 [SLA API] Managing resolution SLA');
-      console.log('📤 Request data:', data);
-      
-      const response = await client.post('/settings/incident/manage-resolution-sla', data);
-      
-      console.log('✅ [SLA API] Resolution SLA managed successfully:', response.data);
-      return response.data;
+      const response = await apiClient.post('/settings/incident/manage-resolution-sla', data);
+      console.log('✅ [SLA API] Success:', response.data);
+      return response;
     } catch (error) {
       console.error('❌ [SLA API] Failed to manage resolution SLA:', error);
+      console.error('❌ [SLA API] Request data that failed:', data);
+      console.error('❌ [SLA API] Response data:', error.response?.data);
       throw error;
     }
   },
@@ -170,7 +134,6 @@ export const slaApi = {
       };
       
       console.log('📤 Request data:', requestData);
-      
       const response = await client.post('/settings/incident/new', requestData);
       
       console.log('✅ [INCIDENT API] SUCCESS:', response.data);
