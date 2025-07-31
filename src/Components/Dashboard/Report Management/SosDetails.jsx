@@ -33,6 +33,7 @@ import {
 import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
+import RejectTicketSosModal from "./RejectTicketGeneralModal.jsx";
 
 function SosDetails() {
   const { id } = useParams();
@@ -49,9 +50,28 @@ function SosDetails() {
   const [exportSosSuccessModal, setExportSosSuccessModal] = useState(false);
   const [closeSosTicketModal, setCloseSosTicketModal] = useState(false);
   const [assignTicketSosModal, setAssignTicketSosModal] = useState(false);
+  const [rejectTicketModal, setRejectTicketModal] = useState(false);
   const [assignTicketSuccessModal, setAssignTicketSuccessModal] =
     useState(false);
   const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
+  const [markingAsTreated, setMarkingAsTreated] = useState(false);
+  const [puttingOnHold, setPuttingOnHold] = useState(false);
+
+  // Role detection
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+  const userName = useSelector((state) => state.user?.currentUser?.admin);
+
+  // Get the current user's role name by matching roleId with adminRoles
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
 
   const handleExportModal = () => {
     setExportModal(!exportModal);
@@ -76,16 +96,100 @@ function SosDetails() {
   const handleConfirmCloseTicketModal = () => {
     setConfirmCloseTicketModal(!confirmCloseTicketModal);
   };
-  //   const [selectedAll, setSelectedAll] = useState(false);
 
-  //   const handleSelectAll = () => {
-  //     setSelectedAll(!selectedAll);
-  //     if (!selectedAll) {
-  //       setSelectedReports(reports.map((report) => report.id));
-  //     } else {
-  //       setSelectedReports([]);
-  //     }
-  //   };
+  const handleRejectTicketSuccess = () => {
+    // Add your rejection logic here - API call, state updates, etc.
+    console.log("Ticket rejected successfully");
+    // You might want to refresh the incident data or show a success message
+  };
+
+  // Add handlers for new buttons
+  const handleReassignTicketModal = () => {
+    // You'll need to implement this modal
+    console.log("Reassign ticket modal");
+  };
+
+  const handleRejectTicketModal = () => {
+    setRejectTicketModal(!rejectTicketModal);
+  };
+
+  const handleMarkAsTreatedModal = async () => {
+    if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
+      return;
+    }
+  
+    setMarkingAsTreated(true);
+    
+    try {
+      const requestBody = {
+        incidentId: id,
+        stationId: incident.assignedStation
+      };
+  
+      const res = await userRequest(token).patch(
+        `/sos/mark-as-treated/${id}`,
+        requestBody
+      );
+  
+      if (res.data.success) {
+        // Update the incident state to reflect the new status
+        setIncident(prev => ({
+          ...prev,
+          slaStatus: "Treated"
+        }));
+        
+        // Show success message or handle success
+        console.log("SOS incident marked as treated successfully");
+        
+        // Optionally refresh the incident data
+        // fetchIncident();
+      }
+    } catch (error) {
+      console.error("❌ Failed to mark SOS incident as treated:", error);
+      // Handle error - show error message to user
+    } finally {
+      setMarkingAsTreated(false);
+    }
+  };
+  
+  const handlePutOnHoldModal = async () => {
+    if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
+      return;
+    }
+  
+    setPuttingOnHold(true);
+    
+    try {
+      const requestBody = {
+        incidentId: id,
+        stationId: incident.assignedStation
+      };
+  
+      const res = await userRequest(token).patch(
+        `/sos/put-on-hold/${id}`,
+        requestBody
+      );
+  
+      if (res.data.success) {
+        // Update the incident state to reflect the new status
+        setIncident(prev => ({
+          ...prev,
+          slaStatus: "OnHold"
+        }));
+        
+        // Show success message or handle success
+        console.log("SOS incident put on hold successfully");
+        
+        // Optionally refresh the incident data
+        // fetchIncident();
+      }
+    } catch (error) {
+      console.error("❌ Failed to put SOS incident on hold:", error);
+      // Handle error - show error message to user
+    } finally {
+      setPuttingOnHold(false);
+    }
+  };
 
   const token = useSelector(
     (state) => state.user?.currentUser?.tokens?.access?.token
@@ -120,8 +224,6 @@ function SosDetails() {
       setLoading(false);
     }
   };
-
-  console.log(stations);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -255,11 +357,167 @@ function SosDetails() {
     );
   };
 
+  // Function to render buttons based on role
+  const renderActionButtons = () => {
+    // Helper function to check if incident status allows marking as treated or putting on hold
+    const isIncidentInProgress = () => {
+      const status = incident?.incidentStatus?.toLowerCase();
+      return status === 'new' || status === 'in progress';
+    };
+
+    const isMarkAsTreatedDisabled = 
+      !incident?.assignedStation || 
+      incident?.slaStatus === "Treated" || 
+      !isIncidentInProgress() ||
+      markingAsTreated;
+
+    const isPutOnHoldDisabled = 
+      !incident?.assignedStation || 
+      incident?.slaStatus === "OnHold" || 
+      !isIncidentInProgress() ||
+      puttingOnHold;
+
+    switch (currentUserRole) {
+      case "Command Centre supervisor":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              onClick={handleAssignSosTicketModal}
+            >
+              {incident?.assignedStation ? "Reassign Ticket" : "Assign Ticket"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleRejectTicketModal}
+            >
+              Reject Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Command Centre Agent":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Police Station":
+        return (
+          <div className="space-y-3">
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isMarkAsTreatedDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              onClick={handleMarkAsTreatedModal}
+              disabled={isMarkAsTreatedDisabled}
+              title={
+                !isIncidentInProgress() 
+                  ? "SOS incident must be 'New' or 'In Progress' to mark as treated"
+                  : !incident?.assignedStation
+                  ? "SOS incident must be assigned to a station"
+                  : incident?.slaStatus === "Treated"
+                  ? "SOS incident is already marked as treated"
+                  : ""
+              }
+            >
+              {markingAsTreated ? "Marking..." : "Mark as Treated"}
+            </button>
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isPutOnHoldDisabled
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
+              }`}
+              onClick={handlePutOnHoldModal}
+              disabled={isPutOnHoldDisabled}
+              title={
+                !isIncidentInProgress() 
+                  ? "SOS incident must be 'New' or 'In Progress' to put on hold"
+                  : !incident?.assignedStation
+                  ? "SOS incident must be assigned to a station"
+                  : incident?.slaStatus === "OnHold"
+                  ? "SOS incident is already on hold"
+                  : ""
+              }
+            >
+              {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Super Admin":
+      case "Admin":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              onClick={handleAssignSosTicketModal}
+            >
+              Assign Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleCloseSosTicketModal}
+            >
+              Close Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      default:
+        // Fallback - show only export for unknown roles
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+    }
+  };
+
   const tabs = ["Citizen Report", "Past SOS History", "Audit Trail"];
 
   return (
     <>
-      <div style={{ position: "absolute", top: "-9999px", left: "-9999px", visibility: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: "-9999px",
+          left: "-9999px",
+          visibility: "hidden",
+        }}
+      >
         <div ref={reportRef}>
           <ReportExportTemplate
             incident={incident}
@@ -292,6 +550,13 @@ function SosDetails() {
       {exportSosSuccessModal && (
         <ExportTicketSuccessModal
           handleExportSosSuccessModal={handleExportSosSuccessModal}
+        />
+      )}
+
+      {rejectTicketModal && (
+        <RejectTicketSosModal
+          handleRejectTicketModal={handleRejectTicketModal}
+          handleRejectTicketSuccess={handleRejectTicketSuccess}
         />
       )}
       {assignTicketSuccessModal && (
@@ -377,27 +642,8 @@ function SosDetails() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <button
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
-                onClick={handleAssignSosTicketModal}
-              >
-                Assign Ticket
-              </button>
-              <button
-                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-                onClick={handleCloseSosTicketModal}
-              >
-                Close Ticket
-              </button>
-              <button
-                className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-                onClick={handleExportModal}
-              >
-                Export Report
-              </button>
-            </div>
+            {/* Action Buttons - Now Role Based */}
+            {renderActionButtons()}
 
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow-sm border">

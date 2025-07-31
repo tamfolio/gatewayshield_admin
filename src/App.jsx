@@ -21,6 +21,7 @@ import AuditLogs from "./Components/Dashboard/audit-logs/AuditLogs";
 import SLAHub from "./Components/Dashboard/system-settings/SLAHub";
 import ResourcesHub from "./Components/Dashboard/help/ResourcesHub";
 import UserHub from "./Components/Dashboard/user-profile/UserHub";
+import CreateIncident from "./Components/Dashboard/IncidentReporting/CreateIncident";
 // Import more components as needed...
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
           <Route path="users/edit/:id" element={<EditUser />} />
           <Route path="users/manage" element={<ManageUsers />} />
           <Route path="reports/sos" element={<Sos />} />
+          <Route path="incident" element={<CreateIncident />} />
           <Route path="reports/sos/:id" element={<SosDetails />} />
           <Route path="reports/general" element={<General />} />
           <Route path="reports/general/:id" element={<GeneralDetails />} />

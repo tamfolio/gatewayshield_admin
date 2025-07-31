@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 const AssignTicketSosModal = ({
   handleAssignSosTicketModal,
   stations,
-  handleAssignSosTicketSuccessModal,
+  handleAssignTicketSuccessModal,
 }) => {
   const [selectedStation, setSelectedStation] = useState(null);
   const { id } = useParams();
@@ -30,14 +30,13 @@ const AssignTicketSosModal = ({
 
     try {
       const payload = {
-        incidentId: id,
+        sosId: id,
         stationId: selectedStation.value,
       };
 
-      const res = await userRequest(token).patch("/incident/assign", payload);
+      const res = await userRequest(token).patch("/sos/assign", payload);
 
-      console.log("✅ Incident assigned successfully", res.data);
-      alert("Incident assigned successfully!");
+      console.log("✅ Incident assigned successfully", res.data); 
       handleAssignSosTicketModal();
       handleAssignTicketSuccessModal();
     } catch (err) {
