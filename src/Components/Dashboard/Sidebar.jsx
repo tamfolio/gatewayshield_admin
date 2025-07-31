@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   LayoutDashboard,
@@ -21,13 +21,18 @@ import {
   Shield,
   AlertTriangle, // Added for Incident Report icon
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { FiUser } from 'react-icons/fi';
+import { PiSignOutThin } from 'react-icons/pi';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { signOutUser } from '../../Utils/SignOut'; 
 
 const Sidebar = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
   const userRoleId = useSelector((state) => state.user?.currentUser?.admin?.roleId);
   const userName = useSelector((state) => state.user?.currentUser?.admin);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   console.log(userName)
   
   // Get the current user's role name by matching roleId with adminRoles
@@ -48,7 +53,31 @@ const Sidebar = () => {
     "Admin Tools": false,
   });
 
+  // User dropdown states
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+
   const location = useLocation();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target) &&
+        buttonRef.current && 
+        !buttonRef.current.contains(event.target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Auto-expand sections based on current path
   useEffect(() => {
@@ -192,6 +221,21 @@ const Sidebar = () => {
   // Display role information in user section
   const getRoleDisplayName = () => {
     return currentUserRole || "Unknown Role";
+  };
+
+  // User dropdown handlers
+  const handleMenuClick = () => {
+    setShowDropdown(!showDropdown);
+  };
+
+  const handleViewProfile = () => {
+    navigate('/dashboard/profile');
+    setShowDropdown(false);
+  };
+
+  const handleSignOut = async () => {
+    setShowDropdown(false);
+    await signOutUser(navigate);
   };
 
   return (
@@ -378,8 +422,8 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* User Profile */}
-        <div className="px-4 py-3 border-t border-gray-200 flex-shrink-0">
+        {/* User Profile with Dropdown */}
+        <div className="px-4 py-3 border-t border-gray-200 flex-shrink-0 relative">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-white" />
@@ -390,7 +434,11 @@ const Sidebar = () => {
               </p>
               <p className="text-xs text-gray-500 truncate">{getRoleDisplayName()}</p>
             </div>
-            <button className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 rounded transition-colors">
+            <button 
+              ref={buttonRef}
+              onClick={handleMenuClick}
+              className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 rounded transition-colors relative"
+            >
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -406,6 +454,29 @@ const Sidebar = () => {
               </svg>
             </button>
           </div>
+
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <div 
+              ref={dropdownRef}
+              className="absolute right-4 bottom-full mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[160px] z-50"
+            >
+              <button
+                onClick={handleViewProfile}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
+              >
+                <FiUser className="w-4 h-4" />
+                <span>View Profile</span>
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
+              >
+                <PiSignOutThin className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>

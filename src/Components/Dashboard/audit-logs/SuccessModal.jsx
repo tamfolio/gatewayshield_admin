@@ -1,5 +1,5 @@
 // src/components/SuccessModal.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 
 const SuccessModal = ({ 
@@ -10,16 +10,44 @@ const SuccessModal = ({
   buttonText = "Continue",
   showCloseButton = true 
 }) => {
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+    <div 
+      className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="success-modal-title"
+      aria-describedby="success-modal-description"
+    >
+      <div 
+        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6 relative pointer-events-auto border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close button */}
         {showCloseButton && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -33,12 +61,18 @@ const SuccessModal = ({
         </div>
 
         {/* Title */}
-        <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+        <h3 
+          id="success-modal-title" 
+          className="text-lg font-semibold text-gray-900 text-center mb-2"
+        >
           {title}
         </h3>
 
         {/* Message */}
-        <p className="text-gray-600 text-center mb-6">
+        <p 
+          id="success-modal-description" 
+          className="text-gray-600 text-center mb-6"
+        >
           {message}
         </p>
 
@@ -47,6 +81,7 @@ const SuccessModal = ({
           <button
             onClick={onClose}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            autoFocus
           >
             {buttonText}
           </button>
