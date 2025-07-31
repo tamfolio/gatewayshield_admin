@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ChevronDown,
   Upload,
@@ -13,8 +13,12 @@ import { useSelector } from "react-redux";
 import useAccessToken from "../../../Utils/useAccessToken";
 
 function CreateIncident() {
-  const { currentUser } = useSelector((state) => state.user);
+  const [userDataDetails, setUserDataDetails] = useState([]);
+  const userData = useSelector((state) => state.user?.currentUser);
+  console.log(userData);
   const token = useAccessToken();
+
+  console.log(userDataDetails?.id);
 
   const [formData, setFormData] = useState({
     reportType: "SOS",
@@ -23,14 +27,34 @@ function CreateIncident() {
     address: "",
     phone: "",
     description: "",
-    channel: "", // Start with empty for General reports
+    channel: "", // For General reports only
+    incidentType: "", // For General reports only
   });
 
   const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioBlob, setAudioBlob] = useState(null);
   const [uploadedFile, setUploadedFile] = useState("");
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      try {
+        const res = await userRequest(token).get(`/admin/get/`);
+        setUserDataDetails(res.data.data.admin);
+      } catch (error) {
+        console.error("❌ Failed to fetch Dashboard data:", error);
+      }
+    };
+
+    if (token) {
+      fetchUserDetails();
+    }
+  }, [token]);
+
+  console.log(userDataDetails);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -43,6 +67,31 @@ function CreateIncident() {
         ...prev,
         [field]: "",
       }));
+    }
+  };
+
+  const handleReportTypeChange = (reportType) => {
+    // Reset form when changing report type
+    setFormData({
+      reportType,
+      email: "",
+      fullName: "",
+      address: "",
+      phone: "",
+      description: "",
+      channel: "",
+      incidentType: "",
+    });
+    setErrors({});
+    setUploadedFile("");
+    setAudioBlob(null);
+    setIsRecording(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    // Stop any ongoing recording
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
     }
   };
 
@@ -71,8 +120,15 @@ function CreateIncident() {
       newErrors.description = "Description is required";
     }
 
-    if (formData.reportType === "General" && !formData.channel) {
-      newErrors.channel = "Channel is required for General reports";
+    // General report specific validations
+    if (formData.reportType === "General") {
+      if (!formData.channel) {
+        newErrors.channel = "Channel is required for General reports";
+      }
+      if (!formData.incidentType) {
+        newErrors.incidentType =
+          "Incident type is required for General reports";
+      }
     }
 
     setErrors(newErrors);
@@ -81,70 +137,128 @@ function CreateIncident() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!validateForm()) {
       return;
     }
-
+  
     setIsSubmitting(true);
-
+  
     try {
       const fileInput = fileInputRef.current;
       const selectedFile = fileInput?.files?.[0];
-
-      // Log for debugging
-      console.log("File input:", fileInput);
+  
+      // Debug file selection
+      console.log("File input ref:", fileInput);
       console.log("Selected file:", selectedFile);
       console.log("File size:", selectedFile?.size);
-
-      // Prepare the data object according to the API structure
-      const incidentData = {
-        incidentTypeId: "01JY9QT23TQDPFDJ678NQSJRGB",
-        address: formData.address,
-        description: formData.description,
-        isAnonymous: false,
-        userId: currentUser?.id || "01JX7KE5HB162HF41SYZ6PWJGV",
-        phoneNumber: formData.phone.replace(/\D/g, ""),
-        channel:
-          formData.reportType === "General"
-            ? formData.channel.toLowerCase()
-            : "web",
-      };
-
-      // Create FormData
-      const data = new FormData();
-      data.append("data", JSON.stringify(incidentData));
-
-      // Only append file if it exists and has content
-      if (selectedFile && selectedFile.size > 0) {
-        console.log(
-          "✅ Appending file:",
-          selectedFile.name,
-          "Size:",
-          selectedFile.size
-        );
-        data.append("file", selectedFile);
+      console.log("File type:", selectedFile?.type);
+      console.log("File name:", selectedFile?.name);
+  
+      if (formData.reportType === "SOS") {
+        // Handle SOS incident submission
+        const sosData = {
+          address: formData.address,
+          comment: formData.description,
+          isAnonymous: false,
+          userId: String(userDataDetails?.id),
+        };
+  
+        console.log("🚀 SOS Submitting form with data:", formData);
+        console.log("🚀 SOS Body data:", sosData);
+  
+        // Create FormData for SOS
+        const formPayload = new FormData();
+        formPayload.append("data", JSON.stringify(sosData));
+  
+        // Append audio file if recorded
+        if (audioBlob) {
+          const audioFile = new File([audioBlob], "recording.wav", {
+            type: "audio/wav",
+          });
+          formPayload.append("audio", audioFile);
+          console.log("SOS: Audio file appended successfully");
+        }
+  
+        // Append image file if uploaded
+        if (selectedFile && selectedFile instanceof File && selectedFile.size > 0) {
+          formPayload.append("image", selectedFile);
+          console.log("SOS: Image file appended successfully");
+        }
+  
+        // Log FormData contents for debugging
+        console.log("SOS FormData contents:");
+        for (let [key, value] of formPayload.entries()) {
+          console.log(key, value);
+        }
+  
+        const res = await userRequest(token).post("/sos/new", formPayload, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+  
+        console.log("✅ SOS incident created successfully", res.data);
+        toast.success("SOS report submitted successfully!");
       } else {
-        console.log("❌ No file to append");
+        // Handle General incident submission
+        const incidentData = {
+          incidentTypeId: "01JY9QT23TQDPFDJ678NQSJRGB",
+          address: formData.address,
+          description: formData.description,
+          isAnonymous: false,
+          userId: String(userDataDetails?.id),
+          phoneNumber: formData.phone.replace(/\D/g, ""),
+          channel: formData.channel.toLowerCase(),
+        };
+  
+        console.log("🚀 General Submitting form with data:", formData);
+        console.log("🚀 General Body data:", incidentData);
+        console.log("Token:", token ? "Present" : "Missing");
+  
+        // Log each field to check for null values
+        Object.entries(incidentData).forEach(([key, value]) => {
+          console.log(`   ${key}: ${value} (type: ${typeof value})`);
+          if (value === null || value === undefined || value === "") {
+            console.warn(`   ⚠️  ${key} is ${value}`);
+          }
+        });
+  
+        // Create FormData for General incident
+        const formPayload = new FormData();
+        formPayload.append("data", JSON.stringify(incidentData));
+  
+        // Append file if uploaded
+        if (selectedFile && selectedFile instanceof File && selectedFile.size > 0) {
+          // Determine if it's an image or video based on file type
+          if (selectedFile.type.startsWith('image/')) {
+            formPayload.append("images", selectedFile);
+            console.log("General: Image file appended successfully");
+          } else if (selectedFile.type.startsWith('video/')) {
+            formPayload.append("video", selectedFile);
+            console.log("General: Video file appended successfully");
+          } else {
+            console.warn("General: Unsupported file type:", selectedFile.type);
+          }
+        }
+  
+        // Log FormData contents for debugging
+        console.log("General FormData contents:");
+        for (let [key, value] of formPayload.entries()) {
+          console.log(`   ${key}:`, value);
+        }
+  
+        const res = await userRequest(token).post("/incident/new", formPayload, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+  
+        console.log("✅ General incident created successfully", res.data);
+        toast.success("Incident reported successfully!");
       }
-
-      // Log FormData contents
-      console.log("FormData contents:");
-      for (let [key, value] of data.entries()) {
-        console.log(key, value);
-      }
-
-      const res = await userRequest(token).post("/incident/new", data, {
-        headers: {
-          // Don't set Content-Type, let the browser set it with boundary
-          // 'Content-Type': 'multipart/form-data' // Remove this if you have it
-        },
-      });
-
-      console.log("✅ Incident created successfully", res.data);
-      toast.success("Incident reported successfully!");
-
-      // Reset form
+  
+      // Reset form after successful submission
       setFormData({
         reportType: "SOS",
         email: "",
@@ -153,9 +267,13 @@ function CreateIncident() {
         phone: "",
         description: "",
         channel: "",
+        incidentType: "",
       });
       setUploadedFile("");
-
+      setAudioBlob(null);
+      setErrors({});
+  
+      // Clear file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -165,15 +283,51 @@ function CreateIncident() {
       toast.error(
         err.response?.data?.error ||
           err.response?.data?.message ||
-          "Failed to create incident. Please try again."
+          `Failed to create ${formData.reportType.toLowerCase()} report. Please try again.`
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
+
+  const toggleRecording = async () => {
+    if (!isRecording) {
+      // Start recording
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: "audio/wav" });
+          setAudioBlob(blob);
+          // Stop all tracks to release microphone
+          stream.getTracks().forEach((track) => track.stop());
+        };
+
+        recorder.start();
+        setMediaRecorder(recorder);
+        setIsRecording(true);
+      } catch (error) {
+        console.error("Error accessing microphone:", error);
+        toast.error("Could not access microphone. Please check permissions.");
+      }
+    } else {
+      // Stop recording
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        setIsRecording(false);
+      }
+    }
   };
 
   const handleFileUpload = (event) => {
@@ -187,6 +341,14 @@ function CreateIncident() {
     setUploadedFile("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAudio = () => {
+    setAudioBlob(null);
+    setIsRecording(false);
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
     }
   };
 
@@ -214,9 +376,7 @@ function CreateIncident() {
               <div className="relative">
                 <select
                   value={formData.reportType}
-                  onChange={(e) =>
-                    handleInputChange("reportType", e.target.value)
-                  }
+                  onChange={(e) => handleReportTypeChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                 >
                   <option value="SOS">SOS</option>
@@ -294,6 +454,43 @@ function CreateIncident() {
               )}
             </div>
 
+            {/* Incident Type - Only show for General reports */}
+            {formData.reportType === "General" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Incident Type <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.incidentType}
+                    onChange={(e) =>
+                      handleInputChange("incidentType", e.target.value)
+                    }
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
+                      errors.incidentType ? "border-red-500" : "border-gray-300"
+                    }`}
+                    required
+                  >
+                    <option value="">Select Incident Type</option>
+                    <option value="theft">Theft</option>
+                    <option value="vandalism">Vandalism</option>
+                    <option value="assault">Assault</option>
+                    <option value="fraud">Fraud</option>
+                    <option value="harassment">Harassment</option>
+                    <option value="traffic">Traffic Incident</option>
+                    <option value="noise">Noise Complaint</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+                {errors.incidentType && (
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.incidentType}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Address */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -341,7 +538,7 @@ function CreateIncident() {
               )}
             </div>
 
-            {/* SOS Description */}
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {formData.reportType === "SOS" ? "SOS" : "Incident"} Description{" "}
@@ -353,7 +550,11 @@ function CreateIncident() {
                   onChange={(e) =>
                     handleInputChange("description", e.target.value)
                   }
-                  placeholder="Tell us about what happened"
+                  placeholder={
+                    formData.reportType === "SOS"
+                      ? "Describe your emergency situation in detail..."
+                      : "Tell us about what happened"
+                  }
                   rows={4}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 resize-none ${
                     errors.description ? "border-red-500" : "border-gray-300"
@@ -366,68 +567,93 @@ function CreateIncident() {
                   </p>
                 )}
 
-                {/* Voice Recording Section */}
-                <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-                  <div className="flex items-center justify-center mb-4">
-                    {isRecording ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                {/* Voice Recording Section - Only show for SOS */}
+                {formData.reportType === "SOS" && (
+                  <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
+                    <div className="flex items-center justify-center mb-4">
+                      {isRecording ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          <div className="flex space-x-1">
+                            {[...Array(20)].map((_, i) => (
+                              <div
+                                key={i}
+                                className="w-1 bg-gray-400 rounded-full animate-pulse"
+                                style={{
+                                  height: `${Math.random() * 20 + 10}px`,
+                                  animationDelay: `${i * 50}ms`,
+                                }}
+                              ></div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : audioBlob ? (
+                        <div className="flex items-center space-x-2 text-green-600">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">Recording saved</span>
+                        </div>
+                      ) : (
                         <div className="flex space-x-1">
                           {[...Array(20)].map((_, i) => (
                             <div
                               key={i}
-                              className="w-1 bg-gray-400 rounded-full animate-pulse"
-                              style={{
-                                height: `${Math.random() * 20 + 10}px`,
-                                animationDelay: `${i * 50}ms`,
-                              }}
+                              className="w-1 h-6 bg-gray-300 rounded-full"
                             ></div>
                           ))}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex space-x-1">
-                        {[...Array(20)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-1 h-6 bg-gray-300 rounded-full"
-                          ></div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={toggleRecording}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium ${
-                        isRecording
-                          ? "bg-red-500 hover:bg-red-600 text-white"
-                          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                      }`}
-                    >
-                      {isRecording ? (
-                        <>
-                          <Square className="w-4 h-4" />
-                          <span>stop recording</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-4 h-4" />
-                          <span>start recording</span>
-                        </>
                       )}
-                    </button>
+                    </div>
+
+                    <div className="flex justify-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={toggleRecording}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium ${
+                          isRecording
+                            ? "bg-red-500 hover:bg-red-600 text-white"
+                            : audioBlob
+                            ? "bg-blue-500 hover:bg-blue-600 text-white"
+                            : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                        }`}
+                      >
+                        {isRecording ? (
+                          <>
+                            <Square className="w-4 h-4" />
+                            <span>Stop Recording</span>
+                          </>
+                        ) : audioBlob ? (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            <span>Record Again</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            <span>Start Recording</span>
+                          </>
+                        )}
+                      </button>
+
+                      {audioBlob && (
+                        <button
+                          type="button"
+                          onClick={removeAudio}
+                          className="flex items-center space-x-2 px-4 py-2 rounded-md font-medium bg-gray-200 hover:bg-gray-300 text-gray-700"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Upload Media */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Media
+                Upload {formData.reportType === "SOS" ? "Image" : "Media"}
               </label>
               <div
                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
@@ -441,13 +667,19 @@ function CreateIncident() {
                   or drag and drop
                 </p>
                 <p className="text-xs text-gray-500">
-                  PNG, JPG, GIF or MP4 (max size per file: 10MB)
+                  {formData.reportType === "SOS"
+                    ? "PNG, JPG, GIF (max size per file: 10MB)"
+                    : "PNG, JPG, GIF or MP4 (max size per file: 10MB)"}
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileUpload}
-                  accept=".png,.jpg,.jpeg,.gif,.mp4"
+                  accept={
+                    formData.reportType === "SOS"
+                      ? ".png,.jpg,.jpeg,.gif"
+                      : ".png,.jpg,.jpeg,.gif,.mp4"
+                  }
                   className="hidden"
                 />
               </div>
@@ -478,10 +710,16 @@ function CreateIncident() {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`px-6 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                  formData.reportType === "SOS"
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting..." : "Submit"}
+                {isSubmitting
+                  ? "Submitting..."
+                  : `Submit ${formData.reportType} Report`}
               </button>
             </div>
           </form>
