@@ -24,7 +24,7 @@ import { FiUser } from 'react-icons/fi';
 import { PiSignOutThin } from 'react-icons/pi';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { toast } from "react-toastify";
+import { signOutUser } from '../../Utils/SignOut'; // 
 
 const Sidebar = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
@@ -227,62 +227,7 @@ const Sidebar = () => {
 
   const handleSignOut = async () => {
     setShowDropdown(false);
-    
-    try {
-      // Get token from localStorage or Redux store
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      // Make API call to logout endpoint
-      const response = await fetch('https://admin-api.thegatewayshield.com/api/v1/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        // Clear local storage
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('persist:root'); // Redux persist
-        sessionStorage.clear();
-        
-        // Clear any cookies
-        document.cookie.split(";").forEach((c) => {
-          document.cookie = c
-            .replace(/^ +/, "")
-            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-        });
-
-        toast.success("Signed out successfully!");
-        
-        // Navigate to login page
-        navigate("/");
-        
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Logout failed');
-      }
-      
-    } catch (err) {
-      console.error("Logout Error:", err?.message || err);
-      toast.error(err?.message || "Failed to sign out");
-      
-      // Even if API call fails, clear local data and redirect
-      localStorage.clear();
-      sessionStorage.clear();
-      navigate("/");
-    }
-  };
-
-  const closeUserProfile = () => {
-    setShowUserProfile(false);
-  };
-
-  const closeSignOut = () => {
-    setShowSignOut(false);
+    await signOutUser(navigate);
   };
 
   return (
