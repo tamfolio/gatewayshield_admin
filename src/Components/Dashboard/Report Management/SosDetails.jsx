@@ -406,7 +406,7 @@ function SosDetails() {
         return (
           <div className="space-y-3">
             <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
               onClick={handleExportModal}
             >
               Export Report

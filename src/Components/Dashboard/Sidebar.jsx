@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Shield,
+  AlertTriangle, // Added for Incident Report icon
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -71,9 +72,9 @@ const Sidebar = () => {
   const rolePermissions = {
     "Super Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
-    "Police Station": ["dashboard", "users", "reports", "crime-map", "feedback", "settings", "help"],
-    "Command Centre Agent": ["dashboard", "reports", "crime-map"],
-    "Command Centre supervisor": ["dashboard", "reports", "crime-map", "feedback", "audit"]
+    "Police Station": ["dashboard", "reports", "crime-map", "feedback", "help"],
+    "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map", "help"],
+    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit", 'help']
   };
 
   // Get allowed routes for current user
@@ -95,6 +96,13 @@ const Sidebar = () => {
       icon: LayoutDashboard, 
       path: "/dashboard", 
       routeKey: "dashboard" 
+    },
+    // Incident Report positioned after Dashboard for proper order
+    { 
+      name: "Incident Report", 
+      icon: AlertTriangle, 
+      path: "/dashboard/incident", 
+      routeKey: "Incident" 
     },
     {
       name: "User Management",
