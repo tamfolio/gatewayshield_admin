@@ -10,6 +10,7 @@ const AssignTicketModal = ({
   handleAssignTicketModal,
   stations,
   handleAssignTicketSuccessModal,
+  assignedStation,
 }) => {
   const [selectedStation, setSelectedStation] = useState(null);
   const { id } = useParams();
@@ -37,7 +38,6 @@ const AssignTicketModal = ({
       const res = await userRequest(token).patch("/incident/assign", payload);
 
       console.log("✅ Incident assigned successfully", res.data);
-      alert("Incident assigned successfully!");
       handleAssignTicketModal();
       handleAssignTicketSuccessModal();
     } catch (err) {
@@ -70,7 +70,7 @@ const AssignTicketModal = ({
 
           <div className="px-6 pt-8 pb-6 sm:px-8">
             <h3 className="text-center text-xl font-semibold text-gray-900 mb-6">
-              Assign Ticket
+              {assignedStation ? "Reassign Ticket" : "Assign Ticket"}
             </h3>
 
             {/* Assign to Station */}
