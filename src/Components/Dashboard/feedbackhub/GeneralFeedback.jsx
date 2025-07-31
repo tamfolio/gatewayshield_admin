@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
-import { FiDownloadCloud } from 'react-icons/fi';
 import GeneralFeedbackTable from './GeneralFeedbackTable';
 import { useApiClient, generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
+import ExportFunction from './components/ExportFunction';
 
 // Skeleton Components
 const SkeletonPulse = ({ className = "" }) => (
@@ -143,16 +143,30 @@ const ErrorDisplay = ({ error, onRetry }) => (
   </div>
 );
 
+const NoDataDisplay = ({ message }) => (
+  <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="text-center">
+      <div className="text-gray-400 mb-2 text-2xl">📊</div>
+      <p className="text-gray-600 font-medium">{message}</p>
+    </div>
+  </div>
+);
+
 // Chart Components
 const LineChart = ({ title, rating, loading = false, data = [] }) => {
   if (loading) {
     return <LineChartSkeleton />;
   }
 
-  // Generate realistic rating trend data if no data provided (should be between 1-5 stars)
-  const chartData = data.length > 0 ? data : [
-    4.2, 4.1, 4.3, 4.4, 4.2, 4.5, 4.4, 4.6, 4.5, 4.4, 4.5, 4.5
-  ];
+  // Return early if no data
+  if (!data || data.length === 0) {
+    return (
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
+        <NoDataDisplay message="No trend data available" />
+      </div>
+    );
+  }
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const chartHeight = 80;
@@ -181,8 +195,8 @@ const LineChart = ({ title, rating, loading = false, data = [] }) => {
   };
 
   // Convert data to SVG coordinates
-  const points = chartData.map((value, index) => ({
-    x: (index * chartWidth) / (chartData.length - 1),
+  const points = data.map((value, index) => ({
+    x: (index * chartWidth) / (data.length - 1),
     y: chartHeight - ((value - 1) / 4) * chartHeight // Scale 1-5 to chartHeight-0
   }));
 
@@ -282,7 +296,7 @@ const LineChart = ({ title, rating, loading = false, data = [] }) => {
                 />
                 
                 {/* Tooltip on hover */}
-                <title>{months[index]}: {chartData[index].toFixed(1)} stars</title>
+                <title>{months[index]}: {data[index].toFixed(1)} stars</title>
               </g>
             ))}
           </svg>
@@ -294,7 +308,7 @@ const LineChart = ({ title, rating, loading = false, data = [] }) => {
       </div>
       
       <div className="flex justify-between text-xs text-gray-400 mt-2 ml-6">
-        {months.map(month => (
+        {months.slice(0, data.length).map((month, index) => (
           <span key={month}>{month}</span>
         ))}
       </div>
@@ -307,19 +321,11 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
     return <BarChartSkeleton />;
   }
 
-  console.log(`🔍 BarChart "${title}" received data:`, data);
-
   if (!data || data.length === 0) {
     return (
       <div className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">{title}</h3>
-        <div className="h-48 flex items-center justify-center text-gray-400 bg-gray-50 rounded">
-          <div className="text-center">
-            <div className="text-gray-400 mb-2">📊</div>
-            <div>No rating data available</div>
-            <div className="text-sm mt-1">Check API response structure</div>
-          </div>
-        </div>
+        <NoDataDisplay message="No rating data available" />
       </div>
     );
   }
@@ -334,13 +340,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
       name = item.name || item.officerName || item.stationName || `Item ${index + 1}`;
     }
     
-    if (!name || name.trim() === '') {
-      name = 'Unknown Officer';
-    }
-    
     const numericValue = parseFloat(value) || 0;
-    
-    console.log(`📊 Processing item: "${name}" = ${value} -> ${numericValue}`);
     
     return {
       name: name.length > 10 ? name.substring(0, 10) + '...' : name,
@@ -350,7 +350,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
   });
 
   const maxValue = 5;
-  const chartHeight = 160; // Fixed chart height in pixels
+  const chartHeight = 160;
 
   return (
     <div className="p-6">
@@ -386,7 +386,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
           <div className="absolute inset-0 flex items-end justify-start">
             {chartData.map((item, index) => {
               const barHeightPx = (item.value / maxValue) * chartHeight;
-              const barWidth = `${90 / chartData.length}%`; // Use 90% to leave some margin
+              const barWidth = `${90 / chartData.length}%`;
               
               return (
                 <div 
@@ -411,7 +411,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
                   <div 
                     className="absolute bottom-0 w-full rounded-t-md shadow-sm transition-all duration-1000 ease-out"
                     style={{ 
-                      height: `${Math.max(barHeightPx, 3)}px`, // Minimum 3px height
+                      height: `${Math.max(barHeightPx, 3)}px`,
                       backgroundColor: color,
                       maxWidth: '50px',
                       left: '50%',
@@ -493,35 +493,10 @@ const GeneralFeedback = () => {
       
       console.log('🔍 Raw API Response:', JSON.stringify(data, null, 2));
       
-      // Debug: Check the actual structure of the API response
-      if (data && data.data) {
-        console.log('📊 API Data Keys:', Object.keys(data.data));
-        console.log('📊 Full API Data:', data.data);
-      }
-      
       // Transform API data using utility function
       const processedData = feedbackUtils.transformGeneralFeedbackDashboard(data.data);
       
       console.log('📊 Processed dashboard data:', processedData);
-      
-      // If we don't get proper data from API, let's check what we actually got
-      if (!processedData || (!processedData.topPerformingOfficers?.length && !processedData.topPerformingStations?.length)) {
-        console.log('⚠️ API returned empty or unexpected data structure');
-        console.log('⚠️ Expected: { topOfficers: [...], bottomOfficers: [...], topStations: [...], bottomStations: [...] }');
-        console.log('⚠️ Actual:', data.data);
-        
-        // Check if data has different field names
-        const actualData = data.data || {};
-        const possibleFields = Object.keys(actualData);
-        console.log('🔍 Available fields in API response:', possibleFields);
-        
-        // Try to find rating-related data in the response
-        possibleFields.forEach(field => {
-          if (typeof actualData[field] === 'object' && actualData[field] !== null) {
-            console.log(`🔍 Field "${field}":`, actualData[field]);
-          }
-        });
-      }
       
       setDashboardData(processedData);
     } catch (err) {
@@ -538,11 +513,6 @@ const GeneralFeedback = () => {
       fetchDashboardData();
     }
   }, [filters.timeRange, apiClient]);
-
-  const handleExportPDF = () => {
-    console.log('Exporting PDF...');
-    // Implement your PDF export functionality here
-  };
 
   // Show error state if no API client and loading is complete
   if (!apiClient && !loading) {
@@ -590,15 +560,20 @@ const GeneralFeedback = () => {
                 value={filters.timeRange}
                 onChange={(value) => setFilters({...filters, timeRange: value})}
               />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={handleExportPDF}
-              >
-                <FiDownloadCloud className="w-4 h-4" />
-                Export PDF
-              </Button>
+              
+              <ExportFunction 
+                dashboardData={dashboardData}
+                filters={filters}
+                loading={loading}
+                onExportStart={() => console.log('📄 Starting PDF export...')}
+                onExportComplete={(fileName) => {
+                  console.log('✅ PDF exported successfully:', fileName);
+                }}
+                onExportError={(error) => {
+                  console.error('❌ PDF export failed:', error);
+                }}
+              />
+              
               <Button 
                 variant="outline" 
                 size="sm"
@@ -628,7 +603,7 @@ const GeneralFeedback = () => {
                 title="Average Officer Rating" 
                 rating={dashboardData?.averageOfficerRating?.toFixed(1) || "0.0"} 
                 loading={loading}
-                data={dashboardData?.officerRatingTrend}
+                data={dashboardData?.officerRatingTrend || []}
               />
             </Card>
             <Card>
@@ -636,7 +611,7 @@ const GeneralFeedback = () => {
                 title="Average Station Rating" 
                 rating={dashboardData?.averageStationRating?.toFixed(1) || "0.0"}
                 loading={loading}
-                data={dashboardData?.stationRatingTrend}
+                data={dashboardData?.stationRatingTrend || []}
               />
             </Card>
           </div>

@@ -2,7 +2,7 @@ import "./App.css";
 import { Routes, Route } from "react-router-dom";
 import LoginCentral from "./Components/Auth/LoginCentral";
 import Dashboard from "./Pages/Dashboard";
-import Home from "./Components/Dashboard/Home"; 
+import Home from "./Components/Dashboard/Home";
 import AddUsers from "./Components/Dashboard/User Management/AddUsers";
 import ManageUsers from "./Components/Dashboard/User Management/ManageUsers";
 import Sos from "./Components/Dashboard/Report Management/Sos";
@@ -16,10 +16,11 @@ import GeneralDetails from "./Components/Dashboard/Report Management/GeneralDeta
 import EditUser from "./Components/Dashboard/User Management/EditUser";
 import NewsPage from "./Components/Dashboard/admin-tools/news/CreateNewsArticle";
 import EmergencyBroadcastForm from "./Components/Dashboard/admin-tools/emergency-broadcast/EmergencyBroadcastForm";
-import FeedbackHub from './Components/Dashboard/feedbackhub/FeedbackHub';
+import FeedbackHub from "./Components/Dashboard/feedbackhub/FeedbackHub";
 import AuditLogs from "./Components/Dashboard/audit-logs/AuditLogs";
 import SLAHub from "./Components/Dashboard/system-settings/SLAHub";
 import ResourcesHub from "./Components/Dashboard/help/ResourcesHub";
+import UserHub from "./Components/Dashboard/user-profile/UserHub";
 import CreateIncident from "./Components/Dashboard/IncidentReporting/CreateIncident";
 // Import more components as needed...
 
@@ -45,11 +46,15 @@ function App() {
           <Route path="feedback" element={<FeedbackHub />} />
           <Route path="crime-map" element={<CrimeMap />} />
           <Route path="admin/news" element={<NewsPage />} />
-          <Route path="admin/emergency-broadcast" element={<EmergencyBroadcastForm />} />
-          <Route path="feedback" element={<FeedbackHub />} /> 
-          <Route path="audit" element={<AuditLogs />} /> 
-          <Route path="settings" element={<SLAHub />} /> 
-          <Route path="help" element={<ResourcesHub />} /> 
+          <Route
+            path="admin/emergency-broadcast"
+            element={<EmergencyBroadcastForm />}
+          />
+          <Route path="feedback" element={<FeedbackHub />} />
+          <Route path="audit" element={<AuditLogs />} />
+          <Route path="settings" element={<SLAHub />} />
+          <Route path="help" element={<ResourcesHub />} />
+          <Route path="profile" element={<UserHub />} /> 
         </Route>
       </Routes>
     </>
