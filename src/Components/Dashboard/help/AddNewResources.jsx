@@ -31,6 +31,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
 
   // UI state
   const [loading, setLoading] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -231,6 +232,101 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
     return true;
   };
 
+  const validateDraftForm = () => {
+    // For draft, we only require title - other fields are optional
+    if (!formData.title || formData.title.trim() === "") {
+      setError("Title is required to save as draft");
+      return false;
+    }
+    return true;
+  };
+
+  // Save as draft function
+  const handleSaveAsDraft = async () => {
+    if (!validateDraftForm()) return;
+
+    try {
+      setSavingDraft(true);
+      setError("");
+      setSuccess("");
+
+      console.log("💾 Saving as draft...");
+
+      // Create draft payload - force isPublished to false
+      const draftApiData = {
+        title: formData.title,
+        description: formData.description || "",
+        caption: formData.caption || null,
+        isPublished: false, // Always false for draft
+        tags: formData.tags,
+        categoryId: formData.categoryId || null,
+        subCategoryId: formData.subCategoryId || null,
+        imagesUrl: [],
+      };
+
+      console.log("📤 Draft data:", draftApiData);
+
+      let response;
+
+      if (isEditing) {
+        // Update existing resource as draft
+        response = await resourcesApi.update(
+          apiClient,
+          editingResource.id,
+          draftApiData,
+          uploadedFile || (keepExistingFile ? null : undefined)
+        );
+        console.log("✅ Resource updated as draft:", response);
+      } else {
+        // Create new resource as draft
+        response = await resourcesApi.create(apiClient, draftApiData, uploadedFile);
+        console.log("✅ Resource created as draft:", response);
+      }
+
+      // Call the callback to refresh the data
+      if (onResourceAdded) {
+        onResourceAdded(response);
+      }
+
+      // Show success message
+      setSuccess(
+        `Resource ${isEditing ? "updated" : "saved"} as draft successfully!`
+      );
+
+      // Navigate back after a short delay
+      setTimeout(() => {
+        if (onGoBack) {
+          onGoBack();
+        }
+      }, 1500);
+
+    } catch (err) {
+      console.error("❌ Failed to save as draft:", err);
+      
+      if (err.response?.status === 404) {
+        setError("Resource not found. Please refresh and try again.");
+      } else if (err.response?.status === 403) {
+        setError("Permission denied. You may not have permission to save this resource.");
+      } else if (err.response?.status === 422) {
+        setError(
+          `Validation error: ${
+            err.response?.data?.message || "Invalid data submitted"
+          }`
+        );
+      } else if (err.response?.status >= 500) {
+        setError(`Server error. Please try again later.`);
+      } else {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to save as draft. Please try again."
+        );
+      }
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -398,7 +494,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
     }
   };
 
-  const handleGoBack = () => {
+  const handleCancel = () => {
     if (onGoBack) {
       onGoBack();
     } else {
@@ -437,6 +533,14 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
         </div>
       )}
 
+      {/* Success Alert */}
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md flex items-start">
+          <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div className="text-green-700 text-sm">{success}</div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Title */}
         <div>
@@ -449,7 +553,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
             value={formData.title}
             onChange={(e) => handleInputChange("title", e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={loading}
+            disabled={loading || savingDraft}
           />
         </div>
 
@@ -469,7 +573,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
               onChange={(e) => handleInputChange("description", e.target.value)}
               rows={4}
               className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm leading-relaxed"
-              disabled={loading}
+              disabled={loading || savingDraft}
             />
             <div className="absolute bottom-3 right-3 text-xs text-gray-400">
               {1000 - formData.description.length} characters left
@@ -487,7 +591,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
               value={formData.categoryId}
               onChange={(e) => handleInputChange("categoryId", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-              disabled={loading}
+              disabled={loading || savingDraft}
             >
               <option value="" disabled>
                 Select category
@@ -514,7 +618,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
                 handleInputChange("subCategoryId", e.target.value)
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-              disabled={loading || !formData.categoryId}
+              disabled={loading || savingDraft || !formData.categoryId}
             >
               <option value="" disabled>
                 {!formData.categoryId
@@ -559,7 +663,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
                   <button
                     onClick={handleUploadClick}
                     className="text-sm text-blue-600 hover:text-blue-800 underline"
-                    disabled={loading}
+                    disabled={loading || savingDraft}
                   >
                     Change file
                   </button>
@@ -574,7 +678,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
             onChange={handleFileUpload}
             accept="image/*,video/*,.pdf"
             className="hidden"
-            disabled={loading}
+            disabled={loading || savingDraft}
           />
 
           {/* Upload area */}
@@ -599,7 +703,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
                   <button
                     onClick={handleUploadClick}
                     className="text-sm text-blue-600 hover:text-blue-800"
-                    disabled={loading}
+                    disabled={loading || savingDraft}
                   >
                     Change file
                   </button>
@@ -609,7 +713,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
                       handleRemoveNewFile();
                     }}
                     className="text-sm text-red-600 hover:text-red-800"
-                    disabled={loading}
+                    disabled={loading || savingDraft}
                   >
                     Remove file
                   </button>
@@ -640,7 +744,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
             value={formData.caption}
             onChange={(e) => handleInputChange("caption", e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={loading}
+            disabled={loading || savingDraft}
           />
         </div>
 
@@ -658,7 +762,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
                   checked={formData.tags.includes(tag.value)}
                   onChange={() => handleTagToggle(tag.value)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={loading}
+                  disabled={loading || savingDraft}
                 />
                 <label
                   htmlFor={`tag-${tag.id || tag.value}`}
@@ -690,7 +794,7 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 formData.isPublished ? "bg-blue-600" : "bg-gray-200"
               }`}
-              disabled={loading}
+              disabled={loading || savingDraft}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -705,30 +809,48 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 pt-6">
+        <div className="flex justify-between pt-6">
           <button
-            onClick={handleGoBack}
+            onClick={handleCancel}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            disabled={loading}
+            disabled={loading || savingDraft}
           >
-            {isEditing ? "Cancel" : "Go Back"}
+            Cancel
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {isEditing ? "Updating..." : "Creating..."}
-              </>
-            ) : isEditing ? (
-              "Update Resource"
-            ) : (
-              "Add Resource"
-            )}
-          </button>
+          
+          <div className="flex space-x-3">
+            <button
+              onClick={handleSaveAsDraft}
+              disabled={loading || savingDraft || !formData.title}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {savingDraft ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving Draft...
+                </>
+              ) : (
+                "Save as Draft"
+              )}
+            </button>
+            
+            <button
+              onClick={handleSubmit}
+              disabled={loading || savingDraft}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {isEditing ? "Updating..." : "Creating..."}
+                </>
+              ) : isEditing ? (
+                "Update Resource"
+              ) : (
+                "Add Resource"
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
