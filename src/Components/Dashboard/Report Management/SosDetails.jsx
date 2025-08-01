@@ -117,30 +117,30 @@ function SosDetails() {
     if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
       return;
     }
-  
+
     setMarkingAsTreated(true);
-    
+
     try {
       const requestBody = {
         incidentId: id,
-        stationId: incident.assignedStation
+        stationId: incident?.assignedStation,
       };
-  
+
       const res = await userRequest(token).patch(
         `/sos/mark-as-treated/${id}`,
         requestBody
       );
-  
+
       if (res.data.success) {
         // Update the incident state to reflect the new status
-        setIncident(prev => ({
+        setIncident((prev) => ({
           ...prev,
-          slaStatus: "Treated"
+          slaStatus: "Treated",
         }));
-        
+
         // Show success message or handle success
         console.log("SOS incident marked as treated successfully");
-        
+
         // Optionally refresh the incident data
         // fetchIncident();
       }
@@ -151,35 +151,35 @@ function SosDetails() {
       setMarkingAsTreated(false);
     }
   };
-  
+
   const handlePutOnHoldModal = async () => {
     if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
       return;
     }
-  
+
     setPuttingOnHold(true);
-    
+
     try {
       const requestBody = {
         incidentId: id,
-        stationId: incident.assignedStation
+        stationId: incident?.assignedStation,
       };
-  
+
       const res = await userRequest(token).patch(
         `/sos/put-on-hold/${id}`,
         requestBody
       );
-  
+
       if (res.data.success) {
         // Update the incident state to reflect the new status
-        setIncident(prev => ({
+        setIncident((prev) => ({
           ...prev,
-          slaStatus: "OnHold"
+          slaStatus: "OnHold",
         }));
-        
+
         // Show success message or handle success
         console.log("SOS incident put on hold successfully");
-        
+
         // Optionally refresh the incident data
         // fetchIncident();
       }
@@ -242,7 +242,7 @@ function SosDetails() {
         const res = await userRequest(token).get(
           `/sos/${id}/pastReport?page=1&size=10`
         );
-        setPastHistory(res.data.data.incidents.data);
+        setPastHistory(res?.data?.data?.incidents?.data);
       } catch (error) {
         console.error("❌ Failed to fetch incident:", error);
       } finally {
@@ -321,34 +321,40 @@ function SosDetails() {
               <div className="flex items-center space-x-2">
                 <div
                   className={`w-6 h-6 ${getAvatarColor(
-                    incident?.user
+                    incident?.user || "Contact Center"
                   )} rounded-full flex items-center justify-center text-xs font-bold text-white`}
                 >
-                  {getAvatarInitial(incident?.user)}
+                  {getAvatarInitial(
+                    typeof incident?.user === "string" && incident?.user
+                      ? incident?.user
+                      : "Contact Center"
+                  )}
                 </div>
                 <div>
                   <div className="text-xs text-gray-400">Reported By</div>
-                  <div className="font-medium">{incident.user}</div>
+                  <div className="font-medium">
+                    {incident?.user || "Contact Center"}
+                  </div>
                 </div>
               </div>
 
               <div>
                 <div className="text-xs text-gray-400">Date Reported</div>
                 <div className="font-medium">
-                  {extractDate(incident.datePublished)}
+                  {extractDate(incident?.datePublished)}
                 </div>
               </div>
 
               <div>
                 <div className="text-xs text-gray-400">Time</div>
                 <div className="font-medium">
-                  {extractTime(incident.datePublished)}
+                  {extractTime(incident?.datePublished)}
                 </div>
               </div>
 
               <div>
                 <div className="text-xs text-gray-400">Channel</div>
-                <div className="font-medium">{incident.channel}</div>
+                <div className="font-medium">{incident?.channel}</div>
               </div>
             </div>
           </div>
@@ -362,18 +368,18 @@ function SosDetails() {
     // Helper function to check if incident status allows marking as treated or putting on hold
     const isIncidentInProgress = () => {
       const status = incident?.incidentStatus?.toLowerCase();
-      return status === 'new' || status === 'in progress';
+      return status === "new" || status === "in progress";
     };
 
-    const isMarkAsTreatedDisabled = 
-      !incident?.assignedStation || 
-      incident?.slaStatus === "Treated" || 
+    const isMarkAsTreatedDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "Treated" ||
       !isIncidentInProgress() ||
       markingAsTreated;
 
-    const isPutOnHoldDisabled = 
-      !incident?.assignedStation || 
-      incident?.slaStatus === "OnHold" || 
+    const isPutOnHoldDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "OnHold" ||
       !isIncidentInProgress() ||
       puttingOnHold;
 
@@ -426,7 +432,7 @@ function SosDetails() {
               onClick={handleMarkAsTreatedModal}
               disabled={isMarkAsTreatedDisabled}
               title={
-                !isIncidentInProgress() 
+                !isIncidentInProgress()
                   ? "SOS incident must be 'New' or 'In Progress' to mark as treated"
                   : !incident?.assignedStation
                   ? "SOS incident must be assigned to a station"
@@ -446,7 +452,7 @@ function SosDetails() {
               onClick={handlePutOnHoldModal}
               disabled={isPutOnHoldDisabled}
               title={
-                !isIncidentInProgress() 
+                !isIncidentInProgress()
                   ? "SOS incident must be 'New' or 'In Progress' to put on hold"
                   : !incident?.assignedStation
                   ? "SOS incident must be assigned to a station"
@@ -617,7 +623,7 @@ function SosDetails() {
                   </div>
                 </div>
                 <AudioPlayer
-                  src={incident.audio}
+                  src={incident?.audio}
                   onPlay={(e) => console.log("Playing")}
                   controls
                 />

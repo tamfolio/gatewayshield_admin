@@ -26,6 +26,10 @@ import { PiSignOutThin } from 'react-icons/pi';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { signOutUser } from '../../Utils/SignOut'; 
+import { LogOut } from "../../Redux/LoginSlice";
+import { userRequest } from "../../requestMethod";
+import useAccessToken from "../../Utils/useAccessToken";
+import { toast } from "react-toastify";
 
 const Sidebar = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
@@ -34,6 +38,20 @@ const Sidebar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   console.log(userName)
+  const token = useAccessToken();
+
+  const handleLogout = async () => {
+    try {
+      await userRequest(token).get("/auth/logout"); // ✅ correctly uses token
+  
+      dispatch(LogOut());
+      toast.success("Logged out successfully");
+      navigate("/");
+    } catch (err) {
+      toast.error("Logout failed. Please try again.");
+      console.error("Logout error:", err?.response?.data || err);
+    }
+  };
   
   // Get the current user's role name by matching roleId with adminRoles
   const getCurrentUserRole = () => {
@@ -101,9 +119,9 @@ const Sidebar = () => {
   const rolePermissions = {
     "Super Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
-    "Police Station": ["dashboard", "reports", "crime-map", "feedback", "help"],
-    "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map", "help"],
-    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit", 'help']
+    "Police Station": ["dashboard", 'users', "reports", "crime-map", "feedback"],
+    "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map","settings", "help"],
+    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit",  'help']
   };
 
   // Get allowed routes for current user
@@ -473,7 +491,7 @@ const Sidebar = () => {
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
               >
                 <PiSignOutThin className="w-4 h-4" />
-                <span>Sign Out</span>
+                <span onClick={() => handleLogout()}>Sign Out</span>
               </button>
             </div>
           )}

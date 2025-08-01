@@ -17,7 +17,12 @@ export function extractDate(isoString) {
     return `${hours}:${minutes} ${ampm}`;
   }
 
-  export const getAvatarInitial = (name) => name?.charAt(0).toUpperCase() || "";
+  export const getAvatarInitial = (name) => {
+    if (typeof name !== 'string' || !name.trim()) {
+      return 'C'; // Always return a string
+    }
+    return name.charAt(0).toUpperCase();
+  };
 
   export const avatarColors = [
     "bg-red-500",

@@ -1,11 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { userRequest } from '../../../requestMethod';
+import { toast } from 'react-toastify';
+import useAccessToken from '../../../Utils/useAccessToken';
 
-function RejectTicketGeneralModal({ handleRejectTicketModal, handleRejectTicketSuccess }) {
-  const handleReject = () => {
-    // Add your reject logic here
-    handleRejectTicketSuccess && handleRejectTicketSuccess();
-    handleRejectTicketModal();
-  };
+function RejectTicketSosModal({ handleRejectTicketModal, handleRejectTicketSuccess }) {
+    const {id} = useParams();
+    const token = useAccessToken();
+    const [loading, setLoading] = useState(false)
+
+    const handleReject = async () => {
+        setLoading(true);
+        
+        try {
+          const res = await userRequest(token).patch(`/reject/${id}`);
+          
+          console.log("✅ Ticket rejected successfully", res.data);
+          toast.success("Ticket rejected successfully!");
+          
+          // Call success callback if provided
+          handleRejectTicketSuccess && handleRejectTicketSuccess();
+          
+          // Close modal
+          handleRejectTicketModal();
+          
+        } catch (err) {
+          console.error("❌ Error rejecting ticket:", err);
+          const errorMessage = err.response?.data?.error || 
+                              err.response?.data?.message || 
+                              "Failed to reject ticket. Please try again.";
+          
+          toast.error(errorMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+    
+//   const handleReject = () => {
+//     // Add your reject logic here
+//     handleRejectTicketSuccess && handleRejectTicketSuccess();
+//     handleRejectTicketModal();
+//   };
 
   const handleCancel = () => {
     handleRejectTicketModal();
@@ -27,9 +62,21 @@ function RejectTicketGeneralModal({ handleRejectTicketModal, handleRejectTicketS
           </button>
           <button
             onClick={handleReject}
-            className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+            disabled={loading}
+            className={`flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              loading 
+                ? "cursor-not-allowed" 
+                : "hover:bg-red-700"
+            } flex items-center justify-center space-x-2`}
           >
-            Yes I do
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Rejecting...</span>
+              </>
+            ) : (
+              <span>Yes I do</span>
+            )}
           </button>
         </div>
       </div>
@@ -37,4 +84,4 @@ function RejectTicketGeneralModal({ handleRejectTicketModal, handleRejectTicketS
   );
 }
 
-export default RejectTicketGeneralModal;
+export default RejectTicketSosModal;

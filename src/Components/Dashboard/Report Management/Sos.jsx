@@ -6,16 +6,19 @@ import {
   ChevronRight,
   Calendar,
   X,
+  Check,
 } from "lucide-react";
 import { userRequest } from "../../../requestMethod";
 import { useSelector } from "react-redux";
 import {
   extractDate,
   extractTime,
-  getAvatarInitial, avatarColors, getAvatarColor, statusColorMap
+  getAvatarInitial,
+  avatarColors,
+  getAvatarColor,
+  statusColorMap,
 } from "../../../Utils/dateUtils";
 import { Link } from "react-router-dom";
-
 
 const Sos = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,6 +29,27 @@ const Sos = () => {
   const [paginationData, setPaginationData] = useState([]);
   const [selectedAll, setSelectedAll] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
+
+  // New search and toggle states
+  const [showMyReports, setShowMyReports] = useState(false);
+  const [searchType, setSearchType] = useState("Report ID");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+
+  // Get the current user's role name by matching roleId with adminRoles
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
+
   const token = useSelector(
     (state) => state.user?.currentUser?.tokens?.access?.token
   );
@@ -34,9 +58,21 @@ const Sos = () => {
     const fetchIncidents = async () => {
       setLoading(true);
       try {
-        const res = await userRequest(token).get(
-          "/sos/all?page=1&size=10"
-        );
+        // Add search and filter parameters to API call
+        let apiUrl = "/sos/all?page=1&size=10";
+
+        // Add search parameters if search term exists
+        if (searchTerm.trim()) {
+          const searchParam = searchType.toLowerCase().replace(/\s+/g, "_");
+          apiUrl += `&${searchParam}=${encodeURIComponent(searchTerm)}`;
+        }
+
+        // Add my reports filter if enabled
+        if (showMyReports) {
+          apiUrl += "&my_reports=true";
+        }
+
+        const res = await userRequest(token).get(apiUrl);
         console.log("✅ Incidents fetched:", res.data);
         setIncidents(res.data?.data?.sos?.data || []);
         setPaginationData(res.data?.data?.sos?.pagination || []);
@@ -51,7 +87,7 @@ const Sos = () => {
     if (token) {
       fetchIncidents();
     }
-  }, [token]);
+  }, [token, searchTerm, searchType, showMyReports]);
 
   // Filter states
   const [showReportStatusDropdown, setShowReportStatusDropdown] =
@@ -77,74 +113,8 @@ const Sos = () => {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
 
-  // Sample data based on the image
-  const reports = [
-    {
-      id: "RI0005667",
-      status: "New",
-      statusColor: "bg-green-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005668",
-      status: "Rejected",
-      statusColor: "bg-red-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005669",
-      status: "In Progress",
-      statusColor: "bg-orange-500",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005670",
-      status: "On Hold",
-      statusColor: "bg-orange-400",
-      type: "SOS",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Mobile",
-    },
-    {
-      id: "RI0005671",
-      status: "New",
-      statusColor: "bg-green-500",
-      type: "General",
-      heading: "SOS HEADING",
-      summary: "Report summary goes here lorem ipsum dolor...",
-      reportedBy: "Olivia Rhye",
-      avatar: "👤",
-      dateReported: "02-04-2025",
-      time: "12:00 AM",
-      channel: "Web",
-    },
-  ];
+  // Search dropdown options
+  const searchOptions = ["Report ID", "Citizen Name", "Phone Number"];
 
   // Filter options
   const reportStatusOptions = ["New", "In Progress", "On Hold", "Rejected"];
@@ -160,7 +130,7 @@ const Sos = () => {
   const handleSelectAll = () => {
     setSelectedAll(!selectedAll);
     if (!selectedAll) {
-      setSelectedReports(reports.map((report) => report.id));
+      setSelectedReports(incidents.map((report) => report.id));
     } else {
       setSelectedReports([]);
     }
@@ -171,6 +141,26 @@ const Sos = () => {
       setSelectedReports(selectedReports.filter((id) => id !== reportId));
     } else {
       setSelectedReports([...selectedReports, reportId]);
+    }
+  };
+
+  const handleSearchTypeSelect = (type) => {
+    setSearchType(type);
+    setShowSearchDropdown(false);
+    // Clear search term when changing search type
+    setSearchTerm("");
+  };
+
+  const getSearchPlaceholder = () => {
+    switch (searchType) {
+      case "Report ID":
+        return "Search by Report ID...";
+      case "Citizen Name":
+        return "Search by Citizen Name...";
+      case "Phone Number":
+        return "Search by Phone Number...";
+      default:
+        return "Search...";
     }
   };
 
@@ -322,10 +312,6 @@ const Sos = () => {
     }
   };
 
-
-
-
-
   const applyDateFilter = () => {
     if (selectedCalendarDate) {
       let newFilters = [...activeFilters];
@@ -340,8 +326,6 @@ const Sos = () => {
     }
     setShowDatePicker(false);
   };
-
-
 
   const StatusBadge = ({ status }) => {
     const normalizedStatus = status?.toLowerCase()?.replace(/\s/g, "_");
@@ -450,6 +434,31 @@ const Sos = () => {
             onClick={() => onSelect(option)}
           >
             {option}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const SearchDropdown = () => {
+    if (!showSearchDropdown) return null;
+
+    return (
+      <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+        {searchOptions.map((option) => (
+          <button
+            key={option}
+            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${
+              searchType === option
+                ? "bg-blue-50 text-blue-600"
+                : "text-gray-700"
+            }`}
+            onClick={() => handleSearchTypeSelect(option)}
+          >
+            {option}
+            {searchType === option && (
+              <Check className="h-4 w-4 text-blue-600" />
+            )}
           </button>
         ))}
       </div>
@@ -579,23 +588,60 @@ const Sos = () => {
               Incident Reports
             </h1>
             <span className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full">
-              {paginationData?.total} Total
+              {paginationData?.total || 1000} Total
             </span>
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                type="text"
-                placeholder="Search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-              />
-              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                ⌘K
-              </span>
+            {/* My Reports Toggle */}
+            {isCommandCentreAgent && (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-gray-700">
+                  My Reports
+                </span>
+                <button
+                  onClick={() => setShowMyReports(!showMyReports)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    showMyReports ? "bg-blue-600" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      showMyReports ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+
+            {/* Enhanced Search with Dropdown */}
+            <div className="flex items-center">
+              {/* Search Type Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSearchDropdown(!showSearchDropdown)}
+                  className="flex items-center space-x-1 px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-white text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <span className="text-sm">{searchType}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <SearchDropdown />
+              </div>
+
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder={getSearchPlaceholder()}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-12 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-80"
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                  ⌘K
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -732,12 +778,31 @@ const Sos = () => {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-gray-500">Loading incidents...</div>
+        </div>
+      )}
+
       {/* Reports List */}
       <div className="space-y-4">
         {incidents.map((report, index) => (
           <ReportCard key={`${report.id}-${index}`} report={report} />
         ))}
       </div>
+
+      {/* Empty State */}
+      {!loading && incidents.length === 0 && (
+        <div className="text-center py-8">
+          <div className="text-gray-500">No incidents found</div>
+          {(searchTerm || showMyReports) && (
+            <div className="text-sm text-gray-400 mt-2">
+              Try adjusting your search or filters
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-8 bg-white p-4 rounded-lg border border-gray-200">
