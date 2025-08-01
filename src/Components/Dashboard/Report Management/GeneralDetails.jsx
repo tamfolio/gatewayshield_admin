@@ -11,6 +11,8 @@ import {
   FileText,
   Calendar,
   AlertTriangle,
+  ZoomIn,
+  X,
 } from "lucide-react";
 import AuditTrailSection from "./AuditTrail";
 import ExportReportModal from "./ExportReportModal";
@@ -19,7 +21,7 @@ import AssignTicketModal from "./AssignTicketModal";
 import ExportTicketSuccessModal from "./ReportExportedSuccessModal";
 import TicketAssignedSuccessModal from "./TicketAssignedSuccessModal";
 import CloseTicketConfirmModal from "./ConfirmCloseTicketModal";
-import RejectTicketGeneralModal from "./RejectTicketGeneralModal"; // Add this import
+import RejectTicketGeneralModal from "./RejectTicketGeneralModal";
 import { userRequest } from "../../../requestMethod";
 import { useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -50,9 +52,13 @@ function GeneralDetails() {
   const [assignTicketModal, setAssignTicketModal] = useState(false);
   const [assignTicketSuccessModal, setAssignTicketSuccessModal] = useState(false);
   const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
-  const [rejectTicketModal, setRejectTicketModal] = useState(false); // Add this state
+  const [rejectTicketModal, setRejectTicketModal] = useState(false);
   const [markingAsTreated, setMarkingAsTreated] = useState(false);
   const [puttingOnHold, setPuttingOnHold] = useState(false);
+  
+  // Image modal states
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
 
   // Role detection
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
@@ -69,6 +75,17 @@ function GeneralDetails() {
   };
 
   const currentUserRole = getCurrentUserRole();
+
+  // Image modal handlers
+  const openImageModal = (imageUrl) => {
+    setSelectedImage(imageUrl);
+    setImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setSelectedImage(null);
+    setImageModalOpen(false);
+  };
 
   const handleExportModal = () => {
     setExportModal(!exportModal);
@@ -94,16 +111,12 @@ function GeneralDetails() {
     setConfirmCloseTicketModal(!confirmCloseTicketModal);
   };
 
-  // Update this function to toggle the reject modal
   const handleRejectTicketModal = () => {
     setRejectTicketModal(!rejectTicketModal);
   };
 
-  // Add this function to handle successful rejection
   const handleRejectTicketSuccess = () => {
-    // Add your rejection logic here - API call, state updates, etc.
     console.log("Ticket rejected successfully");
-    // You might want to refresh the incident data or show a success message
   };
 
   const handleMarkAsTreatedModal = async () => {
@@ -125,21 +138,15 @@ function GeneralDetails() {
       );
   
       if (res.data.success) {
-        // Update the incident state to reflect the new status
         setIncident(prev => ({
           ...prev,
           slaStatus: "Treated"
         }));
         
-        // Show success message or handle success
         console.log("Incident marked as treated successfully");
-        
-        // Optionally refresh the incident data
-        // fetchIncident();
       }
     } catch (error) {
       console.error("❌ Failed to mark incident as treated:", error);
-      // Handle error - show error message to user
     } finally {
       setMarkingAsTreated(false);
     }
@@ -164,21 +171,15 @@ function GeneralDetails() {
       );
   
       if (res.data.success) {
-        // Update the incident state to reflect the new status
         setIncident(prev => ({
           ...prev,
           slaStatus: "OnHold"
         }));
         
-        // Show success message or handle success
         console.log("Incident put on hold successfully");
-        
-        // Optionally refresh the incident data
-        // fetchIncident();
       }
     } catch (error) {
       console.error("❌ Failed to put incident on hold:", error);
-      // Handle error - show error message to user
     } finally {
       setPuttingOnHold(false);
     }
@@ -367,9 +368,67 @@ function GeneralDetails() {
     );
   };
 
+  // Images Gallery Component
+  const ImagesGallery = ({ images }) => {
+    if (!images || images.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="mt-6">
+        <h4 className="text-lg font-medium text-gray-900 mb-4">Incident Images</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {images.map((imageUrl, index) => (
+            <div
+              key={index}
+              className="relative group cursor-pointer bg-gray-100 rounded-lg overflow-hidden aspect-square"
+              onClick={() => openImageModal(imageUrl)}
+            >
+              <img
+                src={imageUrl}
+                alt={`Incident image ${index + 1}`}
+                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                onError={(e) => {
+                  e.target.src = '/placeholder-image.png'; // Fallback image
+                  e.target.alt = 'Image failed to load';
+                }}
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
+                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Image Modal Component
+  const ImageModal = ({ isOpen, imageUrl, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
+        <div className="relative max-w-4xl max-h-screen p-4">
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 z-10 bg-white rounded-full p-2 hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-6 h-6 text-gray-600" />
+          </button>
+          <img
+            src={imageUrl}
+            alt="Incident image enlarged"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      </div>
+    );
+  };
+
   // Function to render buttons based on role
   const renderActionButtons = () => {
-    // Helper function to check if incident status allows marking as treated or putting on hold
     const isIncidentInProgress = () => {
       const status = incident?.incidentStatus?.toLowerCase();
       return status === 'new' || status === 'in progress';
@@ -502,7 +561,6 @@ function GeneralDetails() {
         );
 
       default:
-        // Fallback - show only export for unknown roles
         return (
           <div className="space-y-3">
             <button
@@ -520,6 +578,13 @@ function GeneralDetails() {
 
   return (
     <>
+      {/* Image Modal */}
+      <ImageModal
+        isOpen={imageModalOpen}
+        imageUrl={selectedImage}
+        onClose={closeImageModal}
+      />
+
       <div style={{ display: "none" }}>
         <div ref={reportRef}>
           <ReportExportTemplate
@@ -565,7 +630,6 @@ function GeneralDetails() {
           handleConfirmCloseTicketModal={handleConfirmCloseTicketModal}
         />
       )}
-      {/* Add the RejectTicketGeneralModal */}
       {rejectTicketModal && (
         <RejectTicketGeneralModal
           handleRejectTicketModal={handleRejectTicketModal}
@@ -574,7 +638,6 @@ function GeneralDetails() {
       )}
       
       <div className="p-6 bg-gray-50 min-h-screen">
-        {/* Rest of your component remains the same... */}
         {/* Breadcrumb */}
         <div className="flex items-center text-sm text-gray-600 mb-6">
           <span>Dashboard</span>
@@ -610,29 +673,36 @@ function GeneralDetails() {
                 ))}
               </nav>
             </div>
+            
             {activeTab === "Citizen Report" && (
               <div className="bg-white rounded-lg shadow-sm border">
-                <div className="px-6 pb-6">
+                <div className="px-6 py-6">
                   <div className="space-y-4">
-                    <p className="text-gray-700 leading-relaxed">
-                      {incident?.description}
-                    </p>
+                    <div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-3">Report Description</h4>
+                      <p className="text-gray-700 leading-relaxed">
+                        {incident?.description}
+                      </p>
+                    </div>
+                    
+                    {/* Images Section */}
+                    {incident?.incidentImages && incident.incidentImages.length > 0 && (
+                      <ImagesGallery images={incident.incidentImages} />
+                    )}
                   </div>
                 </div>
               </div>
             )}
+            
             {activeTab === "Past SOS History" && (
               <div className="bg-white rounded-lg shadow-sm border">
-                {activeTab === "Past SOS History" && (
-                  <PastHistorySOS pastHistory={pastHistory} />
-                )}
+                <PastHistorySOS pastHistory={pastHistory} />
               </div>
             )}
+            
             {activeTab === "Audit Trail" && (
               <div className="bg-white rounded-lg shadow-sm border">
-                {activeTab === "Audit Trail" && (
-                  <AuditTrailSection auditTrail={auditTrail} />
-                )}
+                <AuditTrailSection auditTrail={auditTrail} />
               </div>
             )}
           </div>
@@ -651,30 +721,36 @@ function GeneralDetails() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm text-gray-600">Reported By</label>
-                    <div className="font-medium">John Doe</div>
+                    <div className="font-medium">{incident?.user?.name || "John Doe"}</div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Phone Number
                     </label>
-                    <div className="font-medium">+234 81 34456666</div>
+                    <div className="font-medium">{incident?.user?.phoneNumber || "+234 81 34456666"}</div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Date Created
                     </label>
-                    <div className="font-medium">16th May, 2025</div>
+                    <div className="font-medium">{extractDate(incident?.datePublished) || "16th May, 2025"}</div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Submission Time
                     </label>
-                    <div className="font-medium">8:00am</div>
+                    <div className="font-medium">{extractTime(incident?.datePublished) || "8:00am"}</div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">Status</label>
                     <div className="font-medium">
-                      Report received and under review
+                      {incident?.incidentStatus || "Report received and under review"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Address</label>
+                    <div className="font-medium text-sm">
+                      {incident?.address || "N/A"}
                     </div>
                   </div>
                 </div>
@@ -705,7 +781,7 @@ function GeneralDetails() {
                     <label className="text-sm text-gray-600">
                       Station Name
                     </label>
-                    <div className="font-medium">Lorem Ipsum</div>
+                    <div className="font-medium">{incident?.station?.formation || "Lorem Ipsum"}</div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">

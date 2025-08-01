@@ -1,9 +1,12 @@
 import { toast } from "react-toastify";
+import useAccessToken from "./useAccessToken";
+
 
 export const signOutUser = async (navigate) => {
   try {
     // Get token from localStorage or Redux store
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const token = useAccessToken();
+  
     
     // If no token, just clear everything and redirect
     if (!token) {

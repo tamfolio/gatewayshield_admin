@@ -36,7 +36,7 @@ const Home = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
   const userRoleId = useSelector((state) => state.user?.currentUser?.admin?.roleId);
   const userName = useSelector((state) => state.user?.currentUser?.admin);
-  console.log(userName)
+
   
   // Get the current user's role name by matching roleId with adminRoles
   const getCurrentUserRole = () => {
@@ -227,6 +227,25 @@ const Home = () => {
     </div>
   );
 
+  const AdminStatCard = ({ title, value, change, isNegative, valueColor = "text-gray-900" }) => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+      <div className="flex items-start justify-between mb-3">
+        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          {title}
+        </h3>
+        <div className="flex items-center text-xs">
+          <span className={`mr-1 ${isNegative ? "text-red-500" : "text-green-500"}`}>
+            {isNegative ? "↓" : "↑"}
+          </span>
+          <span className="text-gray-600">{change}</span>
+        </div>
+      </div>
+      <div className={`text-2xl font-bold ${valueColor}`}>
+        {value}
+      </div>
+    </div>
+  );
+
   const DatePickerComponent = () => (
     <div className="relative">
       <button
@@ -376,7 +395,7 @@ const Home = () => {
         <div className="grid grid-cols-3 gap-4 mb-8">
           <StatCard
             title="In Progress"
-            value={dashboardData?.base?.["in-progress"] ?? 912}
+            value={dashboardData?.base?.["in-progress"] ?? 0}
             change="2%"
             isNegative={false}
           />
@@ -394,19 +413,19 @@ const Home = () => {
           />
           <StatCard
             title="Closed"
-            value={dashboardData?.base?.closed ?? 912}
+            value={dashboardData?.base?.closed ?? 0}
             change="2%"
             isNegative={false}
           />
           <StatCard
-            title="Resolved"
-            value={dashboardData?.base?.["resolved"] ?? 92}
+            title="Unassigned"
+            value={dashboardData?.base?.["unassigned"] ?? 0}
             change="2%"
             isNegative={false}
           />
           <StatCard
             title="Rejected"
-            value={dashboardData?.base?.["rejected"] ?? 92}
+            value={dashboardData?.base?.["rejected"] ?? 0}
             change="2%"
             isNegative={true}
           />

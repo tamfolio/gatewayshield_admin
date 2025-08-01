@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { LogOut } from '../../../Redux/LoginSlice';
+import useAccessToken from '../../../Utils/useAccessToken';
+import { toast } from 'react-toastify';
+import { userRequest } from '../../../requestMethod';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 
 const EditPassword = ({ onClose }) => {
+  const token = useAccessToken();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -66,25 +75,34 @@ const EditPassword = ({ onClose }) => {
 
     setLoading(true);
     
+    const payload = {
+      oldPassword: formData.currentPassword,
+      newPassword: formData.newPassword
+    };
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const res = await userRequest(token).patch("/admin/update/password", payload);
       
-      // API call to update password
-      // const response = await fetch('/api/user/change-password', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     currentPassword: formData.currentPassword,
-      //     newPassword: formData.newPassword
-      //   })
-      // });
+      console.log("✅ Password updated successfully", res.data);
+      toast.success("Password updated successfully! Please login again.");
       
-      console.log('Password updated successfully');
+      // Close modal first
       if (onClose) onClose();
-    } catch (error) {
-      console.error('Error updating password:', error);
-      setErrors({ general: 'Failed to update password. Please try again.' });
+      
+      // Dispatch logout action
+      dispatch(LogOut());
+      
+      // Navigate to login page
+      navigate("/");
+      
+    } catch (err) {
+      console.error("❌ Error updating password:", err);
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          "Failed to update password. Please try again.";
+      
+      toast.error(errorMessage);
+      setErrors({ general: errorMessage });
     } finally {
       setLoading(false);
     }
