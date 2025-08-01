@@ -22,7 +22,7 @@ const UserHub = ({ onClose, userName }) => {
         <nav className="text-sm text-gray-500 mb-6">
           <span>Dashboard</span> <span className="mx-2">›</span>
           <span>Profile Management</span> <span className="mx-2">›</span>
-          <span>Add Users</span>
+          <span>Profile</span>
         </nav>
 
         {/* Tab Navigation */}

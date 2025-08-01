@@ -21,6 +21,7 @@ function CreateIncident() {
   console.log(userDataDetails?.id);
 
   const [formData, setFormData] = useState({
+    userType: "Registered User", // New field
     reportType: "SOS",
     email: "",
     fullName: "",
@@ -70,9 +71,36 @@ function CreateIncident() {
     }
   };
 
-  const handleReportTypeChange = (reportType) => {
-    // Reset form when changing report type
+  const handleUserTypeChange = (userType) => {
+    // Reset form when changing user type but preserve userType and reportType
     setFormData({
+      userType,
+      reportType: formData.reportType,
+      email: "",
+      fullName: "",
+      address: "",
+      phone: "",
+      description: "",
+      channel: "",
+      incidentType: "",
+    });
+    setErrors({});
+    setUploadedFile("");
+    setAudioBlob(null);
+    setIsRecording(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    // Stop any ongoing recording
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  };
+
+  const handleReportTypeChange = (reportType) => {
+    // Reset form when changing report type but preserve userType
+    setFormData({
+      userType: formData.userType,
       reportType,
       email: "",
       fullName: "",
@@ -98,22 +126,27 @@ function CreateIncident() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
+    // Validation based on user type
+    if (formData.userType !== "Anonymous") {
+      if (!formData.email.trim()) {
+        newErrors.email = "Email is required";
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        newErrors.email = "Please enter a valid email";
+      }
+
+      if (!formData.fullName.trim()) {
+        newErrors.fullName = "Full name is required";
+      }
+
+      if (!formData.phone.trim()) {
+        newErrors.phone = "Phone number is required";
+      }
     }
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required";
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
+    if (formData.userType !== "Anonymous" || (formData.userType === "Anonymous" && formData.reportType === "General")) {
+      if (!formData.address.trim()) {
+        newErrors.address = "Address is required";
+      }
     }
 
     if (!formData.description.trim()) {
@@ -160,8 +193,8 @@ function CreateIncident() {
         const sosData = {
           address: formData.address,
           comment: formData.description,
-          isAnonymous: false,
-          userId: String(userDataDetails?.id),
+          isAnonymous: formData.userType === "Anonymous",
+          userId: formData.userType !== "Anonymous" ? String(userDataDetails?.id) : null,
         };
   
         console.log("🚀 SOS Submitting form with data:", formData);
@@ -206,9 +239,9 @@ function CreateIncident() {
           incidentTypeId: "01JY9QT23TQDPFDJ678NQSJRGB",
           address: formData.address,
           description: formData.description,
-          isAnonymous: false,
-          userId: String(userDataDetails?.id),
-          phoneNumber: formData.phone.replace(/\D/g, ""),
+          isAnonymous: formData.userType === "Anonymous",
+          userId: formData.userType !== "Anonymous" ? String(userDataDetails?.id) : null,
+          phoneNumber: formData.userType !== "Anonymous" ? formData.phone.replace(/\D/g, "") : null,
           channel: formData.channel.toLowerCase(),
         };
   
@@ -260,6 +293,7 @@ function CreateIncident() {
   
       // Reset form after successful submission
       setFormData({
+        userType: "Registered User",
         reportType: "SOS",
         email: "",
         fullName: "",
@@ -289,7 +323,6 @@ function CreateIncident() {
       setIsSubmitting(false);
     }
   };
-
 
   const toggleRecording = async () => {
     if (!isRecording) {
@@ -352,6 +385,218 @@ function CreateIncident() {
     }
   };
 
+  // Helper function to determine field order and visibility
+  const shouldShowField = (fieldName) => {
+    const { userType, reportType } = formData;
+    
+    switch (fieldName) {
+      case "email":
+      case "fullName":
+      case "phone":
+        return userType !== "Anonymous";
+      case "address":
+        // Show address for non-anonymous users, or for anonymous General reports
+        return userType !== "Anonymous" || (userType === "Anonymous" && reportType === "General");
+      case "channel":
+      case "incidentType":
+        return reportType === "General";
+      default:
+        return true;
+    }
+  };
+
+  // Helper function to get field order based on user type and report type
+  const getFieldOrder = () => {
+    const { userType, reportType } = formData;
+    
+    // For Registered User + General: phone first
+    if (userType === "Registered User" && reportType === "General") {
+      return ["phone", "email", "fullName", "address", "channel", "incidentType"];
+    }
+    
+    // For other combinations: email first (when applicable)
+    if (userType !== "Anonymous") {
+      if (reportType === "SOS") {
+        return ["phone", "email", "fullName", "address"];
+      } else {
+        return ["email", "fullName", "channel", "incidentType", "address", "phone"];
+      }
+    }
+    
+    // For Anonymous
+    if (reportType === "General") {
+      return ["channel", "incidentType"];
+    }
+    
+    return [];
+  };
+
+  const renderFormField = (fieldName) => {
+    if (!shouldShowField(fieldName)) return null;
+
+    switch (fieldName) {
+      case "email":
+        return (
+          <div key="email">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Registered Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.email ? "border-red-500" : "border-gray-300"
+              }`}
+              required
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+            )}
+          </div>
+        );
+
+      case "fullName":
+        return (
+          <div key="fullName">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Citizen Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => handleInputChange("fullName", e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.fullName ? "border-red-500" : "border-gray-300"
+              }`}
+              required
+            />
+            {errors.fullName && (
+              <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
+            )}
+          </div>
+        );
+
+      case "phone":
+        return (
+          <div key="phone">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Phone number <span className="text-red-500">*</span>
+            </label>
+            <div className="flex">
+              <div className="relative">
+                <select className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pr-8">
+                  <option value="NG">NG</option>
+                  <option value="US">US</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleInputChange("phone", e.target.value)}
+                className={`flex-1 px-3 py-2 border-t border-r border-b rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.phone ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              />
+            </div>
+            {errors.phone && (
+              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+            )}
+          </div>
+        );
+
+      case "address":
+        return (
+          <div key="address">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Address {shouldShowField("address") && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => handleInputChange("address", e.target.value)}
+              placeholder="Your Address"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 ${
+                errors.address ? "border-red-500" : "border-gray-300"
+              }`}
+              required={shouldShowField("address")}
+            />
+            {errors.address && (
+              <p className="mt-1 text-sm text-red-500">{errors.address}</p>
+            )}
+          </div>
+        );
+
+      case "channel":
+        return (
+          <div key="channel">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Channel <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={formData.channel}
+                onChange={(e) => handleInputChange("channel", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
+                  errors.channel ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              >
+                <option value="">Select Channel</option>
+                <option value="Call">Call</option>
+                <option value="X">X</option>
+                <option value="WhatsApp">WhatsApp</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            {errors.channel && (
+              <p className="mt-1 text-sm text-red-500">{errors.channel}</p>
+            )}
+          </div>
+        );
+
+      case "incidentType":
+        return (
+          <div key="incidentType">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Incident Type <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={formData.incidentType}
+                onChange={(e) => handleInputChange("incidentType", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
+                  errors.incidentType ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              >
+                <option value="">Select incident type</option>
+                <option value="theft">Theft</option>
+                <option value="vandalism">Vandalism</option>
+                <option value="assault">Assault</option>
+                <option value="fraud">Fraud</option>
+                <option value="harassment">Harassment</option>
+                <option value="traffic">Traffic Incident</option>
+                <option value="noise">Noise Complaint</option>
+                <option value="other">Other</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            {errors.incidentType && (
+              <p className="mt-1 text-sm text-red-500">
+                {errors.incidentType}
+              </p>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-2xl mx-auto">
@@ -368,6 +613,25 @@ function CreateIncident() {
 
         <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* User Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                User Type
+              </label>
+              <div className="relative">
+                <select
+                  value={formData.userType}
+                  onChange={(e) => handleUserTypeChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                >
+                  <option value="Registered User">Registered User</option>
+                  <option value="New User">New User</option>
+                  <option value="Anonymous">Anonymous</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
             {/* Report Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -386,157 +650,8 @@ function CreateIncident() {
               </div>
             </div>
 
-            {/* Channel - Only show for General reports */}
-            {formData.reportType === "General" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Channel <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.channel}
-                    onChange={(e) =>
-                      handleInputChange("channel", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
-                      errors.channel ? "border-red-500" : "border-gray-300"
-                    }`}
-                    required
-                  >
-                    <option value="">Select Channel</option>
-                    <option value="Call">Call</option>
-                    <option value="X">X</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.channel && (
-                  <p className="mt-1 text-sm text-red-500">{errors.channel}</p>
-                )}
-              </div>
-            )}
-
-            {/* Registered Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Registered Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Citizen Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Citizen Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange("fullName", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.fullName ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              />
-              {errors.fullName && (
-                <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
-              )}
-            </div>
-
-            {/* Incident Type - Only show for General reports */}
-            {formData.reportType === "General" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Incident Type <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.incidentType}
-                    onChange={(e) =>
-                      handleInputChange("incidentType", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
-                      errors.incidentType ? "border-red-500" : "border-gray-300"
-                    }`}
-                    required
-                  >
-                    <option value="">Select Incident Type</option>
-                    <option value="theft">Theft</option>
-                    <option value="vandalism">Vandalism</option>
-                    <option value="assault">Assault</option>
-                    <option value="fraud">Fraud</option>
-                    <option value="harassment">Harassment</option>
-                    <option value="traffic">Traffic Incident</option>
-                    <option value="noise">Noise Complaint</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                {errors.incidentType && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {errors.incidentType}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Address */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => handleInputChange("address", e.target.value)}
-                placeholder="Your Address"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 ${
-                  errors.address ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              />
-              {errors.address && (
-                <p className="mt-1 text-sm text-red-500">{errors.address}</p>
-              )}
-            </div>
-
-            {/* Phone Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone number <span className="text-red-500">*</span>
-              </label>
-              <div className="flex">
-                <div className="relative">
-                  <select className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pr-8">
-                    <option value="NG">NG</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  className={`flex-1 px-3 py-2 border-t border-r border-b rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.phone ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-              </div>
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-              )}
-            </div>
+            {/* Dynamic form fields based on user type and report type */}
+            {getFieldOrder().map(fieldName => renderFormField(fieldName))}
 
             {/* Description */}
             <div>
@@ -552,7 +667,7 @@ function CreateIncident() {
                   }
                   placeholder={
                     formData.reportType === "SOS"
-                      ? "Describe your emergency situation in detail..."
+                      ? "Tell us about what happened"
                       : "Tell us about what happened"
                   }
                   rows={4}
@@ -619,7 +734,7 @@ function CreateIncident() {
                         {isRecording ? (
                           <>
                             <Square className="w-4 h-4" />
-                            <span>Stop Recording</span>
+                            <span>stop recording</span>
                           </>
                         ) : audioBlob ? (
                           <>
@@ -653,7 +768,7 @@ function CreateIncident() {
             {/* Upload Media */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload {formData.reportType === "SOS" ? "Image" : "Media"}
+                Upload Media
               </label>
               <div
                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
@@ -668,7 +783,7 @@ function CreateIncident() {
                 </p>
                 <p className="text-xs text-gray-500">
                   {formData.reportType === "SOS"
-                    ? "PNG, JPG, GIF (max size per file: 10MB)"
+                    ? "PNG, JPG, GIF or MP4 (max size per file: 10MB)"
                     : "PNG, JPG, GIF or MP4 (max size per file: 10MB)"}
                 </p>
                 <input
@@ -677,7 +792,7 @@ function CreateIncident() {
                   onChange={handleFileUpload}
                   accept={
                     formData.reportType === "SOS"
-                      ? ".png,.jpg,.jpeg,.gif"
+                      ? ".png,.jpg,.jpeg,.gif,.mp4"
                       : ".png,.jpg,.jpeg,.gif,.mp4"
                   }
                   className="hidden"
@@ -711,9 +826,7 @@ function CreateIncident() {
               <button
                 type="submit"
                 className={`px-6 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                  formData.reportType === "SOS"
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                   "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
                 disabled={isSubmitting}
               >
