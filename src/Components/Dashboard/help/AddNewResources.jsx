@@ -12,6 +12,7 @@ import {
   resourcesUtils,
 } from "../../../Utils/apiClient";
 import SuccessModal from "./components/SuccessModal";
+import { useSelector } from "react-redux";
 
 const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
   const isEditing = !!editingResource;
@@ -405,6 +406,8 @@ const AddNewResources = ({ onGoBack, onResourceAdded, editingResource }) => {
       console.log("Going back...");
     }
   };
+
+
 
   // Show loading state while fetching initial data
   if (loadingData) {

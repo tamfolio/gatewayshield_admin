@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import { publicRequest, userRequest } from '../../../requestMethod';
 
+
 const Map = () => {
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedLocationName, setSelectedLocationName] = useState('');
@@ -27,9 +28,9 @@ const Map = () => {
   const [loadingLgas, setLoadingLgas] = useState(true);
   const [loadingIncidents, setLoadingIncidents] = useState(true);
 
-  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  const isAuthenticated = true;
   const token = useSelector((state) => state.user?.currentUser?.tokens?.access?.token);
-  console.log(token)
+  console.log('crime-map',token, isAuthenticated)
 
   // Fetch LGAs from API
   const fetchLgas = async () => {
@@ -90,7 +91,7 @@ const Map = () => {
       if (dateRange) params.append('dateRange', dateRange);
       
       const queryString = params.toString();
-      const endpoint = `/crimeMap/all`;
+      const endpoint = `/crimeMap/all${queryString ? `?${queryString}` : ''}`;
       
       if (isAuthenticated && token) {
         // Authenticated request - gets detailed data
@@ -420,10 +421,10 @@ const Map = () => {
   };
 
   const legendItems = [
-    { color: 'bg-yellow-500', label: '0-2 reports/km²', description: 'Low crime concentration' },
-    { color: 'bg-orange-500', label: '3-7 reports/km²', description: 'Moderate crime activity' },
-    { color: 'bg-red-600', label: '8+ reports/km²', description: 'High concentration / Hotspot area' },
-    { color: 'bg-gray-300', label: '0 reports/km²', description: 'Normal Zone' }
+    { color: 'bg-yellow-500', label: '0-2 reports', description: 'Low crime concentration' },
+    { color: 'bg-orange-500', label: '3-7 reports', description: 'Moderate crime activity' },
+    { color: 'bg-red-600', label: '8+ reports', description: 'High concentration / Hotspot area' },
+    { color: 'bg-gray-300', label: '0 reports', description: 'Normal Zone' }
   ];
 
   // Get selected LGA details for display

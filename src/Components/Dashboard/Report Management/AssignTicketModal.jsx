@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 const AssignTicketModal = ({
   handleAssignTicketModal,
   stations,
-  handleAssignTicketSuccessModal,
+  handleAssignSosTicketSuccessModal,
   assignedStation,
 }) => {
   const [selectedStation, setSelectedStation] = useState(null);
@@ -39,7 +39,7 @@ const AssignTicketModal = ({
 
       console.log("✅ Incident assigned successfully", res.data);
       handleAssignTicketModal();
-      handleAssignTicketSuccessModal();
+      handleAssignSosTicketSuccessModal();
     } catch (err) {
       console.error(
         "❌ Error assigning incident",

@@ -45,7 +45,6 @@ const Sidebar = () => {
       await userRequest(token).get("/auth/logout"); // ✅ correctly uses token
   
       dispatch(LogOut());
-      toast.success("Logged out successfully");
       navigate("/");
     } catch (err) {
       toast.error("Logout failed. Please try again.");
@@ -120,8 +119,8 @@ const Sidebar = () => {
     "Super Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Police Station": ["dashboard", 'users', "reports", "crime-map", "feedback"],
-    "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map","settings", "help"],
-    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit",  'help']
+    "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map", "help"],
+    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit","settings",'help']
   };
 
   // Get allowed routes for current user

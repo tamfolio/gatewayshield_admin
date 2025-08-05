@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   ChevronDown,
   Upload,
@@ -11,9 +11,11 @@ import { userRequest } from "../../../requestMethod";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import useAccessToken from "../../../Utils/useAccessToken";
+import Select from "react-select";
 
 function CreateIncident() {
   const [userDataDetails, setUserDataDetails] = useState([]);
+  const [incidentTypes, setIncidentTypes] = useState([]);
   const userData = useSelector((state) => state.user?.currentUser);
   console.log(userData);
   const token = useAccessToken();
@@ -50,8 +52,25 @@ function CreateIncident() {
       }
     };
 
+    const fetchIncidentTypes = async () => {
+      try {
+        const response = await userRequest(token).get("/incident/types");
+        console.log("Incident types API response:", response.data);
+        
+        const formattedData = response.data?.data?.map((item) => ({
+          label: item.name,
+          value: item.id,
+        })) || [];
+        
+        setIncidentTypes(formattedData);
+      } catch (error) {
+        console.error("Error fetching incident types:", error);
+    };
+  }
+
     if (token) {
       fetchUserDetails();
+      fetchIncidentTypes();
     }
   }, [token]);
 
@@ -431,6 +450,14 @@ function CreateIncident() {
     return [];
   };
 
+  const handleIncidentTypeChange = useCallback((selectedOption) => {
+    if (!selectedOption || typeof selectedOption !== 'object') {
+      setFormData((prev) => ({ ...prev, incidentType: null }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, incidentType: selectedOption }));
+  }, []);
+
   const renderFormField = (fieldName) => {
     if (!shouldShowField(fieldName)) return null;
 
@@ -559,37 +586,21 @@ function CreateIncident() {
 
       case "incidentType":
         return (
-          <div key="incidentType">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Incident Type <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <select
-                value={formData.incidentType}
-                onChange={(e) => handleInputChange("incidentType", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white ${
-                  errors.incidentType ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              >
-                <option value="">Select incident type</option>
-                <option value="theft">Theft</option>
-                <option value="vandalism">Vandalism</option>
-                <option value="assault">Assault</option>
-                <option value="fraud">Fraud</option>
-                <option value="harassment">Harassment</option>
-                <option value="traffic">Traffic Incident</option>
-                <option value="noise">Noise Complaint</option>
-                <option value="other">Other</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-            {errors.incidentType && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.incidentType}
-              </p>
-            )}
-          </div>
+          <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Incident Type *
+                  </label>
+                  <Select
+                    options={incidentTypes}
+                    value={formData.incidentType}
+                    onChange={handleIncidentTypeChange}
+                    placeholder="Select incident type"
+                    isSearchable
+                    isClearable
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                  />
+                </div>
         );
 
       default:
@@ -612,26 +623,7 @@ function CreateIncident() {
         </h1>
 
         <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* User Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                User Type
-              </label>
-              <div className="relative">
-                <select
-                  value={formData.userType}
-                  onChange={(e) => handleUserTypeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-                >
-                  <option value="Registered User">Registered User</option>
-                  <option value="New User">New User</option>
-                  <option value="Anonymous">Anonymous</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
+          <form onSubmit={handleSubmit} className="space-y-6">     
             {/* Report Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
