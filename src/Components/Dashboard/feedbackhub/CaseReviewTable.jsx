@@ -250,11 +250,10 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
     dateRange: null
   });
 
-  // Load feedbacks when page, search, or filters change
-  useEffect(() => {
-    loadFeedbacks();
-  }, [tableData.currentPage, searchTerm, filters, localFilters]);
-
+useEffect(() => {
+  loadFeedbacks();
+  // Safely compare object values, not references
+}, [tableData.currentPage, searchTerm, JSON.stringify(filters), JSON.stringify(localFilters)]);
   const loadFeedbacks = async () => {
     setTableData(prev => ({ ...prev, loading: true, error: null }));
     
@@ -618,28 +617,61 @@ const CaseReviewTable = ({ filters = {}, onFilterChange }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {tableData.feedbacks.map((feedback, index) => (
-                <tr key={feedback.reportID || feedback.id || index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {feedback.reportID || feedback.id || feedback.reportId || `#${index + 1}`}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {feedback.stationName || feedback.station || 'Unknown Station'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <div className="max-w-xs truncate" title={feedback.comments || feedback.feedback || feedback.feedbackText || feedback.comment}>
-                      {feedback.comments || feedback.feedback || feedback.feedbackText || feedback.comment || '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <StarRating rating={feedback.rating || 0} />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(feedback.dateclosed || feedback.date || feedback.createdAt || feedback.dateClosed)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+  {tableData.loading && tableData.feedbacks.length === 0 ? (
+    <tr>
+      <td colSpan="5" className="text-center py-8">
+        <LoadingSpinner />
+      </td>
+    </tr>
+  ) : !tableData.loading && tableData.feedbacks.length === 0 ? (
+    <tr>
+      <td colSpan="5" className="text-center py-8 text-gray-500">
+        No case review feedback entries found
+      </td>
+    </tr>
+  ) : (
+    tableData.feedbacks.map((feedback, index) => (
+      <tr key={feedback.reportID || feedback.id || index} className="hover:bg-gray-50">
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {feedback.reportID || feedback.id || feedback.reportId || `#${index + 1}`}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {feedback.stationName || feedback.station || 'Unknown Station'}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-900">
+          <div
+            className="max-w-xs truncate"
+            title={
+              feedback.comments ||
+              feedback.feedback ||
+              feedback.feedbackText ||
+              feedback.comment
+            }
+          >
+            {feedback.comments ||
+              feedback.feedback ||
+              feedback.feedbackText ||
+              feedback.comment ||
+              '-'}
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          <StarRating rating={feedback.rating || 0} />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatDate(
+            feedback.dateclosed ||
+              feedback.date ||
+              feedback.createdAt ||
+              feedback.dateClosed
+          )}
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
+
+
           </table>
         )}
       </div>

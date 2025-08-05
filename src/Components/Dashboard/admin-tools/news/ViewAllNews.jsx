@@ -657,12 +657,11 @@ const ViewAllNews = ({ onEditNews, onSwitchToCreate }) => {
                 "No description available";
 
               // Based on actual API response: only createdById is available in list view
-              // For now, it'll show the ID until backend provides author names
               const articleAuthor = article.createdById
                 ? `User ${article.createdById.slice(-8)}`
                 : "Unknown Author";
 
-              // Use datePublished which is available in the list response
+              // datePublished 
               const articleDate = article.datePublished;
 
               return (
