@@ -1,13 +1,41 @@
-import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import AllResources from './AllResources';
-import AddNewResources from './AddNewResources';
+import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import AllResources from "./AllResources";
+import AddNewResources from "./AddNewResources";
+import { useSelector } from "react-redux";
 
 // Tab Switcher Component
-const TabSwitcher = ({ activeTab, onTabChange, resourceCount, editingResource }) => {
+const TabSwitcher = ({
+  activeTab,
+  onTabChange,
+  resourceCount,
+  editingResource,
+}) => {
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+  const userName = useSelector((state) => state.user?.currentUser?.admin);
+
+  // Get the current user's role name by matching roleId with adminRoles
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  console.log("Current User Role:", currentUserRole);
+
+  // Check if user is Command Centre Agent or Command Centre Supervisor
+  const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
   const tabs = [
-    { id: 'all', label: 'All Resources' },
-    { id: 'add', label: editingResource ? 'Edit Resource' : 'Add New Resources' }
+    { id: "all", label: "All Resources" },
+    {
+      id: "add",
+      label: editingResource ? "Edit Resource" : "Add New Resources",
+      disabled: isCommandCentreAgent,
+    },
   ];
 
   return (
@@ -15,12 +43,20 @@ const TabSwitcher = ({ activeTab, onTabChange, resourceCount, editingResource })
       {tabs.map((tab) => (
         <button
           key={tab.id}
-          onClick={() => onTabChange(tab.id)}
+          onClick={() => !tab.disabled && onTabChange(tab.id)}
           className={`px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
             activeTab === tab.id
-              ? 'bg-gray-300 text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+              ? "bg-gray-300 text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-800 hover:bg-gray-200"
+          } ${
+            tab.disabled
+              ? "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-gray-600"
+              : ""
           }`}
+          disabled={tab.disabled}
+          title={
+            tab.disabled ? "You do not have permission to add resources" : ""
+          }
         >
           {tab.label}
         </button>
@@ -31,32 +67,32 @@ const TabSwitcher = ({ activeTab, onTabChange, resourceCount, editingResource })
 
 // Main ResourcesHub Component
 const ResourcesHub = () => {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [resourceCount, setResourceCount] = useState(null);
-  
+
   // State for editing - this will be passed to AddNewResources
   const [editingResource, setEditingResource] = useState(null);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
-    
+
     // Clear editing resource when going back to all resources
-    if (tabId === 'all') {
+    if (tabId === "all") {
       setEditingResource(null);
     }
   };
 
   // Handle when a new resource is added
   const handleResourceAdded = (newResource) => {
-    console.log('✅ New resource added:', newResource);
-    
+    console.log("✅ New resource added:", newResource);
+
     // Trigger refresh of the All Resources tab
-    setRefreshTrigger(prev => prev + 1);
-    
+    setRefreshTrigger((prev) => prev + 1);
+
     // Update resource count if available
     if (resourceCount !== null) {
-      setResourceCount(prev => (prev || 0) + 1);
+      setResourceCount((prev) => (prev || 0) + 1);
     }
 
     // Clear editing state since we just added/updated
@@ -65,15 +101,15 @@ const ResourcesHub = () => {
 
   // Handle edit resource request from AllResources
   const handleEditResource = (resource) => {
-    console.log('✏️ Edit resource requested:', resource);
+    console.log("✏️ Edit resource requested:", resource);
     setEditingResource(resource);
-    setActiveTab('add'); // Switch to the add/edit tab
+    setActiveTab("add"); // Switch to the add/edit tab
   };
 
   // Handle going back from Add/Edit
   const handleGoBack = () => {
     setEditingResource(null);
-    setActiveTab('all');
+    setActiveTab("all");
   };
 
   // Handle resource count updates from AllResources component
@@ -83,10 +119,12 @@ const ResourcesHub = () => {
 
   // Get breadcrumb text based on active tab and editing state
   const getBreadcrumbText = () => {
-    if (activeTab === 'add') {
-      return editingResource ? `Edit Resource: ${editingResource.title}` : 'Add New Resources';
+    if (activeTab === "add") {
+      return editingResource
+        ? `Edit Resource: ${editingResource.title}`
+        : "Add New Resources";
     }
-    return 'All Resources';
+    return "All Resources";
   };
 
   return (
@@ -108,22 +146,22 @@ const ResourcesHub = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <TabSwitcher 
-          activeTab={activeTab} 
+        <TabSwitcher
+          activeTab={activeTab}
           onTabChange={handleTabChange}
           resourceCount={resourceCount}
           editingResource={editingResource}
         />
-        
+
         {/* Render the appropriate component based on active tab */}
-        {activeTab === 'add' ? (
-          <AddNewResources 
+        {activeTab === "add" ? (
+          <AddNewResources
             onGoBack={handleGoBack}
             onResourceAdded={handleResourceAdded}
             editingResource={editingResource} // Pass the resource to edit
           />
         ) : (
-          <AllResources 
+          <AllResources
             refreshTrigger={refreshTrigger}
             onResourceCountUpdate={handleResourceCountUpdate}
             onEditResource={handleEditResource}

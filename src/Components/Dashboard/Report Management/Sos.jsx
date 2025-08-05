@@ -58,8 +58,8 @@ const Sos = () => {
     const fetchIncidents = async () => {
       setLoading(true);
       try {
-        // Add search and filter parameters to API call
-        let apiUrl = "/sos/all?page=1&size=10";
+        // Use currentPage state instead of hardcoded page=1
+        let apiUrl = `/sos/all?page=${currentPage}&size=10`;
 
         // Add search parameters if search term exists
         if (searchTerm.trim()) {
@@ -75,7 +75,7 @@ const Sos = () => {
         const res = await userRequest(token).get(apiUrl);
         console.log("✅ Incidents fetched:", res.data);
         setIncidents(res.data?.data?.sos?.data || []);
-        setPaginationData(res.data?.data?.sos?.pagination || []);
+        setPaginationData(res.data?.data?.sos?.pagination || {});
       } catch (err) {
         console.error("❌ Failed to fetch incidents:", err);
         setError("Failed to fetch incidents");
@@ -87,7 +87,72 @@ const Sos = () => {
     if (token) {
       fetchIncidents();
     }
-  }, [token, searchTerm, searchType, showMyReports]);
+  }, [token, searchTerm, searchType, showMyReports, currentPage]);
+
+  const generatePageNumbers = () => {
+    const { currentPage: current, totalPages } = paginationData;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Complex pagination logic
+      if (current <= 4) {
+        // Show first 5 pages, then ellipsis, then last page
+        pages.push(1, 2, 3, 4, 5, "...", totalPages);
+      } else if (current >= totalPages - 3) {
+        // Show first page, ellipsis, then last 5 pages
+        pages.push(
+          1,
+          "...",
+          totalPages - 4,
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages
+        );
+      } else {
+        // Show first, ellipsis, current-1, current, current+1, ellipsis, last
+        pages.push(
+          1,
+          "...",
+          current - 1,
+          current,
+          current + 1,
+          "...",
+          totalPages
+        );
+      }
+    }
+
+    return pages;
+  };
+
+  const handlePageChange = (page) => {
+    if (
+      typeof page === "number" &&
+      page !== currentPage &&
+      page >= 1 &&
+      page <= paginationData.totalPages
+    ) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < paginationData.totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   // Filter states
   const [showReportStatusDropdown, setShowReportStatusDropdown] =
@@ -807,24 +872,27 @@ const Sos = () => {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-8 bg-white p-4 rounded-lg border border-gray-200">
         <button
-          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50"
-          disabled={currentPage === 1}
+          onClick={handlePreviousPage}
+          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={currentPage === 1 || loading}
         >
           <ChevronLeft className="h-4 w-4" />
           <span>Previous</span>
         </button>
 
         <div className="flex items-center space-x-2">
-          {[1, 2, 3, "...", 8, 9, 10].map((page, index) => (
+          {generatePageNumbers().map((page, index) => (
             <button
               key={index}
               className={`px-3 py-1 rounded ${
                 page === currentPage
                   ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              } ${page === "..." ? "cursor-default" : ""}`}
-              onClick={() => typeof page === "number" && setCurrentPage(page)}
-              disabled={page === "..."}
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              } ${
+                page === "..." ? "cursor-default hover:bg-transparent" : ""
+              } disabled:opacity-50`}
+              onClick={() => handlePageChange(page)}
+              disabled={page === "..." || loading}
             >
               {page}
             </button>
@@ -832,12 +900,20 @@ const Sos = () => {
         </div>
 
         <button
-          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900"
-          onClick={() => setCurrentPage(currentPage + 1)}
+          onClick={handleNextPage}
+          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={currentPage === paginationData.totalPages || loading}
         >
           <span>Next</span>
           <ChevronRight className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* Add pagination info */}
+      <div className="text-center text-sm text-gray-500 mt-2">
+        Showing {(currentPage - 1) * 10 + 1} to{" "}
+        {Math.min(currentPage * 10, paginationData.total || 0)} of{" "}
+        {paginationData.total || 0} results
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 import React from "react";
 import { CircleCheckBig, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
-const TicketAssignedSuccessModal = ({ handleTicketAssignedSuccessModal }) => {
+const TicketAssignedSuccessModal = ({ handleAssignSosTicketSuccessModal }) => {
   const handleExport = () => {
     // Handle export logic here
     // You can add your export logic here
-    handleTicketAssignedSuccessModal(); // Close modal after export
+    handleAssignSosTicketSuccessModal(); // Close modal after export
   };
 
   return (
@@ -13,7 +14,7 @@ const TicketAssignedSuccessModal = ({ handleTicketAssignedSuccessModal }) => {
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-[#101828B2] bg-opacity-50 transition-opacity"
-        onClick={handleTicketAssignedSuccessModal}
+        onClick={handleAssignSosTicketSuccessModal}
       />
 
       {/* Modal Container */}
@@ -21,7 +22,7 @@ const TicketAssignedSuccessModal = ({ handleTicketAssignedSuccessModal }) => {
         <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all w-full max-w-sm sm:max-w-md mx-auto z-10">
           {/* Close button */}
           <button
-            onClick={handleTicketAssignedSuccessModal}
+            onClick={handleAssignSosTicketSuccessModal}
             className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors z-20"
           >
             <X className="h-5 w-5" />
@@ -42,18 +43,17 @@ const TicketAssignedSuccessModal = ({ handleTicketAssignedSuccessModal }) => {
             {/* Action buttons */}
             <div className="space-y-3">
               <button
-                onClick={handleExport}
+                onClick={handleAssignSosTicketSuccessModal}
                 className="w-full bg-[#EEF4FF] text-[#3538CD] py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               >
                 Stay On Page
               </button>
-
-              <button
-                onClick={handleTicketAssignedSuccessModal}
-                className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              <Link
+                to="/dashboard"
+                className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors inline-block text-center"
               >
                 Redirect to Dashboard
-              </button>
+              </Link>
             </div>
           </div>
         </div>

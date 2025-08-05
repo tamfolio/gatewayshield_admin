@@ -26,7 +26,7 @@ const General = () => {
   const [error, setError] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [paginationData, setPaginationData] = useState([]);
+  const [paginationData, setPaginationData] = useState({});
   const [selectedAll, setSelectedAll] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
 
@@ -53,41 +53,6 @@ const General = () => {
 
   const currentUserRole = getCurrentUserRole();
   const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
-
-  useEffect(() => {
-    const fetchIncidents = async () => {
-      setLoading(true);
-      try {
-        // Add search and filter parameters to API call
-        let apiUrl = "/incident/all?page=1&size=10";
-        
-        // Add search parameters if search term exists
-        if (searchTerm.trim()) {
-          const searchParam = searchType.toLowerCase().replace(/\s+/g, '_');
-          apiUrl += `&${searchParam}=${encodeURIComponent(searchTerm)}`;
-        }
-        
-        // Add my reports filter if enabled
-        if (showMyReports) {
-          apiUrl += "&my_reports=true";
-        }
-
-        const res = await userRequest(token).get(apiUrl);
-        console.log("✅ Incidents fetched:", res.data);
-        setIncidents(res.data?.data?.incidents?.data || []);
-        setPaginationData(res.data?.data?.incidents?.pagination || []);
-      } catch (err) {
-        console.error("❌ Failed to fetch incidents:", err);
-        setError("Failed to fetch incidents");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (token) {
-      fetchIncidents();
-    }
-  }, [token, searchTerm, searchType, showMyReports]);
 
   // Filter states
   const [showReportStatusDropdown, setShowReportStatusDropdown] = useState(false);
@@ -123,6 +88,120 @@ const General = () => {
   ];
   const originChannelOptions = ["Mobile", "Web", "Phone"];
   const reportTypeOptions = ["SOS", "General"];
+
+  // Updated fetchIncidents function with proper pagination
+  const fetchIncidents = async (page = 1) => {
+    setLoading(true);
+    try {
+      // Build API URL with proper pagination
+      let apiUrl = `/incident/all?page=${page}&size=10`;
+      
+      // Add search parameters if search term exists
+      if (searchTerm.trim()) {
+        const searchParam = searchType.toLowerCase().replace(/\s+/g, '_');
+        apiUrl += `&${searchParam}=${encodeURIComponent(searchTerm)}`;
+      }
+      
+      // Add my reports filter if enabled
+      if (showMyReports) {
+        apiUrl += "&my_reports=true";
+      }
+
+      // Add other filters
+      if (selectedReportStatus) {
+        apiUrl += `&status=${encodeURIComponent(selectedReportStatus.toLowerCase())}`;
+      }
+      if (selectedPoliceStation) {
+        apiUrl += `&station=${encodeURIComponent(selectedPoliceStation)}`;
+      }
+      if (selectedDate) {
+        apiUrl += `&date=${encodeURIComponent(selectedDate)}`;
+      }
+      if (selectedOriginChannel) {
+        apiUrl += `&channel=${encodeURIComponent(selectedOriginChannel.toLowerCase())}`;
+      }
+      if (selectedReportType) {
+        apiUrl += `&type=${encodeURIComponent(selectedReportType.toLowerCase())}`;
+      }
+
+      console.log("📡 API URL:", apiUrl);
+      const res = await userRequest(token).get(apiUrl);
+      console.log("✅ Incidents fetched:", res.data);
+      
+      setIncidents(res.data?.data?.incidents?.data || []);
+      setPaginationData(res.data?.data?.incidents?.pagination || {});
+      
+      // Clear selected reports when data changes
+      setSelectedReports([]);
+      setSelectedAll(false);
+      
+    } catch (err) {
+      console.error("❌ Failed to fetch incidents:", err);
+      setError("Failed to fetch incidents");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      // Reset to page 1 when filters change
+      setCurrentPage(1);
+      fetchIncidents(1);
+    }
+  }, [token, searchTerm, searchType, showMyReports, selectedReportStatus, selectedPoliceStation, selectedDate, selectedOriginChannel, selectedReportType]);
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= (paginationData.totalPages || 1)) {
+      setCurrentPage(page);
+      fetchIncidents(page);
+      // Scroll to top when page changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Generate page numbers for pagination
+  const generatePageNumbers = () => {
+    const totalPages = paginationData.totalPages || 1;
+    const current = currentPage;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      // Show all pages if total is 7 or less
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Show first page
+      pages.push(1);
+
+      if (current > 4) {
+        pages.push("...");
+      }
+
+      // Show pages around current page
+      const start = Math.max(2, current - 1);
+      const end = Math.min(totalPages - 1, current + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) {
+          pages.push(i);
+        }
+      }
+
+      if (current < totalPages - 3) {
+        pages.push("...");
+      }
+
+      // Show last page
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
 
   const handleSelectAll = () => {
     setSelectedAll(!selectedAll);
@@ -352,7 +431,12 @@ const General = () => {
                       type="checkbox"
                       className="h-4 w-4 text-blue-600 rounded border-gray-300"
                       checked={selectedReports.includes(report.id)}
-                      onChange={() => handleSelectReport(report.id)}
+                      onChange={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSelectReport(report.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
                       #{report.id}
@@ -386,7 +470,7 @@ const General = () => {
                   </div>
                   <div>
                     <div className="text-xs text-gray-400">Reported By</div>
-                    <div className="font-medium">{report.user}</div>
+                    <div className="font-medium">{report.user || 'Anonymous'}</div>
                   </div>
                 </div>
 
@@ -411,7 +495,7 @@ const General = () => {
 
                 <div>
                   <div className="text-xs text-gray-400">SLA Status</div>
-                  <div className="font-medium">{report.slaStatus}</div>
+                  <div className="font-medium">{report.slaStatus || 'N/A'}</div>
                 </div>
 
                 <div>
@@ -601,7 +685,7 @@ const General = () => {
               Incident Reports
             </h1>
             <span className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full">
-              {paginationData?.total || 1000} Total
+              {paginationData?.total || 0} Total
             </span>
           </div>
 
@@ -797,6 +881,7 @@ const General = () => {
       )}
 
 
+
       {/* Reports List */}
       <div className="space-y-4">
         {incidents.map((report, index) => (
@@ -808,7 +893,7 @@ const General = () => {
       {!loading && incidents.length === 0 && (
         <div className="text-center py-8">
           <div className="text-gray-500">No incidents found</div>
-          {(searchTerm || showMyReports) && (
+          {(searchTerm || showMyReports || activeFilters.length > 0) && (
             <div className="text-sm text-gray-400 mt-2">
               Try adjusting your search or filters
             </div>
@@ -816,41 +901,68 @@ const General = () => {
         </div>
       )}
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-8 bg-white p-4 rounded-lg border border-gray-200">
-        <button
-          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50"
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span>Previous</span>
-        </button>
+      {/* Fixed Pagination */}
+      {!loading && incidents.length > 0 && paginationData.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-8 bg-white p-4 rounded-lg border border-gray-200">
+          {/* Previous Button */}
+          <button
+            className={`flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed ${
+              currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+            }`}
+            disabled={currentPage === 1}
+            onClick={() => handlePageChange(currentPage - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Previous</span>
+          </button>
 
-        <div className="flex items-center space-x-2">
-          {[1, 2, 3, "...", 8, 9, 10].map((page, index) => (
-            <button
-              key={index}
-              className={`px-3 py-1 rounded ${
-                page === currentPage
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:text-gray-900"
-              } ${page === "..." ? "cursor-default" : ""}`}
-              onClick={() => typeof page === "number" && setCurrentPage(page)}
-              disabled={page === "..."}
-            >
-              {page}
-            </button>
-          ))}
+          {/* Page Numbers */}
+          <div className="flex items-center space-x-2">
+            {generatePageNumbers().map((page, index) => (
+              <button
+                key={index}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  page === currentPage
+                    ? "bg-blue-600 text-white"
+                    : page === "..."
+                    ? "text-gray-400 cursor-default"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+                onClick={() => typeof page === "number" && handlePageChange(page)}
+                disabled={page === "..."}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          {/* Next Button */}
+          <button
+            className={`flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed ${
+              currentPage === paginationData.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+            }`}
+            disabled={currentPage === paginationData.totalPages}
+            onClick={() => handlePageChange(currentPage + 1)}
+          >
+            <span>Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
+      )}
 
-        <button
-          className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900"
-          onClick={() => setCurrentPage(currentPage + 1)}
-        >
-          <span>Next</span>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Pagination Info */}
+      {!loading && incidents.length > 0 && (
+        <div className="text-center mt-4 text-sm text-gray-500">
+          Showing {((currentPage - 1) * (paginationData.pageSize || 10)) + 1} to{' '}
+          {Math.min(currentPage * (paginationData.pageSize || 10), paginationData.total || 0)} of{' '}
+          {paginationData.total || 0} results
+          {paginationData.totalPages > 1 && (
+            <span className="ml-2">
+              (Page {currentPage} of {paginationData.totalPages})
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };
