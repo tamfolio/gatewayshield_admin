@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 import GeneralFeedbackTable from './GeneralFeedbackTable';
 import { useApiClient, generalFeedbackApi, feedbackUtils } from '../../../Utils/apiClient';
-import ExportFunction from './components/ExportFunction';
 
 // Skeleton Components
 const SkeletonPulse = ({ className = "" }) => (
@@ -67,7 +66,8 @@ const Button = ({ children, variant = "primary", size = "md", className = "", di
   const variants = {
     primary: "bg-blue-600 text-white hover:bg-blue-700",
     secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200",
-    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
+    success: "bg-green-600 text-white hover:bg-green-700"
   };
   const sizes = {
     sm: "px-3 py-1.5 text-sm",
@@ -360,12 +360,12 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
       <div className="relative" style={{ height: '200px' }}>
         {/* Y-axis labels */}
         <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-gray-500 h-40 w-8">
-          <span>5★</span>
-          <span>4★</span>
-          <span>3★</span>
-          <span>2★</span>
-          <span>1★</span>
-          <span>0★</span>
+          <span>5</span>
+          <span>4</span>
+          <span>3</span>
+          <span>2</span>
+          <span>1</span>
+          <span>0</span>
         </div>
         
         {/* Chart area with absolute positioning */}
@@ -404,7 +404,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
                       bottom: `${barHeightPx + 5}px`
                     }}
                   >
-                    {item.value.toFixed(1)}★
+                    {item.value.toFixed(1)}
                   </div>
                   
                   {/* The actual bar */}
@@ -457,11 +457,7 @@ const BarChart = ({ title, data = [], color, loading = false }) => {
         </div>
       </div>
       
-      {/* Summary info */}
-      <div className="text-xs text-gray-500 mt-4 text-center">
-        {chartData.length} {title.toLowerCase().includes('officer') ? 'officers' : 'stations'} • 
-        Range: {Math.min(...chartData.map(d => d.value)).toFixed(1)}★ - {Math.max(...chartData.map(d => d.value)).toFixed(1)}★
-      </div>
+     
     </div>
   );
 };
@@ -559,19 +555,6 @@ const GeneralFeedback = () => {
                 options={['Last 7 Days', 'Last 30 Days', 'Last 90 Days']}
                 value={filters.timeRange}
                 onChange={(value) => setFilters({...filters, timeRange: value})}
-              />
-              
-              <ExportFunction 
-                dashboardData={dashboardData}
-                filters={filters}
-                loading={loading}
-                onExportStart={() => console.log('📄 Starting PDF export...')}
-                onExportComplete={(fileName) => {
-                  console.log('✅ PDF exported successfully:', fileName);
-                }}
-                onExportError={(error) => {
-                  console.error('❌ PDF export failed:', error);
-                }}
               />
               
               <Button 
