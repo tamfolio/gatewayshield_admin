@@ -51,10 +51,10 @@ const AuditTrailSection = ({ auditTrail }) => {
             >
               {/* Report ID */}
               <div className="text-sm text-gray-900 font-medium">
-                {item?.user?.fullname || "N/A" }
+                {item?.admin?.fullname || "N/A" }
               </div>
               <div className="text-sm text-gray-700 capitalize">
-                {item.incidentType || "SOS"}
+                {item.role}
               </div>
 
               <div className="text-sm text-gray-700">

@@ -255,7 +255,7 @@ function CreateIncident() {
       } else {
         // Handle General incident submission
         const incidentData = {
-          incidentTypeId: "01JY9QT23TQDPFDJ678NQSJRGB",
+          incidentTypeId: formData.incidentType?.value,
           address: formData.address,
           description: formData.description,
           isAnonymous: formData.userType === "Anonymous",

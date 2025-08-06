@@ -2,11 +2,11 @@ import React from "react";
 import { CircleCheckBig, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const TicketAssignedSuccessModal = ({ handleAssignSosTicketSuccessModal }) => {
+const TicketAssignedSuccessModal = ({ handleAssignTicketSuccessModal }) => {
   const handleExport = () => {
     // Handle export logic here
     // You can add your export logic here
-    handleAssignSosTicketSuccessModal(); // Close modal after export
+    handleAssignTicketSuccessModal(); // Close modal after export
   };
 
   return (
@@ -14,7 +14,7 @@ const TicketAssignedSuccessModal = ({ handleAssignSosTicketSuccessModal }) => {
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-[#101828B2] bg-opacity-50 transition-opacity"
-        onClick={handleAssignSosTicketSuccessModal}
+        onClick={handleAssignTicketSuccessModal}
       />
 
       {/* Modal Container */}
@@ -22,7 +22,7 @@ const TicketAssignedSuccessModal = ({ handleAssignSosTicketSuccessModal }) => {
         <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all w-full max-w-sm sm:max-w-md mx-auto z-10">
           {/* Close button */}
           <button
-            onClick={handleAssignSosTicketSuccessModal}
+            onClick={handleAssignTicketSuccessModal}
             className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors z-20"
           >
             <X className="h-5 w-5" />
@@ -43,7 +43,7 @@ const TicketAssignedSuccessModal = ({ handleAssignSosTicketSuccessModal }) => {
             {/* Action buttons */}
             <div className="space-y-3">
               <button
-                onClick={handleAssignSosTicketSuccessModal}
+                onClick={handleAssignTicketSuccessModal}
                 className="w-full bg-[#EEF4FF] text-[#3538CD] py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               >
                 Stay On Page
