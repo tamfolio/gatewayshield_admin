@@ -25,10 +25,34 @@ const Sos = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState([]);
   const [incidents, setIncidents] = useState([]);
+  const [stations, setStations] = useState([]);
+  const [incidentStatus, setIncidentStatus] = useState([]);
+  const [incidentChannels, setIncidentChannels] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationData, setPaginationData] = useState([]);
   const [selectedAll, setSelectedAll] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
+    // Filter states
+    const [showReportStatusDropdown, setShowReportStatusDropdown] =
+    useState(false);
+  const [showPoliceStationDropdown, setShowPoliceStationDropdown] =
+    useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showOriginChannelDropdown, setShowOriginChannelDropdown] =
+    useState(false);
+  const [showReportTypeDropdown, setShowReportTypeDropdown] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
+
+  // Filter values
+  const [selectedReportStatus, setSelectedReportStatus] = useState("");
+  const [selectedPoliceStation, setSelectedPoliceStation] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedOriginChannel, setSelectedOriginChannel] = useState("");
+  const [selectedReportType, setSelectedReportType] = useState("");
+
+  // Active filters for display
+  const [activeFilters, setActiveFilters] = useState([]);
 
   // New search and toggle states
   const [showMyReports, setShowMyReports] = useState(false);
@@ -60,18 +84,44 @@ const Sos = () => {
       try {
         // Use currentPage state instead of hardcoded page=1
         let apiUrl = `/sos/all?page=${currentPage}&size=10`;
-
+  
         // Add search parameters if search term exists
         if (searchTerm.trim()) {
           const searchParam = searchType.toLowerCase().replace(/\s+/g, "_");
           apiUrl += `&${searchParam}=${encodeURIComponent(searchTerm)}`;
         }
-
+  
         // Add my reports filter if enabled
         if (showMyReports) {
           apiUrl += "&my_reports=true";
         }
-
+  
+        // Add status filter if selected
+        if (selectedReportStatus) {
+          apiUrl += `&statusId=${selectedReportStatus}`;
+        }
+  
+        // Add date range filter if selected
+        if (selectedCalendarDate && selectedCalendarDate.includes(',')) {
+          const [startDate, endDate] = selectedCalendarDate.split(',');
+          apiUrl += `&startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedCalendarDate && selectedCalendarDate !== 'Select Date') {
+          // Handle single date selection
+          apiUrl += `&startDate=${selectedCalendarDate}&endDate=${selectedCalendarDate}`;
+        }
+  
+        // Add origin channel filter if selected
+        if (selectedOriginChannel && selectedOriginChannel !== 'All Channels') {
+          apiUrl += `&originChannel=${selectedOriginChannel}`;
+        }
+  
+        // Add police station filter if selected
+        if (selectedPoliceStation) {
+          apiUrl += `&stationId=${selectedPoliceStation}`;
+        }
+  
+        console.log("🔍 API URL:", apiUrl); // Debug log to see the full URL
+  
         const res = await userRequest(token).get(apiUrl);
         console.log("✅ Incidents fetched:", res.data);
         setIncidents(res.data?.data?.sos?.data || []);
@@ -83,11 +133,63 @@ const Sos = () => {
         setLoading(false);
       }
     };
-
+  
     if (token) {
       fetchIncidents();
     }
-  }, [token, searchTerm, searchType, showMyReports, currentPage]);
+  }, [
+    token, 
+    searchTerm, 
+    searchType, 
+    showMyReports, 
+    currentPage,
+    selectedReportStatus,
+    selectedCalendarDate,
+    selectedOriginChannel,
+    selectedPoliceStation
+  ]);
+
+  useEffect(() => {
+    const fetchIncidentStatus = async () => {
+      try {
+        const response = await userRequest(token).get("/incident/statuses");
+        console.log("Incident types API response:", response.data.data);
+        setIncidentStatus(response.data.data);
+      } catch (error) {
+        console.error("Error fetching incident types:", error);
+      }
+    };
+
+    const fetchIncidentChannels = async () => {
+      try {
+        const response = await userRequest(token).get("/incident/channels");
+        console.log("Incident Channels API response:", response.data.data);
+        setIncidentChannels(response.data.data);
+      } catch (error) {
+        console.error("Error fetching incident types:", error);
+      }
+    };
+
+    const getStations = async () => {
+      try {
+        const res = await userRequest(token).get(
+          `feedback/caseReview/stations`
+        );
+        console.log("stations", res.data.data.stations);
+        setStations(res.data.data.stations);
+      } catch (error) {
+        console.error("❌ Failed to fetch incident:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchIncidentStatus();
+      fetchIncidentChannels();
+      getStations();
+    }
+  }, []);
 
   const generatePageNumbers = () => {
     const { currentPage: current, totalPages } = paginationData;
@@ -154,43 +256,16 @@ const Sos = () => {
     }
   };
 
-  // Filter states
-  const [showReportStatusDropdown, setShowReportStatusDropdown] =
-    useState(false);
-  const [showPoliceStationDropdown, setShowPoliceStationDropdown] =
-    useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showOriginChannelDropdown, setShowOriginChannelDropdown] =
-    useState(false);
-  const [showReportTypeDropdown, setShowReportTypeDropdown] = useState(false);
 
-  // Filter values
-  const [selectedReportStatus, setSelectedReportStatus] = useState("");
-  const [selectedPoliceStation, setSelectedPoliceStation] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedOriginChannel, setSelectedOriginChannel] = useState("");
-  const [selectedReportType, setSelectedReportType] = useState("");
-
-  // Active filters for display
-  const [activeFilters, setActiveFilters] = useState([]);
 
   // Calendar state
-  const [calendarDate, setCalendarDate] = useState(new Date());
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
+
 
   // Search dropdown options
   const searchOptions = ["Report ID", "Citizen Name", "Phone Number"];
 
   // Filter options
-  const reportStatusOptions = ["New", "In Progress", "On Hold", "Rejected"];
-  const policeStationOptions = [
-    "Station A",
-    "Station B",
-    "Station C",
-    "Station D",
-  ];
-  const originChannelOptions = ["Mobile", "Web", "Phone"];
-  const reportTypeOptions = ["SOS", "General"];
+
 
   const handleSelectAll = () => {
     setSelectedAll(!selectedAll);
@@ -487,20 +562,30 @@ const Sos = () => {
     if (!isOpen) return null;
 
     return (
-      <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-        {options.map((option) => (
-          <button
-            key={option}
-            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
-              selectedValue === option
-                ? "bg-blue-50 text-blue-600"
-                : "text-gray-700"
-            }`}
-            onClick={() => onSelect(option)}
-          >
-            {option}
-          </button>
-        ))}
+      <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-[500px] overflow-y-scroll">
+        {options.map((option) => {
+          // Check if option is an object or string
+          const isObject = typeof option === "object";
+          const key = isObject ? option.id : option;
+          const displayValue = isObject
+            ? option.name || option.formation
+            : option;
+          const selectValue = isObject ? option.id : option;
+
+          return (
+            <button
+              key={key}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${
+                selectedValue === selectValue
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-700"
+              }`}
+              onClick={() => onSelect(selectValue)}
+            >
+              {displayValue}
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -531,35 +616,106 @@ const Sos = () => {
   };
 
   const DatePicker = () => {
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [hoverDate, setHoverDate] = useState(null);
+  
     if (!showDatePicker) return null;
-
+  
     const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
     ];
-
+  
     const days = generateCalendarDays();
-
+  
+    const handleDateSelect = (dayObj) => {
+      if (!dayObj.isCurrentMonth) return;
+      
+      const selectedDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), dayObj.day);
+      
+      if (!startDate || (startDate && endDate)) {
+        // First selection or reset selection
+        setStartDate(selectedDate);
+        setEndDate(null);
+      } else if (startDate && !endDate) {
+        // Second selection
+        if (selectedDate < startDate) {
+          // If selected date is before start date, swap them
+          setEndDate(startDate);
+          setStartDate(selectedDate);
+        } else {
+          setEndDate(selectedDate);
+        }
+      }
+    };
+  
+    const handleDateHover = (dayObj) => {
+      if (!dayObj.isCurrentMonth || !startDate || endDate) return;
+      const hoverDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), dayObj.day);
+      setHoverDate(hoverDate);
+    };
+  
+    const isDateInRange = (dayObj) => {
+      if (!dayObj.isCurrentMonth || !startDate) return false;
+      
+      const currentDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), dayObj.day);
+      const rangeEnd = endDate || hoverDate;
+      
+      if (!rangeEnd) return false;
+      
+      const actualStart = startDate < rangeEnd ? startDate : rangeEnd;
+      const actualEnd = startDate < rangeEnd ? rangeEnd : startDate;
+      
+      return currentDate >= actualStart && currentDate <= actualEnd;
+    };
+  
+    const isStartDate = (dayObj) => {
+      if (!startDate || !dayObj.isCurrentMonth) return false;
+      const currentDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), dayObj.day);
+      return currentDate.getTime() === startDate.getTime();
+    };
+  
+    const isEndDate = (dayObj) => {
+      if (!endDate || !dayObj.isCurrentMonth) return false;
+      const currentDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), dayObj.day);
+      return currentDate.getTime() === endDate.getTime();
+    };
+  
+    const applyDateFilter = () => {
+      if (startDate && endDate) {
+        const formattedStartDate = startDate.toISOString().split('T')[0];
+        const formattedEndDate = endDate.toISOString().split('T')[0];
+        
+        // Update your filter state with string representation
+        setSelectedCalendarDate(`${formattedStartDate} to ${formattedEndDate}`);
+        
+        // Pass as comma-separated string to avoid object rendering issues
+        handleFilterSelect("dateRange", `${formattedStartDate},${formattedEndDate}`);
+      } else if (startDate) {
+        // If only start date is selected, use it as single date
+        const formattedDate = startDate.toISOString().split('T')[0];
+        setSelectedCalendarDate(formattedDate);
+        handleFilterSelect("dateRange", formattedDate);
+      }
+      
+      setShowDatePicker(false);
+    };
+  
+    const clearSelection = () => {
+      setStartDate(null);
+      setEndDate(null);
+      setHoverDate(null);
+    };
+  
     return (
       <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
+        {/* Header with navigation */}
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() =>
               setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() - 1
-                )
+                new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1)
               )
             }
             className="p-1 hover:bg-gray-100 rounded"
@@ -572,10 +728,7 @@ const Sos = () => {
           <button
             onClick={() =>
               setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() + 1
-                )
+                new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1)
               )
             }
             className="p-1 hover:bg-gray-100 rounded"
@@ -583,8 +736,25 @@ const Sos = () => {
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-
+  
+        {/* Date Range Display */}
+        <div className="mb-4 text-sm text-center">
+          {startDate && endDate ? (
+            <span className="text-blue-600 font-medium">
+              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+            </span>
+          ) : startDate ? (
+            <span className="text-gray-600">
+              Start: {startDate.toLocaleDateString()} (Select end date)
+            </span>
+          ) : (
+            <span className="text-gray-400">Select start date</span>
+          )}
+        </div>
+  
+        {/* Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 mb-4">
+          {/* Day headers */}
           {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
             <div
               key={day}
@@ -593,19 +763,28 @@ const Sos = () => {
               {day}
             </div>
           ))}
+          
+          {/* Calendar days */}
           {days.map((day, index) => (
             <button
               key={index}
               onClick={() => handleDateSelect(day)}
-              className={`text-center text-sm py-2 rounded hover:bg-gray-100 ${
-                day.isCurrentMonth ? "text-gray-900" : "text-gray-300"
+              onMouseEnter={() => handleDateHover(day)}
+              onMouseLeave={() => setHoverDate(null)}
+              disabled={!day.isCurrentMonth}
+              className={`text-center text-sm py-2 rounded transition-colors ${
+                day.isCurrentMonth 
+                  ? "text-gray-900 hover:bg-gray-100 cursor-pointer" 
+                  : "text-gray-300 cursor-not-allowed"
               } ${
-                day.isToday ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                day.isToday ? "ring-2 ring-blue-300" : ""
               } ${
-                selectedCalendarDate &&
-                selectedCalendarDate.includes(day.day.toString()) &&
-                day.isCurrentMonth
-                  ? "bg-blue-100 text-blue-600"
+                isStartDate(day) || isEndDate(day)
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : ""
+              } ${
+                isDateInRange(day) && !isStartDate(day) && !isEndDate(day)
+                  ? "bg-blue-100 text-blue-700"
                   : ""
               }`}
             >
@@ -613,17 +792,31 @@ const Sos = () => {
             </button>
           ))}
         </div>
-
-        <div className="flex justify-between">
-          <button
-            onClick={() => setShowDatePicker(false)}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-          >
-            Cancel
-          </button>
+  
+        {/* Action buttons */}
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <button
+              onClick={clearSelection}
+              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
           <button
             onClick={applyDateFilter}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            disabled={!startDate}
+            className={`px-4 py-2 text-sm rounded transition-colors ${
+              startDate
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             Apply
           </button>
@@ -742,102 +935,90 @@ const Sos = () => {
       {/* Filters */}
       <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 text-sm">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                checked={selectedAll}
-                onChange={handleSelectAll}
-              />
-              <span className="text-gray-700">Select All</span>
+          <div className="flex items-center justify-between w-full space-x-4 text-sm">
+            <div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                  checked={selectedAll}
+                  onChange={handleSelectAll}
+                />
+                <span className="text-gray-700">Select All</span>
+              </div>
             </div>
+            <div className="flex gap-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-600">Filter By:</span>
+              </div>
+              <div className="relative">
+                <button
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                >
+                  <span>Date</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <DatePicker />
+              </div>
 
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-600">Filter By:</span>
-            </div>
+              <div className="relative">
+                <button
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                  onClick={() =>
+                    setShowReportStatusDropdown(!showReportStatusDropdown)
+                  }
+                >
+                  <span>Report Status</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <DropdownMenu
+                  isOpen={showReportStatusDropdown}
+                  options={incidentStatus}
+                  onSelect={(id) => handleFilterSelect("reportStatus", id)}
+                  selectedValue={selectedReportStatus}
+                />
+              </div>
 
-            <div className="relative">
-              <button
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() =>
-                  setShowReportStatusDropdown(!showReportStatusDropdown)
-                }
-              >
-                <span>Report Status</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <DropdownMenu
-                isOpen={showReportStatusDropdown}
-                options={reportStatusOptions}
-                onSelect={(value) => handleFilterSelect("reportStatus", value)}
-                selectedValue={selectedReportStatus}
-              />
-            </div>
+              <div className="relative">
+                <button
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                  onClick={() =>
+                    setShowPoliceStationDropdown(!showPoliceStationDropdown)
+                  }
+                >
+                  <span>Police Station</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <DropdownMenu
+                  isOpen={showPoliceStationDropdown}
+                  options={stations}
+                  onSelect={(value) =>
+                    handleFilterSelect("policeStation", value)
+                  }
+                  selectedValue={selectedPoliceStation}
+                />
+              </div>
 
-            <div className="relative">
-              <button
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() =>
-                  setShowPoliceStationDropdown(!showPoliceStationDropdown)
-                }
-              >
-                <span>Police Station</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <DropdownMenu
-                isOpen={showPoliceStationDropdown}
-                options={policeStationOptions}
-                onSelect={(value) => handleFilterSelect("policeStation", value)}
-                selectedValue={selectedPoliceStation}
-              />
-            </div>
-
-            <div className="relative">
-              <button
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() => setShowDatePicker(!showDatePicker)}
-              >
-                <span>Date</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <DatePicker />
-            </div>
-
-            <div className="relative">
-              <button
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() =>
-                  setShowOriginChannelDropdown(!showOriginChannelDropdown)
-                }
-              >
-                <span>Origin Channel</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <DropdownMenu
-                isOpen={showOriginChannelDropdown}
-                options={originChannelOptions}
-                onSelect={(value) => handleFilterSelect("originChannel", value)}
-                selectedValue={selectedOriginChannel}
-              />
-            </div>
-
-            <div className="relative">
-              <button
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                onClick={() =>
-                  setShowReportTypeDropdown(!showReportTypeDropdown)
-                }
-              >
-                <span>Report Type</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <DropdownMenu
-                isOpen={showReportTypeDropdown}
-                options={reportTypeOptions}
-                onSelect={(value) => handleFilterSelect("reportType", value)}
-                selectedValue={selectedReportType}
-              />
+              <div className="relative">
+                <button
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                  onClick={() =>
+                    setShowOriginChannelDropdown(!showOriginChannelDropdown)
+                  }
+                >
+                  <span>Origin Channel</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <DropdownMenu
+                  isOpen={showOriginChannelDropdown}
+                  options={incidentChannels}
+                  onSelect={(value) =>
+                    handleFilterSelect("originChannel", value)
+                  }
+                  selectedValue={selectedOriginChannel}
+                />
+              </div>
             </div>
           </div>
         </div>
