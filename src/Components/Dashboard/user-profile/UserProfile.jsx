@@ -1,20 +1,28 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { HiOutlineUpload } from "react-icons/hi";
 import { MdEmail } from "react-icons/md";
+import { userRequest } from "../../../requestMethod";
+import useAccessToken from "../../../Utils/useAccessToken";
+import { toast } from "react-toastify";
 
 const UserProfile = ({ userName, onClose }) => {
   const [formData, setFormData] = useState({
-    fullName: userName?.firstName + " " + userName?.lastName || "Anita Kikitos",
+    firstName: "",
+    lastName: "",
     email: "",
-    username: "",
-    address: "",
     phoneNumber: "",
-    gender: "Male",
+    address: "",
+    badgeNumber: "",
+    coordinate: "",
   });
+  
+  const [userDetails, setUserDataDetails] = useState(null);
+  const token = useAccessToken();
   const [profileImage, setProfileImage] = useState(
     "/assets/profile-placeholder.jpg"
   );
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -23,6 +31,39 @@ const UserProfile = ({ userName, onClose }) => {
       [name]: value,
     }));
   };
+
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      setFetchingData(true);
+      try {
+        const res = await userRequest(token).get(`/admin/get/`);
+        const adminData = res.data.data.admin;
+        
+        setUserDataDetails(adminData);
+        
+        // Populate form with fetched data
+        setFormData({
+          firstName: adminData.firstName || "",
+          lastName: adminData.lastName || "",
+          email: adminData.email || "",
+          phoneNumber: adminData.phoneNumber || "",
+          address: adminData.address || "",
+          badgeNumber: adminData.badgeNumber || "",
+          coordinate: adminData.coordinate || "",
+        });
+        
+      } catch (error) {
+        console.error("❌ Failed to fetch admin data:", error);
+        toast.error("Failed to load user details");
+      } finally {
+        setFetchingData(false);
+      }
+    };
+
+    if (token) {
+      fetchUserDetails();
+    }
+  }, [token]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -36,23 +77,37 @@ const UserProfile = ({ userName, onClose }) => {
   };
 
   const handleSaveChanges = async () => {
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error("First name and last name are required");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const payload = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim()
+      };
 
-      // Here you would make your API call to update user profile
-      // const response = await fetch('/api/user/profile', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-
-      console.log("Profile updated:", formData);
-      onClose();
+      const res = await userRequest(token).patch("/admin/update", payload);
+      
+      console.log("✅ Profile updated successfully:", res.data);
+      toast.success("Profile updated successfully!");
+      
+      // Update local state with new data
+      setUserDataDetails(prev => ({
+        ...prev,
+        firstName: payload.firstName,
+        lastName: payload.lastName
+      }));
+      
     } catch (error) {
-      console.error("Error updating profile:", error);
+      console.error("❌ Error updating profile:", error);
+      toast.error(
+        error.response?.data?.message || 
+        "Failed to update profile. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -62,35 +117,87 @@ const UserProfile = ({ userName, onClose }) => {
     onClose();
   };
 
+  if (fetchingData) {
+    return (
+      <div className="flex gap-8">
+        <div className="w-64 flex-shrink-0">
+          <h3 className="text-base font-medium text-gray-900 mb-1">User Info</h3>
+          <p className="text-sm text-gray-500">Loading user details...</p>
+        </div>
+        <div className="flex-1 bg-white p-6 border rounded-md border-gray-100 max-w-2xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-8">
       {/* Left Column - User Info Header */}
       <div className="w-64 flex-shrink-0">
         <h3 className="text-base font-medium text-gray-900 mb-1">User Info</h3>
         <p className="text-sm text-gray-500">Update User details.</p>
+        
+        {userDetails && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-md">
+            <p className="text-xs text-gray-600 mb-1">Current User:</p>
+            <p className="text-sm font-medium text-gray-900">
+              {userDetails.firstName} {userDetails.lastName}
+            </p>
+            <p className="text-xs text-gray-500">{userDetails.email}</p>
+            {userDetails.badgeNumber && (
+              <p className="text-xs text-gray-500">Badge: {userDetails.badgeNumber}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right Column - Form Content */}
       <div className="flex-1 bg-white p-6 border rounded-md border-gray-100 max-w-2xl space-y-6">
-        {/* Full Name */}
+        
+        {/* Editable Fields Note */}
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-6">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> Only First Name and Last Name can be updated. Other fields are read-only.
+          </p>
+        </div>
+
+        {/* First Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Full Name <span className="text-red-500">*</span>
+            First Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
-            name="fullName"
-            value={formData.fullName}
+            name="firstName"
+            value={formData.firstName}
             onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-            placeholder="Enter full name"
+            placeholder="Enter first name"
           />
         </div>
 
-        {/* Email Address */}
+        {/* Last Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email address <span className="text-red-500">*</span>
+            Last Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
+            placeholder="Enter last name"
+          />
+        </div>
+
+        {/* Email Address (Read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email address
           </label>
           <div className="relative">
             <MdEmail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -98,125 +205,85 @@ const UserProfile = ({ userName, onClose }) => {
               type="email"
               name="email"
               value={formData.email}
-              onChange={handleInputChange}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-              placeholder="Enter email address"
+              readOnly
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
+              placeholder="Email address"
             />
           </div>
+          <p className="text-xs text-gray-500 mt-1">Email cannot be modified</p>
         </div>
 
-        {/* Profile Image Upload */}
-        <div>
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border">
-              {profileImage &&
-              profileImage !== "/assets/profile-placeholder.jpg" ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-medium text-lg">
-                    {formData.fullName?.charAt(0) || "A"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="text-center">
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <span className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                Click to upload
-              </span>
-            </label>
-            <span className="text-gray-500 text-sm"> or drag and drop</span>
-            <p className="text-xs text-gray-400 mt-1">
-              SVG, PNG, JPG or GIF (max. 800x400px)
-            </p>
-          </div>
-        </div>
-
-        {/* Username */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Username <span className="text-red-500">*</span>
-          </label>
-          <div className="flex">
-            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-              gatewayshield.ng/
-            </span>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleInputChange}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-              placeholder="username"
-            />
-          </div>
-        </div>
-
-        {/* Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Address <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="address"
-            value={formData.address}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-            placeholder="Enter address"
-          />
-        </div>
-
-        {/* Phone Number */}
+        {/* Phone Number (Read-only) */}
         <div>
           <label className="block text-sm font-medium text-gray-900 mb-2">
-            Phone number <span className="text-red-500">*</span>
+            Phone number
           </label>
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-            <div className="flex items-center px-3 bg-gray-50 text-gray-500 text-sm border-r border-gray-300">
-              NG +234
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden bg-gray-50">
+            <div className="flex items-center px-3 bg-gray-100 text-gray-500 text-sm border-r border-gray-300">
+              NG
             </div>
             <input
               type="tel"
               name="phoneNumber"
               value={formData.phoneNumber}
-              onChange={handleInputChange}
-              className="flex-1 px-3 py-2.5 text-sm placeholder-gray-400 focus:outline-none"
-              placeholder="816 1234-0000"
+              readOnly
+              className="flex-1 px-3 py-2.5 text-sm text-gray-600 bg-gray-50 cursor-not-allowed focus:outline-none"
+              placeholder="Phone number"
             />
           </div>
+          <p className="text-xs text-gray-500 mt-1">Phone number cannot be modified</p>
         </div>
 
-        {/* Gender */}
+        {/* Address (Read-only) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Gender
+            Address
           </label>
-          <select
-            name="gender"
-            value={formData.gender}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm"
-          >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
+            placeholder="Address"
+          />
+          <p className="text-xs text-gray-500 mt-1">Address cannot be modified</p>
+        </div>
+
+        {/* Badge Number (Read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Badge Number
+          </label>
+          <input
+            type="text"
+            name="badgeNumber"
+            value={formData.badgeNumber}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
+            placeholder="Badge number"
+          />
+          <p className="text-xs text-gray-500 mt-1">Badge number cannot be modified</p>
+        </div>
+
+        {/* Coordinates (Read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Coordinates
+          </label>
+          <input
+            type="text"
+            name="coordinate"
+            value={formData.coordinate}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm cursor-not-allowed"
+            placeholder="Coordinates"
+          />
+          <p className="text-xs text-gray-500 mt-1">Coordinates cannot be modified</p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 pt-6">
+        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
           <button
             onClick={handleCancel}
             disabled={loading}
@@ -226,18 +293,20 @@ const UserProfile = ({ userName, onClose }) => {
           </button>
           <button
             onClick={handleSaveChanges}
-            disabled={loading}
+            disabled={loading || !formData.firstName.trim() || !formData.lastName.trim()}
             className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md transition-colors ${
-              loading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+              loading || !formData.firstName.trim() || !formData.lastName.trim()
+                ? "opacity-50 cursor-not-allowed" 
+                : "hover:bg-blue-700"
             } flex items-center space-x-2`}
           >
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Saving...</span>
+                <span>Updating...</span>
               </>
             ) : (
-              <span>Save changes</span>
+              <span>Update Names</span>
             )}
           </button>
         </div>
