@@ -381,7 +381,7 @@ function GeneralDetails() {
           {images.map((imageUrl, index) => (
             <div
               key={index}
-              className="relative group cursor-pointer bg-gray-100 rounded-lg overflow-hidden aspect-square"
+              className="relative group cursor-pointer  rounded-lg overflow-hidden aspect-square"
               onClick={() => openImageModal(imageUrl)}
             >
               <img
@@ -393,7 +393,7 @@ function GeneralDetails() {
                   e.target.alt = 'Image failed to load';
                 }}
               />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
+              <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
                 <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               </div>
             </div>
