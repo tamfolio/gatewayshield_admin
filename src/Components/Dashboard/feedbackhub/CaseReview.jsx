@@ -10,7 +10,6 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { FiDownloadCloud } from 'react-icons/fi';
 import CaseReviewTable from './CaseReviewTable';
 import { useApiClient, caseReviewFeedbackApi } from '../../../Utils/apiClient';
 
@@ -24,40 +23,39 @@ ChartJS.register(
   Legend
 );
 
-// Utility functions
+// ==================== UTILITY FUNCTIONS ====================
+
 const formatDateForAPI = (date) => {
   return date.toISOString().slice(0, 19).replace('T', ' ');
 };
 
 const getDateRange = (rangeType) => {
   const endDate = new Date();
-  const startDate = new Date();
-  
+  const startDate = new Date(endDate); // 🟢 Make a copy of endDate
+
   switch (rangeType) {
     case 'Last 7 Days':
-      startDate.setDate(endDate.getDate() - 7);
+      startDate.setDate(startDate.getDate() - 7); // 🟢 Adjust this copy only
       break;
     case 'Last 30 Days':
-      startDate.setDate(endDate.getDate() - 30);
+      startDate.setDate(startDate.getDate() - 30);
       break;
     case 'Last 90 Days':
-      startDate.setDate(endDate.getDate() - 90);
+      startDate.setDate(startDate.getDate() - 90);
       break;
     default:
-      startDate.setDate(endDate.getDate() - 7);
+      startDate.setDate(startDate.getDate() - 7);
   }
-  
+
   return {
     startDate: formatDateForAPI(startDate),
-    endDate: formatDateForAPI(endDate)
+    endDate: formatDateForAPI(endDate),
   };
 };
 
-// Chart data transformation
+
 const transformChartData = (apiData, chartType = 'generic', fallbackData = []) => {
-  if (!apiData) {
-    return fallbackData;
-  }
+  if (!apiData) return fallbackData;
 
   let dataArray = apiData;
   
@@ -77,20 +75,33 @@ const transformChartData = (apiData, chartType = 'generic', fallbackData = []) =
     let name = item.stationName || item.name || `Station ${index + 1}`;
     let value = 0;
     
-    if (chartType === 'bottomStations' && item.unresolvedCount !== undefined) {
-      value = parseFloat(item.unresolvedCount) || 0;
-    } else if (chartType === 'topStations' && item.resolvedCount !== undefined) {
-      value = parseFloat(item.resolvedCount) || 0;
-    } else if (chartType === 'ratings' && item.avgRating !== undefined) {
-      value = parseFloat(item.avgRating) || 0;
-    } else {
-      const possibleFields = ['resolvedCount', 'unresolvedCount', 'rating', 'avgRating', 'value', 'count'];
-      for (const field of possibleFields) {
-        if (item[field] !== undefined && item[field] !== null) {
-          value = parseFloat(item[field]) || 0;
-          break;
+    switch (chartType) {
+      case 'topStations':
+        value = parseFloat(item.resolvedCount) || 0;
+        break;
+      case 'bottomStations':
+        value = parseFloat(item.unresolvedCount) || 0;
+        break;
+      case 'ratings':
+        value = parseFloat(item.averageRating || item.avgRating) || 0;
+        break;
+      default:
+        const possibleFields = [
+          'resolvedCount', 
+          'unresolvedCount', 
+          'averageRating', 
+          'avgRating', 
+          'rating', 
+          'value', 
+          'count', 
+          'ratingCount'
+        ];
+        for (const field of possibleFields) {
+          if (item[field] !== undefined && item[field] !== null) {
+            value = parseFloat(item[field]) || 0;
+            break;
+          }
         }
-      }
     }
 
     return { name, value };
@@ -99,39 +110,39 @@ const transformChartData = (apiData, chartType = 'generic', fallbackData = []) =
   return transformedData;
 };
 
-// Dashboard metrics extraction
 const extractDashboardMetrics = (dashboardStats) => {
-  const defaultMetrics = {
-    averageRating: '0.0',
+  if (!dashboardStats) return {
+    averageRating: 0,
     totalRatings: 0,
     resolvedCases: 0,
-    slaBreached: '0%'
+    slaBreached: '0%',
   };
 
-  if (!dashboardStats || !dashboardStats.data) {
-    return defaultMetrics;
-  }
-
-  const data = dashboardStats.data;
-  
-  const metrics = {
-    averageRating: String(parseFloat(data.averageRating || 0).toFixed(1)),
-    totalRatings: Number(data.totalRatings || 0),
-    resolvedCases: Number(data.resolvedCases || 0),
-    slaBreached: data.slaBreached ? String(data.slaBreached).includes('%') ? data.slaBreached : `${data.slaBreached}%` : '0%'
+  return {
+    averageRating: dashboardStats.averageRating ?? 0,
+    totalRatings: dashboardStats.totalRatings ?? 0,
+    resolvedCases: dashboardStats.resolvedCases ?? 0,
+    slaBreached: dashboardStats.slaBreached ?? '0%',
   };
-  
-  return metrics;
 };
 
-// Reusable Components
+
+// ==================== REUSABLE COMPONENTS ====================
+
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
     {children}
   </div>
 );
 
-const Button = ({ children, variant = "primary", size = "md", className = "", disabled = false, ...props }) => {
+const Button = ({ 
+  children, 
+  variant = "primary", 
+  size = "md", 
+  className = "", 
+  disabled = false, 
+  ...props 
+}) => {
   const baseClasses = "font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
     primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:hover:bg-blue-600",
@@ -193,8 +204,17 @@ const ErrorMessage = ({ message, onRetry }) => (
   </div>
 );
 
-// Enhanced Chart Component 
-const DashboardBarChart = ({ data, color = "#10B981", title, loading = false, error = null, onRetry, chartType = 'count' }) => {
+// ==================== CHART COMPONENT ====================
+
+const DashboardBarChart = ({ 
+  data, 
+  color = "#10B981", 
+  title, 
+  loading = false, 
+  error = null, 
+  onRetry, 
+  chartType = 'count' 
+}) => {
   if (loading) return <LoadingSpinner />;
   
   if (error) {
@@ -293,7 +313,6 @@ const DashboardBarChart = ({ data, color = "#10B981", title, loading = false, er
           padding: 8,
           callback: function(value, index) {
             const label = this.getLabelForValue(value);
-            // Truncate long station names
             if (label.length > 12) {
               return label.substring(0, 10) + '...';
             }
@@ -343,37 +362,137 @@ const DashboardBarChart = ({ data, color = "#10B981", title, loading = false, er
   );
 };
 
-// Filter Components
-const SearchableFilterDropdown = ({ label, options, value, onChange, loading = false }) => {
+// ==================== FILTER COMPONENTS ====================
+
+const SearchableFilterDropdown = ({ 
+  label, 
+  options, 
+  value, 
+  onChange, 
+  loading = false 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredOptions = options.filter(option => {
-    const optionName = option.formation || option.name || option;
-    return optionName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const safeOptions = React.useMemo(() => {
+    if (!Array.isArray(options)) return [];
 
-  const displayValue = value?.formation || value?.name || value;
+    return options.filter(option => {
+      if (!option) return false;
+      
+      if (typeof option === 'string') {
+        return option.toLowerCase() !== 'all';
+      }
+      
+      if (label === "Area Command") {
+        return option.formation && 
+               typeof option.formation === 'string' && 
+               option.formation.toLowerCase() !== 'all';
+      }
+      
+      if (option.name && typeof option.name === 'string') {
+        return option.name.toLowerCase() !== 'all';
+      }
+      
+      return false;
+    });
+  }, [options, label]);
+  
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm) return safeOptions;
+    
+    return safeOptions.filter(option => {
+      if (!option) return false;
+      
+      let searchText = '';
+      if (typeof option === 'string') {
+        searchText = option;
+      } else if (label === "Area Command") {
+        searchText = option.formation || '';
+      } else {
+        searchText = option.name || '';
+      }
+      
+      return searchText.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [safeOptions, searchTerm, label]);
+
+  const displayValue = React.useMemo(() => {
+    if (loading) return 'Loading...';
+    if (!value || value === 'All' || value === '') return 'Select...';
+    
+    if (typeof value === 'string') {
+      return value.length > 25 ? value.substring(0, 22) + '...' : value;
+    }
+    
+    if (typeof value === 'object' && value) {
+      if (label === "Area Command" && value.formation) {
+        const formation = value.formation;
+        return formation.length > 25 ? formation.substring(0, 22) + '...' : formation;
+      }
+      if (value.name) {
+        const name = value.name;
+        return name.length > 25 ? name.substring(0, 22) + '...' : name;
+      }
+    }
+    
+    return 'Select...';
+  }, [value, loading, label]);
+
+  const handleClose = React.useCallback(() => {
+    setIsOpen(false);
+    setSearchTerm('');
+  }, []);
+
+  const handleOptionSelect = React.useCallback((option) => {
+    try {
+      onChange(option);
+      handleClose();
+    } catch (error) {
+      console.error(`Error selecting ${label} option:`, error);
+    }
+  }, [onChange, handleClose, label]);
+
+  if (!Array.isArray(options) && options !== null && options !== undefined) {
+    return (
+      <div className="relative">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={true}
+          className="flex items-center gap-2 min-w-[160px] opacity-50"
+        >
+          <span className="truncate text-red-500">
+            {label}: Error
+          </span>
+          <ChevronDown className="w-4 h-4 flex-shrink-0" />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2"
+        onClick={() => setIsOpen(prev => !prev)}
+        className="flex items-center gap-2 min-w-[160px]"
         disabled={loading}
       >
-        {label}: {loading ? 'Loading...' : displayValue}
-        <ChevronDown className="w-4 h-4" />
+        <span className="truncate" title={displayValue}>
+          {label}: {displayValue}
+        </span>
+        <ChevronDown className="w-4 h-4 flex-shrink-0" />
       </Button>
 
       {isOpen && !loading && (
         <>
           <div 
             className="fixed inset-0 z-10" 
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
           />
+          
           <div className="absolute top-full mt-1 w-80 bg-white border border-gray-300 rounded-md shadow-lg z-20">
             <div className="p-2 border-b">
               <div className="relative">
@@ -385,29 +504,63 @@ const SearchableFilterDropdown = ({ label, options, value, onChange, loading = f
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
+                  autoComplete="off"
                 />
               </div>
             </div>
+            
             <div className="max-h-48 overflow-y-auto">
-              {filteredOptions.map((option, index) => (
-                <button
-                  key={option.id || index}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(option);
-                    setIsOpen(false);
-                    setSearchTerm('');
-                  }}
-                >
-                  <div className="font-medium">{option.formation || option.name || option}</div>
-                  {option.address && (
-                    <div className="text-xs text-gray-500 mt-1">{option.address}</div>
-                  )}
-                </button>
-              ))}
-              {filteredOptions.length === 0 && (
-                <div className="px-4 py-2 text-sm text-gray-500">No options found</div>
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => {
+                  let displayText = 'Unknown';
+                  let subtitle = '';
+                  let key = `${label}-option-${index}`;
+                  
+                  try {
+                    if (typeof option === 'string') {
+                      displayText = option;
+                      key = option;
+                    } else if (option && typeof option === 'object') {
+                      if (label === "Area Command") {
+                        displayText = option.formation || 'Unknown Formation';
+                        subtitle = option.address || '';
+                        key = option.id || `formation-${index}`;
+                      } else {
+                        displayText = option.name || option.toString() || 'Unknown';
+                        key = option.id || `option-${index}`;
+                      }
+                    }
+                  } catch (error) {
+                    displayText = `Option ${index + 1}`;
+                  }
+                  
+                  return (
+                    <button
+                      key={key}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOptionSelect(option);
+                      }}
+                    >
+                      <div className="font-medium truncate" title={displayText}>
+                        {displayText}
+                      </div>
+                      {subtitle && (
+                        <div className="text-xs text-gray-500 mt-1 truncate" title={subtitle}>
+                          {subtitle}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="px-4 py-2 text-sm text-gray-500">
+                  {safeOptions.length === 0 
+                    ? `No ${label.toLowerCase()} available`
+                    : `No matches found${searchTerm ? ` for "${searchTerm}"` : ''}`
+                  }
+                </div>
               )}
             </div>
           </div>
@@ -417,8 +570,20 @@ const SearchableFilterDropdown = ({ label, options, value, onChange, loading = f
   );
 };
 
-const FilterDropdown = ({ label, options, value, onChange, loading = false }) => {
+const FilterDropdown = ({ 
+  label, 
+  options, 
+  value, 
+  onChange, 
+  loading = false 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  const safeOptions = Array.isArray(options) ? options.filter(option => {
+    if (!option) return false;
+    const optionName = typeof option === 'string' ? option : (option.name || option.toString());
+    return optionName.toLowerCase() !== 'all';
+  }) : [];
   
   return (
     <div className="relative">
@@ -429,13 +594,13 @@ const FilterDropdown = ({ label, options, value, onChange, loading = false }) =>
         className="flex items-center gap-2"
         disabled={loading}
       >
-        {label}: {value}
+        {label}: {value || 'Select...'}
         <ChevronDown className="w-4 h-4" />
       </Button>
       
       {isOpen && !loading && (
         <div className="absolute top-full mt-1 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-10">
-          {options.map((option, index) => (
+          {safeOptions.map((option, index) => (
             <button
               key={index}
               className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 first:rounded-t-md last:rounded-b-md"
@@ -447,21 +612,26 @@ const FilterDropdown = ({ label, options, value, onChange, loading = false }) =>
               {option}
             </button>
           ))}
+          {safeOptions.length === 0 && (
+            <div className="px-4 py-2 text-sm text-gray-500">No options available</div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// Main Component
+// ==================== MAIN COMPONENT ====================
+
 const CaseReview = () => {
   const apiClient = useApiClient();
   
+  // State management
   const [filters, setFilters] = useState({
     dateRange: 'Last 7 Days',
-    crimeType: 'All',
-    source: 'All',
-    area: 'All',
+    crimeType: '',
+    source: '',
+    area: '',
     stationId: '',
     incidentTypeId: ''
   });
@@ -482,7 +652,8 @@ const CaseReview = () => {
 
   const [errors, setErrors] = useState({});
   
-  // API call wrapper
+  // ==================== API FUNCTIONS ====================
+  
   const safeApiCall = async (apiFunction, errorKey, retryCount = 3) => {
     for (let attempt = 1; attempt <= retryCount; attempt++) {
       try {
@@ -506,30 +677,71 @@ const CaseReview = () => {
     }
   };
 
-  // Load initial filter data
-  useEffect(() => {
-    if (apiClient) {
-      loadStations();
-      loadCrimeTypes();
-      loadSourceChannels();
-    }
-  }, [apiClient]);
-
-  // Load dashboard data when filters change
-  useEffect(() => {
-    if (apiClient) {
-      loadDashboardData();
-    }
-  }, [filters, apiClient]);
-
   const loadStations = async () => {
     setLoading(prev => ({ ...prev, stations: true }));
+    
+    const defaultCoordinates = {
+      longitude: 3.4164067,
+      latitude: 7.1825953
+    };
+    
     const result = await safeApiCall(
-      () => caseReviewFeedbackApi.getStations(apiClient), 
+      () => caseReviewFeedbackApi.getStations(apiClient, defaultCoordinates), 
       'stations'
     );
-    if (result?.data) {
-      setData(prev => ({ ...prev, stations: result.data }));
+    
+    if (result) {
+      let stationsData = [];
+      
+      if (Array.isArray(result)) {
+        stationsData = result;
+      } else if (result.data && result.data.stations && Array.isArray(result.data.stations)) {
+        stationsData = result.data.stations;
+      } else if (result.data && Array.isArray(result.data)) {
+        stationsData = result.data;
+      } else if (result.stations && Array.isArray(result.stations)) {
+        stationsData = result.stations;
+      } else if (typeof result === 'object' && result !== null) {
+        const checkPaths = ['data.stations', 'data.nearbyStations', 'stations', 'nearbyStations'];
+        
+        for (const path of checkPaths) {
+          const pathParts = path.split('.');
+          let current = result;
+          let isValid = true;
+          
+          for (const part of pathParts) {
+            if (current && typeof current === 'object' && current[part]) {
+              current = current[part];
+            } else {
+              isValid = false;
+              break;
+            }
+          }
+          
+          if (isValid && Array.isArray(current) && current.length > 0) {
+            stationsData = current;
+            break;
+          }
+        }
+        
+        if (stationsData.length === 0 && result.data && typeof result.data === 'object') {
+          const nestedArrayProperties = Object.keys(result.data).filter(key => Array.isArray(result.data[key]));
+          if (nestedArrayProperties.length > 0) {
+            stationsData = result.data[nestedArrayProperties[0]];
+          }
+        }
+      }
+      
+      if (stationsData.length > 0 && !filters.area && !filters.stationId) {
+        const firstStation = stationsData[0];
+        setFilters(prev => ({
+          ...prev,
+          area: firstStation.formation || 'Unknown',
+          stationId: firstStation.id || ''
+        }));
+      }
+      
+      setData(prev => ({ ...prev, stations: stationsData }));
     }
     setLoading(prev => ({ ...prev, stations: false }));
   };
@@ -540,8 +752,30 @@ const CaseReview = () => {
       () => caseReviewFeedbackApi.getCrimeTypes(apiClient), 
       'crimeTypes'
     );
-    if (result?.data) {
-      setData(prev => ({ ...prev, crimeTypes: result.data }));
+    
+    if (result) {
+      let crimeTypesData = [];
+      
+      if (Array.isArray(result)) {
+        crimeTypesData = result;
+      } else if (result.data && Array.isArray(result.data)) {
+        crimeTypesData = result.data;
+      } else if (result.data && result.data.data && Array.isArray(result.data.data)) {
+        crimeTypesData = result.data.data;
+      } else if (result.crimeTypes && Array.isArray(result.crimeTypes)) {
+        crimeTypesData = result.crimeTypes;
+      }
+      
+      if (crimeTypesData.length > 0 && !filters.crimeType && !filters.incidentTypeId) {
+        const firstCrimeType = crimeTypesData[0];
+        setFilters(prev => ({
+          ...prev,
+          crimeType: firstCrimeType.name,
+          incidentTypeId: firstCrimeType.id
+        }));
+      }
+      
+      setData(prev => ({ ...prev, crimeTypes: crimeTypesData }));
     }
     setLoading(prev => ({ ...prev, crimeTypes: false }));
   };
@@ -552,86 +786,110 @@ const CaseReview = () => {
       () => caseReviewFeedbackApi.getSourceChannels(apiClient), 
       'sourceChannels'
     );
-    if (result?.data) {
-      setData(prev => ({ ...prev, sourceChannels: result.data }));
+    
+    if (result) {
+      let sourceChannelsData = [];
+      
+      if (Array.isArray(result)) {
+        sourceChannelsData = result;
+      } else if (result.data && Array.isArray(result.data)) {
+        sourceChannelsData = result.data;
+      } else if (result.data && result.data.data && Array.isArray(result.data.data)) {
+        sourceChannelsData = result.data.data;
+      } else if (result.sourceChannels && Array.isArray(result.sourceChannels)) {
+        sourceChannelsData = result.sourceChannels;
+      } else if (typeof result === 'object' && result !== null && result.data && typeof result.data === 'object') {
+        const nestedArrayProperties = Object.keys(result.data).filter(key => Array.isArray(result.data[key]));
+        if (nestedArrayProperties.length > 0) {
+          sourceChannelsData = result.data[nestedArrayProperties[0]];
+        }
+      }
+      
+      if (sourceChannelsData.length > 0 && !filters.source) {
+        const firstSourceChannel = sourceChannelsData[0];
+        let defaultValue = '';
+        
+        if (typeof firstSourceChannel === 'string') {
+          defaultValue = firstSourceChannel;
+        } else if (firstSourceChannel && typeof firstSourceChannel === 'object') {
+          defaultValue = firstSourceChannel.name || firstSourceChannel.channel || firstSourceChannel.value || firstSourceChannel;
+        }
+        
+        setFilters(prev => ({
+          ...prev,
+          source: defaultValue
+        }));
+      }
+      
+      setData(prev => ({ ...prev, sourceChannels: sourceChannelsData }));
     }
     setLoading(prev => ({ ...prev, sourceChannels: false }));
   };
 
-  const loadDashboardData = async () => {
-    setLoading(prev => ({ ...prev, dashboard: true }));
-    const dateRange = getDateRange(filters.dateRange);
-    const apiFilters = {
-      stationId: filters.stationId,
-      incidentTypeId: filters.incidentTypeId,
-      source: filters.source !== 'All' ? filters.source : '',
-      ...dateRange
-    };
+ const loadDashboardData = async () => {
+  try {
+    setLoading(prev => ({
+      ...prev,
+      dashboard: true   // Start loading
+    }));
 
-    const result = await safeApiCall(
-      () => caseReviewFeedbackApi.getDashboardStats(apiClient, apiFilters), 
-      'dashboard'
-    );
-    if (result) {
-      setData(prev => ({ ...prev, dashboardStats: result }));
-    }
-    setLoading(prev => ({ ...prev, dashboard: false }));
-  };
+    const res = await apiClient.get('/feedback/caseReview/dashboard-stats', {
+      params: {
+        startDate: filters.startDate,
+        endDate: filters.endDate
+      }
+    });
 
-  const handleFilterChange = (filterType, value) => {
-    const newFilters = { ...filters };
-    
-    switch (filterType) {
-      case 'area':
-        newFilters.area = value.formation || value.name || value;
-        newFilters.stationId = value.id || '';
-        break;
-      case 'crimeType':
-        newFilters.crimeType = value.name || value;
-        newFilters.incidentTypeId = value.id || '';
-        break;
-      case 'source':
-        newFilters.source = value;
-        break;
-      default:
-        newFilters[filterType] = value;
-    }
-    
-    setFilters(newFilters);
-  };
+    console.log('✅ [CASE REVIEW API] Dashboard stats fetched successfully');
 
-  const handleExportPDF = () => {
-    // TODO: Implement PDF export functionality
-    alert('PDF export functionality - integrate with your export API endpoint');
-  };
+    setData(prev => ({
+      ...prev,
+      dashboardStats: res.data.data
+    }));
+  } catch (error) {
+    console.error('❌ Failed to load dashboard stats:', error);
+    setErrors(prev => ({
+      ...prev,
+      dashboard: 'Failed to load dashboard stats'
+    }));
+  } finally {
+    setLoading(prev => ({
+      ...prev,
+      dashboard: false   // Stop loading
+    }));
+  }
+};
 
-  // Chart data extraction
-  const getChartDataFromDashboard = (dataPath, chartType = 'generic') => {
-    if (!data.dashboardStats) {
-      return [];
-    }
-    
-    let dashboardData = data.dashboardStats;
-    if (data.dashboardStats.data) {
-      dashboardData = data.dashboardStats.data;
-    }
-    
-    if (!dashboardData || !dashboardData[dataPath]) {
-      return [];
-    }
-    
-    const chartData = dashboardData[dataPath];
-    const transformed = transformChartData(chartData, chartType, []);
-    return transformed;
-  };
 
-  // Extract metrics and chart data
-  const dashboardMetrics = extractDashboardMetrics(data.dashboardStats);
-  const topPerformingStations = getChartDataFromDashboard('topStations', 'topStations');
-  const bottomPerformingStations = getChartDataFromDashboard('bottomStations', 'bottomStations');
-  const ratingsByStation = getChartDataFromDashboard('ratingsByStation', 'ratings');
+  // ==================== EVENT HANDLERS ====================
 
-  // Format metrics for display
+ const handleFilterChange = (key, value) => {
+  if (key === 'dateRange') {
+    const { startDate, endDate } = getDateRange(value);
+
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      startDate,
+      endDate
+    }));
+  } else {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }
+};
+
+  // ==================== DATA PROCESSING ====================
+const getChartDataFromDashboard = (dataPath, chartType = 'generic') => {
+  const dashboardData = data.dashboardStats;
+  if (!dashboardData || !dashboardData[dataPath]) return [];
+
+  return transformChartData(dashboardData[dataPath], chartType, []);
+};
+
+
   const formatMetricValue = (value, type) => {
     switch (type) {
       case 'rating':
@@ -645,7 +903,34 @@ const CaseReview = () => {
     }
   };
 
-  // Check if API client is available
+  // ==================== EFFECTS ====================
+
+  useEffect(() => {
+    if (apiClient) {
+      loadStations();
+      loadCrimeTypes();
+      loadSourceChannels();
+    }
+  }, [apiClient]);
+
+
+
+ useEffect(() => {
+  if (apiClient) {
+    loadDashboardData();
+  }
+}, [apiClient, JSON.stringify(filters)]);
+
+
+  // ==================== DATA EXTRACTION ====================
+
+  const dashboardMetrics = extractDashboardMetrics(data.dashboardStats);
+  const topPerformingStations = getChartDataFromDashboard('topStations', 'topStations');
+  const bottomPerformingStations = getChartDataFromDashboard('bottomStations', 'bottomStations');
+  const ratingsByStation = getChartDataFromDashboard('stationRatings', 'ratings');
+
+  // ==================== RENDER ====================
+
   if (!apiClient) {
     return (
       <div className="p-6 pt-0">
@@ -663,175 +948,171 @@ const CaseReview = () => {
   return (
     <div className="p-6 pt-0">
       <div className="max-w-7xl mx-auto">
-        {/* Main Card Container */}
-        <Card className="p-6 mb-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Reported Incident</h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex items-center gap-2"
-              onClick={handleExportPDF}
-            >
-              <FiDownloadCloud className="w-4 h-4" />
-              Export PDF
-            </Button>
-          </div>
+        
+        <div className="dashboard-main-content">
+          
+          <Card className="p-6 mb-8">
+            
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Reported Incident</h2>
+            </div>
 
-          {/* Filters */}
-          <div className="mb-6 flex flex-wrap gap-4">
-            <FilterDropdown 
-              label="Date Range" 
-              options={['Last 7 Days', 'Last 30 Days', 'Last 90 Days']}
-              value={filters.dateRange}
-              onChange={(value) => handleFilterChange('dateRange', value)}
-            />
-            <SearchableFilterDropdown
-              label="Crime Type" 
-              options={[{ name: 'All', id: '' }, ...data.crimeTypes]}
-              value={filters.crimeType}
-              onChange={(value) => handleFilterChange('crimeType', value)}
-              loading={loading.crimeTypes}
-            />
-            <SearchableFilterDropdown
-              label="Source Channel" 
-              options={['All', ...(data.sourceChannels || [])]}
-              value={filters.source}
-              onChange={(value) => handleFilterChange('source', value)}
-              loading={loading.sourceChannels}
-            />
-            <SearchableFilterDropdown
-              label="Area Command" 
-              options={[{ formation: 'All', id: '' }, ...data.stations]}
-              value={filters.area}
-              onChange={(value) => handleFilterChange('area', value)}
-              loading={loading.stations}
-            />
-          </div>
-
-          {/* Error Display */}
-          {errors.dashboard && (
-            <div className="mb-6">
-              <ErrorMessage 
-                message={errors.dashboard}
-                onRetry={loadDashboardData}
+            <div className="mb-6 flex flex-wrap gap-4">
+              <FilterDropdown 
+                label="Date Range" 
+                options={['Last 7 Days', 'Last 30 Days', 'Last 90 Days']}
+                value={filters.dateRange}
+                onChange={(value) => handleFilterChange('dateRange', value)}
+              />
+              <SearchableFilterDropdown
+                label="Crime Type" 
+                options={data.crimeTypes || []}
+                value={filters.crimeType}
+                onChange={(value) => handleFilterChange('crimeType', value)}
+                loading={loading.crimeTypes}
+              />
+              <SearchableFilterDropdown
+                label="Source Channel" 
+                options={data.sourceChannels || []}
+                value={filters.source}
+                onChange={(value) => handleFilterChange('source', value)}
+                loading={loading.sourceChannels}
+              />
+              <SearchableFilterDropdown
+                label="Area Command" 
+                options={data.stations || []}
+                value={filters.area}
+                onChange={(value) => handleFilterChange('area', value)}
+                loading={loading.stations}
               />
             </div>
-          )}
 
-          {/* Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="p-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-500 mb-2">Average Citizen Rating</div>
-                <div className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2 mb-2">
-                  {loading.dashboard ? (
-                    <div className="animate-pulse">Loading...</div>
-                  ) : (
-                    <>
-                      {formatMetricValue(dashboardMetrics.averageRating, 'rating')}/5
-                    </>
-                  )}
-                </div>
-                <div className="flex justify-center">
-                  <StarRating rating={Math.floor(parseFloat(dashboardMetrics.averageRating))} size="md" />
-                </div>
+            {errors.dashboard && (
+              <div className="mb-6">
+                <ErrorMessage 
+                  message={errors.dashboard}
+                  onRetry={loadDashboardData}
+                />
               </div>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-500 mb-2">Total Ratings</div>
-                <div className="text-3xl font-bold text-gray-900">
-                  {loading.dashboard ? (
-                    <div className="animate-pulse">Loading...</div>
-                  ) : (
-                    formatMetricValue(dashboardMetrics.totalRatings, 'number')
-                  )}
-                </div>
-              </div>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-500 mb-2">Resolved Cases</div>
-                <div className="text-3xl font-bold text-gray-900">
-                  {loading.dashboard ? (
-                    <div className="animate-pulse">Loading...</div>
-                  ) : (
-                    formatMetricValue(dashboardMetrics.resolvedCases, 'number')
-                  )}
-                </div>
-              </div>
-            </Card>
-            
-            <Card className="p-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-500 mb-2">SLA Breached</div>
-                <div className={`text-3xl font-bold ${
-                  dashboardMetrics.slaBreached !== '0%' ? 'text-red-600' : 'text-gray-900'
-                }`}>
-                  {loading.dashboard ? (
-                    <div className="animate-pulse">Loading...</div>
-                  ) : (
-                    formatMetricValue(dashboardMetrics.slaBreached, 'percentage')
-                  )}
-                </div>
-              </div>
-            </Card>
-          </div>
+            )}
 
-          {/* Charts Layout matching the design */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <Card>
+            {(errors.stations || errors.crimeTypes || errors.sourceChannels) && (
+              <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 text-sm">
+                  ⚠️ Some filter data may not be available:
+                  {errors.stations && <span className="block">• Stations: {errors.stations}</span>}
+                  {errors.crimeTypes && <span className="block">• Crime Types: {errors.crimeTypes}</span>}
+                  {errors.sourceChannels && <span className="block">• Source Channels: {errors.sourceChannels}</span>}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <Card className="p-6">
+                <div className="text-center">
+                  <div className="text-sm text-gray-500 mb-2">Average Citizen Rating</div>
+                  <div className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2 mb-2">
+                    {loading.dashboard ? (
+                      <div className="animate-pulse">Loading...</div>
+                    ) : (
+                      <>
+                        {formatMetricValue(dashboardMetrics.averageRating, 'rating')}/5
+                      </>
+                    )}
+                  </div>
+                  <div className="flex justify-center">
+                    <StarRating rating={Math.floor(parseFloat(dashboardMetrics.averageRating))} size="md" />
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="text-center">
+                  <div className="text-sm text-gray-500 mb-2">Total Ratings</div>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {loading.dashboard ? (
+                      <div className="animate-pulse">Loading...</div>
+                    ) : (
+                      formatMetricValue(dashboardMetrics.totalRatings, 'number')
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="text-center">
+                  <div className="text-sm text-gray-500 mb-2">Resolved Cases</div>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {loading.dashboard ? (
+                      <div className="animate-pulse">Loading...</div>
+                    ) : (
+                      formatMetricValue(dashboardMetrics.resolvedCases, 'number')
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="text-center">
+                  <div className="text-sm text-gray-500 mb-2">SLA Breached</div>
+                  <div className={`text-3xl font-bold ${
+                    dashboardMetrics.slaBreached !== '0%' ? 'text-red-600' : 'text-gray-900'
+                  }`}>
+                    {loading.dashboard ? (
+                      <div className="animate-pulse">Loading...</div>
+                    ) : (
+                      formatMetricValue(dashboardMetrics.slaBreached, 'percentage')
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <Card>
+                <DashboardBarChart 
+                  data={topPerformingStations}
+                  color="#10B981"
+                  title="Top Performing Stations"
+                  loading={loading.dashboard}
+                  error={errors.dashboard}
+                  onRetry={loadDashboardData}
+                  chartType="count"
+                />
+              </Card>
+              
+              <Card>
+                <DashboardBarChart 
+                  data={bottomPerformingStations}
+                  color="#EF4444"
+                  title="Bottom Performing Stations"
+                  loading={loading.dashboard}
+                  error={errors.dashboard}
+                  onRetry={loadDashboardData}
+                  chartType="count"
+                />
+              </Card>
+            </div>
+
+            <Card className="mb-0">
               <DashboardBarChart 
-                data={topPerformingStations}
-                color="#10B981"
-                title="Top Performing Stations"
+                data={ratingsByStation}
+                color="#3B82F6"
+                title="Ratings Per Station"
                 loading={loading.dashboard}
                 error={errors.dashboard}
                 onRetry={loadDashboardData}
-                chartType="count"
+                chartType="rating"
               />
             </Card>
-            
-            <Card>
-              <DashboardBarChart 
-                data={bottomPerformingStations}
-                color="#EF4444"
-                title="Bottom Performing Stations"
-                loading={loading.dashboard}
-                error={errors.dashboard}
-                onRetry={loadDashboardData}
-                chartType="count"
-              />
-            </Card>
-          </div>
-
-          {/* Ratings Per Station Chart  */}
-          <Card className="mb-0">
-            <DashboardBarChart 
-              data={ratingsByStation}
-              color="#3B82F6"
-              title="Ratings Per Station"
-              loading={loading.dashboard}
-              error={errors.dashboard}
-              onRetry={loadDashboardData}
-              chartType="rating"
-            />
           </Card>
-        </Card>
+        </div>
 
-        {/* Feedback Table Component */}
-        <CaseReviewTable 
-          filters={filters}
-          onFilterChange={setFilters}
-          apiClient={apiClient}
-          caseReviewFeedbackApi={caseReviewFeedbackApi}
-          loading={loading}
-          errors={errors}
-        />
+        <div className="case-review-table">
+          <CaseReviewTable 
+            
+          />
+        </div>
       </div>
     </div>
   );

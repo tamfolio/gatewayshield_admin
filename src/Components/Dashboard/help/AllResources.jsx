@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, FileDown, Edit2, Trash2, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, FileDown, Edit2, Trash2, AlertCircle, CheckCircle, Loader2, RefreshCw, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { useApiClient, resourcesApi, resourcesUtils } from '../../../Utils/apiClient';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
 import DeletedSuccessModal from './components/DeletedSuccessModal';
@@ -15,6 +15,12 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // "all", "published", "draft"
+  
+  // Enhanced sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'asc' // 'asc' or 'desc'
+  });
   
   // Modal states
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -119,6 +125,25 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
     setStatusFilter(newStatus);
   };
 
+  // Handle column sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Get sort icon for column headers
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ChevronsUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortConfig.direction === 'asc' 
+      ? <ChevronUp className="w-4 h-4 text-gray-600" />
+      : <ChevronDown className="w-4 h-4 text-gray-600" />;
+  };
+
   // Handle delete initiation - show confirmation modal
   const handleDeleteInitiate = (resource) => {
     console.log('🗑️ Initiating delete for resource:', resource);
@@ -207,15 +232,15 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
     }
   };
 
-  // Handle sort change
+  // Handle sort change (keeping for backward compatibility)
   const handleSortChange = (sortValue) => {
     setSortBy(sortValue);
     // Implement sorting logic based on your API capabilities
     console.log('Sort by:', sortValue);
   };
 
-  // Filter resources based on client-side filters and search
-  const getFilteredResources = () => {
+  // Filter and sort resources
+  const getFilteredAndSortedResources = () => {
     let filtered = [...resources];
     
     // Apply client-side status filtering if not handled by API
@@ -226,7 +251,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       });
     }
     
-    // Apply sorting if selected
+    // Apply legacy sorting if selected (keeping for backward compatibility)
     if (sortBy) {
       filtered.sort((a, b) => {
         switch (sortBy) {
@@ -242,10 +267,49 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       });
     }
     
+    // Apply column-based sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (sortConfig.key) {
+          case 'category':
+            aValue = a.category || '';
+            bValue = b.category || '';
+            break;
+          case 'subCategory':
+            aValue = a.subCategory || '';
+            bValue = b.subCategory || '';
+            break;
+          case 'status':
+            aValue = a.status || '';
+            bValue = b.status || '';
+            break;
+          case 'date':
+            aValue = new Date(a.submissionDate);
+            bValue = new Date(b.submissionDate);
+            break;
+          default:
+            return 0;
+        }
+        
+        if (sortConfig.key === 'date') {
+          // For dates, compare as Date objects
+          return sortConfig.direction === 'asc' 
+            ? aValue - bValue 
+            : bValue - aValue;
+        } else {
+          // For strings, use localeCompare for proper alphabetical sorting
+          const result = aValue.localeCompare(bValue);
+          return sortConfig.direction === 'asc' ? result : -result;
+        }
+      });
+    }
+    
     return filtered;
   };
 
-  const filteredResources = getFilteredResources();
+  const filteredResources = getFilteredAndSortedResources();
 
   return (
     <div>
@@ -335,13 +399,31 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                     Title
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-32">
-                    Category
+                    <button
+                      onClick={() => handleSort('category')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      <span>Category</span>
+                      {getSortIcon('category')}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-36">
-                    Sub-Category
+                    <button
+                      onClick={() => handleSort('subCategory')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      <span>Sub-Category</span>
+                      {getSortIcon('subCategory')}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-32">
-                    Submission Date
+                    <button
+                      onClick={() => handleSort('date')}
+                      className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    >
+                      <span>Submission Date</span>
+                      {getSortIcon('date')}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 min-w-24 relative">
                     <div className="flex items-center gap-1">
