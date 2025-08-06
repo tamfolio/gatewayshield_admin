@@ -286,17 +286,42 @@ const General = () => {
 
   const handleFilterSelect = (filterType, value) => {
     let newFilters = [...activeFilters];
-
+  
     // Remove existing filter of the same type
     newFilters = newFilters.filter((filter) => filter.type !== filterType);
-
+  
     // Add new filter if value is not empty
     if (value) {
-      newFilters.push({ type: filterType, value, label: value });
+      let label = value; // Default label is the value itself
+      
+      // Get the appropriate label based on filter type
+      switch (filterType) {
+        case "reportStatus":
+          const status = incidentStatus.find(s => s.id === value);
+          label = status ? (status.name || status.status || status.title) : value;
+          break;
+        case "policeStation":
+          const station = stations.find(s => s.id === value);
+          label = station ? (station.name || station.formation || station.stationName) : value;
+          break;
+        case "originChannel":
+          const channel = incidentChannels.find(c => c.id === value);
+          label = channel ? (channel.name || channel.channel || channel.title) : value;
+          break;
+        case "reportType":
+          // Handle report type if needed
+          label = value;
+          break;
+        default:
+          label = value;
+          break;
+      }
+  
+      newFilters.push({ type: filterType, value, label });
     }
-
+  
     setActiveFilters(newFilters);
-
+  
     // Update filter states
     switch (filterType) {
       case "reportStatus":
