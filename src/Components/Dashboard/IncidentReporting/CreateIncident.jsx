@@ -23,7 +23,6 @@ function CreateIncident() {
   console.log(userDataDetails?.id);
 
   const [formData, setFormData] = useState({
-    userType: "Registered User", // New field
     reportType: "SOS",
     email: "",
     fullName: "",
@@ -40,6 +39,8 @@ function CreateIncident() {
   const [uploadedFile, setUploadedFile] = useState("");
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailUserData, setEmailUserData] = useState(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -65,8 +66,8 @@ function CreateIncident() {
         setIncidentTypes(formattedData);
       } catch (error) {
         console.error("Error fetching incident types:", error);
+      }
     };
-  }
 
     if (token) {
       fetchUserDetails();
@@ -75,6 +76,61 @@ function CreateIncident() {
   }, [token]);
 
   console.log(userDataDetails);
+
+  // Function to check if user exists by email
+  const checkUserByEmail = useCallback(async (email) => {
+    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+      setEmailUserData(null);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    try {
+      const response = await userRequest(token).get(`/incident/getUserByEmail/${encodeURIComponent(email)}`);
+      console.log("Email lookup response:", response.data);
+      
+      // Check if user exists (has id, name, not just email)
+      if (response.data?.data?.id && response.data?.data?.name) {
+        // User found
+        setEmailUserData({
+          id: response.data.data.id,
+          name: response.data.data.name,
+          email: response.data.data.email,
+          found: true
+        });
+        console.log("✅ User found:", response.data.data);
+      } else {
+        // User not found (only email returned)
+        setEmailUserData({
+          email: email,
+          found: false
+        });
+        console.log("❌ User not found for email:", email);
+      }
+    } catch (error) {
+      console.error("Error checking email:", error);
+      // If API call fails, treat as user not found
+      setEmailUserData({
+        email: email,
+        found: false
+      });
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  }, [token]);
+
+  // Debounced email check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.email && formData.reportType === "General") {
+        checkUserByEmail(formData.email);
+      } else {
+        setEmailUserData(null);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email, formData.reportType, checkUserByEmail]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -90,36 +146,9 @@ function CreateIncident() {
     }
   };
 
-  const handleUserTypeChange = (userType) => {
-    // Reset form when changing user type but preserve userType and reportType
-    setFormData({
-      userType,
-      reportType: formData.reportType,
-      email: "",
-      fullName: "",
-      address: "",
-      phone: "",
-      description: "",
-      channel: "",
-      incidentType: "",
-    });
-    setErrors({});
-    setUploadedFile("");
-    setAudioBlob(null);
-    setIsRecording(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    // Stop any ongoing recording
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-    }
-  };
-
   const handleReportTypeChange = (reportType) => {
-    // Reset form when changing report type but preserve userType
+    // Reset form when changing report type
     setFormData({
-      userType: formData.userType,
       reportType,
       email: "",
       fullName: "",
@@ -133,6 +162,7 @@ function CreateIncident() {
     setUploadedFile("");
     setAudioBlob(null);
     setIsRecording(false);
+    setEmailUserData(null); // Reset email user data
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -145,8 +175,9 @@ function CreateIncident() {
   const validateForm = () => {
     const newErrors = {};
 
-    // Validation based on user type
-    if (formData.userType !== "Anonymous") {
+    // Validation based on report type
+    if (formData.reportType === "General") {
+      // For General reports, all fields are required
       if (!formData.email.trim()) {
         newErrors.email = "Email is required";
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -160,20 +191,11 @@ function CreateIncident() {
       if (!formData.phone.trim()) {
         newErrors.phone = "Phone number is required";
       }
-    }
 
-    if (formData.userType !== "Anonymous" || (formData.userType === "Anonymous" && formData.reportType === "General")) {
       if (!formData.address.trim()) {
         newErrors.address = "Address is required";
       }
-    }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "Description is required";
-    }
-
-    // General report specific validations
-    if (formData.reportType === "General") {
       if (!formData.channel) {
         newErrors.channel = "Channel is required for General reports";
       }
@@ -181,6 +203,15 @@ function CreateIncident() {
         newErrors.incidentType =
           "Incident type is required for General reports";
       }
+    } else {
+      // For SOS reports, only address and description are required
+      if (!formData.address.trim()) {
+        newErrors.address = "Address is required";
+      }
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = "Description is required";
     }
 
     setErrors(newErrors);
@@ -208,20 +239,46 @@ function CreateIncident() {
       console.log("File name:", selectedFile?.name);
   
       if (formData.reportType === "SOS") {
-        // Handle SOS incident submission
-        const sosData = {
-          address: formData.address,
-          comment: formData.description,
-          isAnonymous: formData.userType === "Anonymous",
-          userId: formData.userType !== "Anonymous" ? String(userDataDetails?.id) : null,
-        };
+        // Handle SOS incident submission - MUST ALWAYS be anonymous
+        console.log("🔍 Starting SOS submission process...");
+        
+        const sosData = {};
+        sosData.address = formData.address;
+        sosData.comment = formData.description;
+        sosData.isAnonymous = true;  // Explicitly set to true
+        sosData.userId = null;       // Explicitly set to null
+        
+        console.log("🔍 sosData after initial creation:", sosData);
+        
+        // Force these values to ensure they're correct
+        Object.defineProperty(sosData, 'isAnonymous', {
+          value: true,
+          writable: false,
+          enumerable: true
+        });
+        
+        Object.defineProperty(sosData, 'userId', {
+          value: null,
+          writable: false,
+          enumerable: true
+        });
+        
+        console.log("🔍 sosData after Object.defineProperty:", sosData);
   
         console.log("🚀 SOS Submitting form with data:", formData);
         console.log("🚀 SOS Body data:", sosData);
+        
+        // Verify the data before sending
+        console.log("SOS Data verification:");
+        console.log("isAnonymous:", sosData.isAnonymous);
+        console.log("userId:", sosData.userId);
+        console.log("Full sosData object:", JSON.stringify(sosData));
   
         // Create FormData for SOS
         const formPayload = new FormData();
-        formPayload.append("data", JSON.stringify(sosData));
+        const dataString = JSON.stringify(sosData);
+        console.log("📦 Data string being sent:", dataString);
+        formPayload.append("data", dataString);
   
         // Append audio file if recorded
         if (audioBlob) {
@@ -254,13 +311,21 @@ function CreateIncident() {
         toast.success("SOS report submitted successfully!");
       } else {
         // Handle General incident submission
+        // Determine if user is anonymous based on email lookup
+        const isUserAnonymous = !emailUserData?.found;
+        const userId = emailUserData?.found ? emailUserData.id : null;
+        
+        console.log("Email lookup result:", emailUserData);
+        console.log("Is user anonymous:", isUserAnonymous);
+        console.log("User ID:", userId);
+
         const incidentData = {
           incidentTypeId: formData.incidentType?.value,
           address: formData.address,
           description: formData.description,
-          isAnonymous: formData.userType === "Anonymous",
-          userId: formData.userType !== "Anonymous" ? String(userDataDetails?.id) : null,
-          phoneNumber: formData.userType !== "Anonymous" ? formData.phone.replace(/\D/g, "") : null,
+          isAnonymous: isUserAnonymous,
+          userId: userId,
+          phoneNumber: formData.phone.replace(/\D/g, ""),
           channel: formData.channel.toLowerCase(),
         };
   
@@ -312,7 +377,6 @@ function CreateIncident() {
   
       // Reset form after successful submission
       setFormData({
-        userType: "Registered User",
         reportType: "SOS",
         email: "",
         fullName: "",
@@ -404,18 +468,17 @@ function CreateIncident() {
     }
   };
 
-  // Helper function to determine field order and visibility
+  // Helper function to determine field visibility based on report type
   const shouldShowField = (fieldName) => {
-    const { userType, reportType } = formData;
+    const { reportType } = formData;
     
     switch (fieldName) {
       case "email":
       case "fullName":
       case "phone":
-        return userType !== "Anonymous";
+        return reportType === "General";
       case "address":
-        // Show address for non-anonymous users, or for anonymous General reports
-        return userType !== "Anonymous" || (userType === "Anonymous" && reportType === "General");
+        return true; // Address is always required
       case "channel":
       case "incidentType":
         return reportType === "General";
@@ -424,30 +487,16 @@ function CreateIncident() {
     }
   };
 
-  // Helper function to get field order based on user type and report type
+  // Helper function to get field order based on report type
   const getFieldOrder = () => {
-    const { userType, reportType } = formData;
+    const { reportType } = formData;
     
-    // For Registered User + General: phone first
-    if (userType === "Registered User" && reportType === "General") {
-      return ["phone", "email", "fullName", "address", "channel", "incidentType"];
-    }
-    
-    // For other combinations: email first (when applicable)
-    if (userType !== "Anonymous") {
-      if (reportType === "SOS") {
-        return ["phone", "email", "fullName", "address"];
-      } else {
-        return ["email", "fullName", "channel", "incidentType", "address", "phone"];
-      }
-    }
-    
-    // For Anonymous
     if (reportType === "General") {
-      return ["channel", "incidentType"];
+      return ["phone", "email", "fullName", "address", "channel", "incidentType"];
+    } else {
+      // For SOS, only show address
+      return ["address"];
     }
-    
-    return [];
   };
 
   const handleIncidentTypeChange = useCallback((selectedOption) => {
@@ -468,15 +517,44 @@ function CreateIncident() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Registered Email <span className="text-red-500">*</span>
             </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.email ? "border-red-500" : "border-gray-300"
-              }`}
-              required
-            />
+            <div className="relative">
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.email ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              />
+              {isCheckingEmail && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
+            
+            {/* Email validation feedback */}
+            {formData.email && !isCheckingEmail && emailUserData && (
+              <div className={`mt-2 p-2 rounded-md text-sm ${
+                emailUserData.found 
+                  ? "bg-green-50 text-green-700 border border-green-200" 
+                  : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+              }`}>
+                {emailUserData.found ? (
+                  <div className="flex items-center space-x-1">
+                    <span>✓</span>
+                    <span>User found: {emailUserData.name}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1">
+                    <span>⚠</span>
+                    <span>User not found - will be submitted as anonymous</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {errors.email && (
               <p className="mt-1 text-sm text-red-500">{errors.email}</p>
             )}
@@ -538,7 +616,7 @@ function CreateIncident() {
         return (
           <div key="address">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Address {shouldShowField("address") && <span className="text-red-500">*</span>}
+              Address <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -548,7 +626,7 @@ function CreateIncident() {
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 ${
                 errors.address ? "border-red-500" : "border-gray-300"
               }`}
-              required={shouldShowField("address")}
+              required
             />
             {errors.address && (
               <p className="mt-1 text-sm text-red-500">{errors.address}</p>
@@ -586,21 +664,24 @@ function CreateIncident() {
 
       case "incidentType":
         return (
-          <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Incident Type *
-                  </label>
-                  <Select
-                    options={incidentTypes}
-                    value={formData.incidentType}
-                    onChange={handleIncidentTypeChange}
-                    placeholder="Select incident type"
-                    isSearchable
-                    isClearable
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                  />
-                </div>
+          <div key="incidentType">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Incident Type <span className="text-red-500">*</span>
+            </label>
+            <Select
+              options={incidentTypes}
+              value={formData.incidentType}
+              onChange={handleIncidentTypeChange}
+              placeholder="Select incident type"
+              isSearchable
+              isClearable
+              className="react-select-container"
+              classNamePrefix="react-select"
+            />
+            {errors.incidentType && (
+              <p className="mt-1 text-sm text-red-500">{errors.incidentType}</p>
+            )}
+          </div>
         );
 
       default:
@@ -642,7 +723,7 @@ function CreateIncident() {
               </div>
             </div>
 
-            {/* Dynamic form fields based on user type and report type */}
+            {/* Dynamic form fields based on report type */}
             {getFieldOrder().map(fieldName => renderFormField(fieldName))}
 
             {/* Description */}
@@ -774,19 +855,13 @@ function CreateIncident() {
                   or drag and drop
                 </p>
                 <p className="text-xs text-gray-500">
-                  {formData.reportType === "SOS"
-                    ? "PNG, JPG, GIF or MP4 (max size per file: 10MB)"
-                    : "PNG, JPG, GIF or MP4 (max size per file: 10MB)"}
+                  PNG, JPG, GIF or MP4 (max size per file: 10MB)
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileUpload}
-                  accept={
-                    formData.reportType === "SOS"
-                      ? ".png,.jpg,.jpeg,.gif,.mp4"
-                      : ".png,.jpg,.jpeg,.gif,.mp4"
-                  }
+                  accept=".png,.jpg,.jpeg,.gif,.mp4"
                   className="hidden"
                 />
               </div>
@@ -817,9 +892,7 @@ function CreateIncident() {
               </button>
               <button
                 type="submit"
-                className={`px-6 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                   "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
+                className={`px-6 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700 text-white`}
                 disabled={isSubmitting}
               >
                 {isSubmitting

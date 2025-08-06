@@ -1,38 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, FileDown, Edit2, Trash2, AlertCircle, CheckCircle, Loader2, RefreshCw, ChevronsUpDown, ChevronUp } from 'lucide-react';
-import { useApiClient, resourcesApi, resourcesUtils } from '../../../Utils/apiClient';
-import DeleteConfirmationModal from './components/DeleteConfirmationModal';
-import DeletedSuccessModal from './components/DeletedSuccessModal';
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  ChevronDown,
+  FileDown,
+  Edit2,
+  Trash2,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  RefreshCw,
+  ChevronsUpDown,
+  ChevronUp,
+} from "lucide-react";
+import {
+  useApiClient,
+  resourcesApi,
+  resourcesUtils,
+} from "../../../Utils/apiClient";
+import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
+import DeletedSuccessModal from "./components/DeletedSuccessModal";
+import { useSelector } from "react-redux";
 
-const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource }) => {
+const AllResources = ({
+  refreshTrigger,
+  onResourceCountUpdate,
+  onEditResource,
+}) => {
   const apiClient = useApiClient();
-  
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+  const userName = useSelector((state) => state.user?.currentUser?.admin);
+
+  // Get the current user's role name by matching roleId with adminRoles
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  console.log("Current User Role:", currentUserRole);
+
+  // Check if user is Command Centre Agent or Command Centre Supervisor
+  const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
+
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // "all", "published", "draft"
-  
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // "all", "published", "draft"
+
   // Enhanced sorting state
   const [sortConfig, setSortConfig] = useState({
     key: null,
-    direction: 'asc' // 'asc' or 'desc'
+    direction: "asc", // 'asc' or 'desc'
   });
-  
+
   // Modal states
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState(null);
-  
+
   // Pagination state
   const [pagination, setPagination] = useState({
     currentPage: 1,
     pageSize: 10,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
   });
 
   // Action loading states
@@ -42,11 +81,11 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   const loadResources = async (page = 1, filters = {}) => {
     try {
       setLoading(true);
-      setError('');
-      
+      setError("");
+
       // Prepare filters for API call
       const apiFilters = {
-        ...filters
+        ...filters,
       };
 
       // Add search term to filters
@@ -55,41 +94,47 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       }
 
       // Add status filter to API filters
-      if (statusFilter !== 'all') {
-        apiFilters.isPublished = statusFilter === 'published';
+      if (statusFilter !== "all") {
+        apiFilters.isPublished = statusFilter === "published";
       }
 
-      console.log('🔍 Loading resources with filters:', apiFilters);
-      
-      const response = await resourcesApi.getAll(apiClient, page, pagination.pageSize, apiFilters);
-      
-      console.log('📥 Resources API response:', response);
-      
+      console.log("🔍 Loading resources with filters:", apiFilters);
+
+      const response = await resourcesApi.getAll(
+        apiClient,
+        page,
+        pagination.pageSize,
+        apiFilters
+      );
+
+      console.log("📥 Resources API response:", response);
+
       // Extract data and pagination from response
-      const { data: extractedData, pagination: extractedPagination } = resourcesUtils.extractApiResponseData(response);
-      
+      const { data: extractedData, pagination: extractedPagination } =
+        resourcesUtils.extractApiResponseData(response);
+
       // Transform the data for UI - with debug logging
-      console.log('🔧 Raw data before transformation:', extractedData);
-      const transformedResources = resourcesUtils.transformResourcesData(extractedData);
-      console.log('🔧 Transformed data:', transformedResources);
-      
+      console.log("🔧 Raw data before transformation:", extractedData);
+      const transformedResources =
+        resourcesUtils.transformResourcesData(extractedData);
+      console.log("🔧 Transformed data:", transformedResources);
+
       setResources(transformedResources);
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
         ...extractedPagination,
-        currentPage: page
+        currentPage: page,
       }));
-      
+
       // Update resource count in parent component
       if (onResourceCountUpdate && extractedPagination.total !== undefined) {
         onResourceCountUpdate(extractedPagination.total);
       }
-      
+
       console.log(`✅ Loaded ${transformedResources.length} resources`);
-      
     } catch (err) {
-      console.error('❌ Failed to load resources:', err);
-      setError('Failed to load resources. Please try again.');
+      console.error("❌ Failed to load resources:", err);
+      setError("Failed to load resources. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -127,9 +172,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
 
   // Handle column sorting
   const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
     }
     setSortConfig({ key, direction });
   };
@@ -139,14 +184,16 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
     if (sortConfig.key !== columnKey) {
       return <ChevronsUpDown className="w-4 h-4 text-gray-400" />;
     }
-    return sortConfig.direction === 'asc' 
-      ? <ChevronUp className="w-4 h-4 text-gray-600" />
-      : <ChevronDown className="w-4 h-4 text-gray-600" />;
+    return sortConfig.direction === "asc" ? (
+      <ChevronUp className="w-4 h-4 text-gray-600" />
+    ) : (
+      <ChevronDown className="w-4 h-4 text-gray-600" />
+    );
   };
 
   // Handle delete initiation - show confirmation modal
   const handleDeleteInitiate = (resource) => {
-    console.log('🗑️ Initiating delete for resource:', resource);
+    console.log("🗑️ Initiating delete for resource:", resource);
     setResourceToDelete(resource);
     setShowDeleteConfirmation(true);
   };
@@ -156,28 +203,30 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
     if (!resourceToDelete) return;
 
     try {
-      setActionLoading(prev => ({ ...prev, [resourceToDelete.id]: 'delete' }));
-      setError('');
-      
-      console.log('🗑️ Deleting resource:', resourceToDelete.id);
-      
+      setActionLoading((prev) => ({
+        ...prev,
+        [resourceToDelete.id]: "delete",
+      }));
+      setError("");
+
+      console.log("🗑️ Deleting resource:", resourceToDelete.id);
+
       await resourcesApi.delete(apiClient, resourceToDelete.id);
-      
+
       // Close confirmation modal
       setShowDeleteConfirmation(false);
-      
+
       // Show success modal
       setShowDeleteSuccess(true);
-      
+
       // Reload the current page to reflect changes
       loadResources(pagination.currentPage);
-      
     } catch (err) {
-      console.error('❌ Failed to delete resource:', err);
-      setError(err.message || 'Failed to delete resource');
+      console.error("❌ Failed to delete resource:", err);
+      setError(err.message || "Failed to delete resource");
       setShowDeleteConfirmation(false);
     } finally {
-      setActionLoading(prev => ({ ...prev, [resourceToDelete.id]: null }));
+      setActionLoading((prev) => ({ ...prev, [resourceToDelete.id]: null }));
     }
   };
 
@@ -196,29 +245,29 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   // Handle download (placeholder - implement based on your file storage)
   const handleDownload = (resource) => {
     if (resource.fileUrl) {
-      window.open(resource.fileUrl, '_blank');
+      window.open(resource.fileUrl, "_blank");
     } else {
-      console.log('Download resource:', resource.id);
-      setError('Download link not available for this resource');
+      console.log("Download resource:", resource.id);
+      setError("Download link not available for this resource");
     }
   };
 
   // Handle view resource
   const handleView = (resource) => {
-    console.log('View resource:', resource.id);
+    console.log("View resource:", resource.id);
     // Implement view logic (e.g., open modal, navigate to detail page)
   };
 
   // Handle edit resource - FIXED
   const handleEdit = (resource) => {
-    console.log('✏️ Edit resource:', resource);
-    
+    console.log("✏️ Edit resource:", resource);
+
     // Check if parent component provided onEditResource callback
-    if (onEditResource && typeof onEditResource === 'function') {
+    if (onEditResource && typeof onEditResource === "function") {
       onEditResource(resource);
     } else {
       // Fallback: you can implement your own edit logic here
-      console.warn('No onEditResource callback provided from parent component');
+      console.warn("No onEditResource callback provided from parent component");
       // For example, you could navigate to an edit page or open an edit modal
       // window.location.href = `/edit-resource/${resource.id}`;
       // or setShowEditModal(true); setEditingResource(resource);
@@ -236,76 +285,76 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
   const handleSortChange = (sortValue) => {
     setSortBy(sortValue);
     // Implement sorting logic based on your API capabilities
-    console.log('Sort by:', sortValue);
+    console.log("Sort by:", sortValue);
   };
 
   // Filter and sort resources
   const getFilteredAndSortedResources = () => {
     let filtered = [...resources];
-    
+
     // Apply client-side status filtering if not handled by API
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(resource => {
-        const isPublished = resource.status.toLowerCase() === 'published';
-        return statusFilter === 'published' ? isPublished : !isPublished;
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((resource) => {
+        const isPublished = resource.status.toLowerCase() === "published";
+        return statusFilter === "published" ? isPublished : !isPublished;
       });
     }
-    
+
     // Apply legacy sorting if selected (keeping for backward compatibility)
     if (sortBy) {
       filtered.sort((a, b) => {
         switch (sortBy) {
-          case 'title':
+          case "title":
             return a.title.localeCompare(b.title);
-          case 'date':
+          case "date":
             return new Date(b.submissionDate) - new Date(a.submissionDate);
-          case 'status':
+          case "status":
             return a.status.localeCompare(b.status);
           default:
             return 0;
         }
       });
     }
-    
+
     // Apply column-based sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (sortConfig.key) {
-          case 'category':
-            aValue = a.category || '';
-            bValue = b.category || '';
+          case "category":
+            aValue = a.category || "";
+            bValue = b.category || "";
             break;
-          case 'subCategory':
-            aValue = a.subCategory || '';
-            bValue = b.subCategory || '';
+          case "subCategory":
+            aValue = a.subCategory || "";
+            bValue = b.subCategory || "";
             break;
-          case 'status':
-            aValue = a.status || '';
-            bValue = b.status || '';
+          case "status":
+            aValue = a.status || "";
+            bValue = b.status || "";
             break;
-          case 'date':
+          case "date":
             aValue = new Date(a.submissionDate);
             bValue = new Date(b.submissionDate);
             break;
           default:
             return 0;
         }
-        
-        if (sortConfig.key === 'date') {
+
+        if (sortConfig.key === "date") {
           // For dates, compare as Date objects
-          return sortConfig.direction === 'asc' 
-            ? aValue - bValue 
+          return sortConfig.direction === "asc"
+            ? aValue - bValue
             : bValue - aValue;
         } else {
           // For strings, use localeCompare for proper alphabetical sorting
           const result = aValue.localeCompare(bValue);
-          return sortConfig.direction === 'asc' ? result : -result;
+          return sortConfig.direction === "asc" ? result : -result;
         }
       });
     }
-    
+
     return filtered;
   };
 
@@ -321,13 +370,15 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
             {pagination.total || filteredResources.length}
           </span>
         </h2>
-        
+
         <button
           onClick={() => loadResources(pagination.currentPage)}
           disabled={loading}
           className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`}
+          />
           Refresh
         </button>
       </div>
@@ -400,29 +451,29 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-32">
                     <button
-                      onClick={() => handleSort('category')}
+                      onClick={() => handleSort("category")}
                       className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                     >
                       <span>Category</span>
-                      {getSortIcon('category')}
+                      {getSortIcon("category")}
                     </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-36">
                     <button
-                      onClick={() => handleSort('subCategory')}
+                      onClick={() => handleSort("subCategory")}
                       className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                     >
                       <span>Sub-Category</span>
-                      {getSortIcon('subCategory')}
+                      {getSortIcon("subCategory")}
                     </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6 min-w-32">
                     <button
-                      onClick={() => handleSort('date')}
+                      onClick={() => handleSort("date")}
                       className="flex items-center gap-1 hover:text-gray-700 transition-colors"
                     >
                       <span>Submission Date</span>
-                      {getSortIcon('date')}
+                      {getSortIcon("date")}
                     </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12 min-w-24 relative">
@@ -431,8 +482,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                       <div className="relative">
                         <button
                           onClick={() => {
-                            const dropdown = document.getElementById('status-dropdown');
-                            dropdown.classList.toggle('hidden');
+                            const dropdown =
+                              document.getElementById("status-dropdown");
+                            dropdown.classList.toggle("hidden");
                           }}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Filter by status"
@@ -447,10 +499,14 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                           <button
                             onClick={() => {
                               handleStatusFilterChange("all");
-                              document.getElementById('status-dropdown').classList.add('hidden');
+                              document
+                                .getElementById("status-dropdown")
+                                .classList.add("hidden");
                             }}
                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                              statusFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                              statusFilter === "all"
+                                ? "bg-blue-50 text-blue-700"
+                                : "text-gray-700"
                             }`}
                           >
                             All
@@ -458,10 +514,14 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                           <button
                             onClick={() => {
                               handleStatusFilterChange("published");
-                              document.getElementById('status-dropdown').classList.add('hidden');
+                              document
+                                .getElementById("status-dropdown")
+                                .classList.add("hidden");
                             }}
                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                              statusFilter === "published" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                              statusFilter === "published"
+                                ? "bg-blue-50 text-blue-700"
+                                : "text-gray-700"
                             }`}
                           >
                             Published
@@ -469,10 +529,14 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                           <button
                             onClick={() => {
                               handleStatusFilterChange("draft");
-                              document.getElementById('status-dropdown').classList.add('hidden');
+                              document
+                                .getElementById("status-dropdown")
+                                .classList.add("hidden");
                             }}
                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                              statusFilter === "draft" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                              statusFilter === "draft"
+                                ? "bg-blue-50 text-blue-700"
+                                : "text-gray-700"
                             }`}
                           >
                             Draft
@@ -493,7 +557,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs">
                         <div className="flex items-center">
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{resource.title}</div>
+                            <div className="font-medium truncate">
+                              {resource.title}
+                            </div>
                             {resource.description && (
                               <div className="text-xs text-gray-500 mt-1 truncate">
                                 {resource.description.substring(0, 100)}...
@@ -509,7 +575,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                         <div className="truncate">{resource.subCategory}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 max-w-32">
-                        <div className="truncate">{resource.submissionDate}</div>
+                        <div className="truncate">
+                          {resource.submissionDate}
+                        </div>
                         {resource.isToday && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
                             Today
@@ -519,9 +587,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
-                            resource.status === 'Published'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                            resource.status === "Published"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {resource.status}
@@ -530,7 +598,7 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2 min-w-max">
                           {/* Download Button */}
-                          <button 
+                          <button
                             onClick={() => handleDownload(resource)}
                             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors whitespace-nowrap"
                             title="Download"
@@ -538,29 +606,32 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                             <FileDown className="h-4 w-4 mr-1.5" />
                             Download
                           </button>
+                          {!isCommandCentreAgent && (
+                            <>
+                              <button
+                                onClick={() => handleEdit(resource)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
 
-                          {/* Edit Button */}
-                          <button 
-                            onClick={() => handleEdit(resource)}
-                            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-
-                          {/* Delete Button */}
-                          <button 
-                            onClick={() => handleDeleteInitiate(resource)}
-                            disabled={actionLoading[resource.id] === 'delete'}
-                            className="text-gray-400 hover:text-red-600 disabled:opacity-50 transition-colors flex-shrink-0"
-                            title="Delete"
-                          >
-                            {actionLoading[resource.id] === 'delete' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
+                              <button
+                                onClick={() => handleDeleteInitiate(resource)}
+                                disabled={
+                                  actionLoading[resource.id] === "delete"
+                                }
+                                className="text-gray-400 hover:text-red-600 disabled:opacity-50 transition-colors flex-shrink-0"
+                                title="Delete"
+                              >
+                                {actionLoading[resource.id] === "delete" ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -569,10 +640,9 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center">
                       <div className="text-gray-500">
-                        {searchTerm || statusFilter !== 'all'
-                          ? 'No resources found matching your criteria'
-                          : 'No resources available'
-                        }
+                        {searchTerm || statusFilter !== "all"
+                          ? "No resources found matching your criteria"
+                          : "No resources available"}
                       </div>
                     </td>
                   </tr>
@@ -586,59 +656,65 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       {/* Pagination */}
       {!loading && pagination.totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
-          <button 
+          <button
             onClick={() => handlePageChange(pagination.currentPage - 1)}
             disabled={pagination.currentPage <= 1}
             className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ← Previous
           </button>
-          
+
           <div className="flex space-x-2">
             {/* Generate page numbers */}
             {(() => {
               const pages = [];
               const totalPages = pagination.totalPages;
               const currentPage = pagination.currentPage;
-              
+
               // Always show first page
               if (totalPages > 0) {
                 pages.push(1);
               }
-              
+
               // Add ellipsis if there's a gap
               if (currentPage > 3) {
-                pages.push('...');
+                pages.push("...");
               }
-              
+
               // Add pages around current page
-              for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+              for (
+                let i = Math.max(2, currentPage - 1);
+                i <= Math.min(totalPages - 1, currentPage + 1);
+                i++
+              ) {
                 if (!pages.includes(i)) {
                   pages.push(i);
                 }
               }
-              
+
               // Add ellipsis if there's a gap
               if (currentPage < totalPages - 2) {
-                pages.push('...');
+                pages.push("...");
               }
-              
+
               // Always show last page if there's more than one page
               if (totalPages > 1 && !pages.includes(totalPages)) {
                 pages.push(totalPages);
               }
-              
+
               return pages.map((page, index) => (
                 <button
                   key={index}
-                  onClick={() => typeof page === 'number' ? handlePageChange(page) : null}
-                  disabled={typeof page !== 'number'}
+                  onClick={() =>
+                    typeof page === "number" ? handlePageChange(page) : null
+                  }
+                  disabled={typeof page !== "number"}
                   className={`px-3 py-1 text-sm rounded ${
                     page === currentPage
-                      ? 'bg-blue-600 text-white'
-                      : typeof page === 'number'
-                      ? 'text-gray-500 hover:text-gray-700'
-                      : 'text-gray-300 cursor-default'
+                      ? "bg-blue-600 text-white"
+                      : typeof page === "number"
+                      ? "text-gray-500 hover:text-gray-700"
+                      : "text-gray-300 cursor-default"
                   }`}
                 >
                   {page}
@@ -646,8 +722,8 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
               ));
             })()}
           </div>
-          
-          <button 
+
+          <button
             onClick={() => handlePageChange(pagination.currentPage + 1)}
             disabled={pagination.currentPage >= pagination.totalPages}
             className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -660,9 +736,12 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
       {/* Results Summary */}
       {!loading && filteredResources.length > 0 && (
         <div className="mt-4 text-sm text-gray-500 text-center">
-          Showing {((pagination.currentPage - 1) * pagination.pageSize) + 1} to{' '}
-          {Math.min(pagination.currentPage * pagination.pageSize, pagination.total)} of{' '}
-          {pagination.total} resources
+          Showing {(pagination.currentPage - 1) * pagination.pageSize + 1} to{" "}
+          {Math.min(
+            pagination.currentPage * pagination.pageSize,
+            pagination.total
+          )}{" "}
+          of {pagination.total} resources
         </div>
       )}
 
@@ -671,7 +750,11 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
         isOpen={showDeleteConfirmation}
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
-        isLoading={resourceToDelete ? actionLoading[resourceToDelete.id] === 'delete' : false}
+        isLoading={
+          resourceToDelete
+            ? actionLoading[resourceToDelete.id] === "delete"
+            : false
+        }
       />
 
       {/* Delete Success Modal */}
@@ -680,8 +763,6 @@ const AllResources = ({ refreshTrigger, onResourceCountUpdate, onEditResource })
         onClose={handleDeleteSuccessClose}
         message="Resource deleted successfully"
       />
-
-    
     </div>
   );
 };
