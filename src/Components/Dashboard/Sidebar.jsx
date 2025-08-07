@@ -33,6 +33,7 @@ import { toast } from "react-toastify";
 
 const Sidebar = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  console.log(adminRolesList)
   const userRoleId = useSelector((state) => state.user?.currentUser?.admin?.roleId);
   const userName = useSelector((state) => state.user?.currentUser?.admin);
   const dispatch = useDispatch();

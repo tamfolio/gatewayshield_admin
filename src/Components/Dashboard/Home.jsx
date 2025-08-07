@@ -565,10 +565,10 @@ const Home = () => {
 
                 <div className="text-center mb-6">
                   <div className="text-4xl font-bold text-gray-900">
-                    {dashboardData2?.averageStationRating ? 
+                    {/* {dashboardData2?.averageStationRating ? 
                       `${dashboardData2.averageStationRating.toFixed(1)} star` : 
                       '4.5 star'
-                    }
+                    } */}
                   </div>
                 </div>
 
