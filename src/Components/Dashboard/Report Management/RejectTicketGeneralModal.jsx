@@ -5,7 +5,7 @@ import useAccessToken from '../../../Utils/useAccessToken';
 import { toast } from 'react-toastify';
 
 function RejectTicketGeneralModal({ 
-  handleRejectTicketModal, 
+  handleRejectSosTicketModal, 
   handleRejectTicketSuccess, 
 }) {
     const {id} = useParams();
@@ -25,7 +25,7 @@ function RejectTicketGeneralModal({
       handleRejectTicketSuccess && handleRejectTicketSuccess();
       
       // Close modal
-      handleRejectTicketModal();
+      handleRejectSosTicketModal();
       
     } catch (err) {
       console.error("❌ Error rejecting ticket:", err);
@@ -40,7 +40,7 @@ function RejectTicketGeneralModal({
   };
 
   const handleCancel = () => {
-    handleRejectTicketModal();
+    handleRejectSosTicketModal();
   };
 
   return (

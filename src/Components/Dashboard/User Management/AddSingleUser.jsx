@@ -26,7 +26,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
   useEffect(() => {
     const fetchAdminRoles = async () => {
       try {
-        const res = await userRequest(token).get("/options/adminRoles/all");
+        const res = await userRequest(token).get("/options/adminRoles/canManage");
 
         setAdminRoles(res.data?.data?.adminRoles || []);
       } catch (err) {
