@@ -313,7 +313,7 @@ function SosDetails() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   {incident?.incidentType}
                 </h3>
-                <p className="text-gray-600 text-sm">{incident?.description}</p>
+                <p className="text-gray-600 text-sm">{incident?.description || incident?.comment}</p>
               </div>
             </div>
 
@@ -617,7 +617,7 @@ function SosDetails() {
                   <div className="px-6 pb-6">
                     <div className="space-y-4">
                       <p className="text-gray-700 leading-relaxed">
-                        {incident?.description || "No description Attached"}
+                        {incident?.description || incident?.comment || "No description Attached"}
                       </p>
                     </div>
                   </div>
