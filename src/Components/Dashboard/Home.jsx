@@ -41,6 +41,7 @@ const Home = () => {
   const [tempEndDate, setTempEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [dataType, setDataType] = useState("General");
+  const [isSelectingStartDate, setIsSelectingStartDate] = useState(true);
   const token = useAccessToken();
 
   const userData = useSelector((state) => state.user?.currentUser?.admin);
@@ -72,7 +73,11 @@ const Home = () => {
 
   const formatDateForAPI = (date) => {
     if (!date) return "";
-    return new Date(date).toISOString().split('T')[0];
+    const localDate = new Date(date);
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Check if user is Command Centre Agent or Command Centre Supervisor
@@ -120,9 +125,87 @@ const Home = () => {
       fetchDashboardData();
       fetchDashboardData2();
     }
-  }, [token, dataType]);
+  }, [token, dataType, startDate, endDate]);
 
   console.log("dashboardData", dashboardData);
+
+  // Generate calendar days for current month
+  const generateCalendarDays = () => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    const days = [];
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      days.push(date);
+    }
+    
+    return days;
+  };
+
+  const handleDateSelect = (date) => {
+    if (isSelectingStartDate) {
+      setTempStartDate(date);
+      setIsSelectingStartDate(false);
+    } else {
+      setTempEndDate(date);
+    }
+  };
+
+  const applyDateFilter = () => {
+    setStartDate(tempStartDate);
+    setEndDate(tempEndDate);
+    setShowDatePicker(false);
+    setIsSelectingStartDate(true);
+  };
+
+  const clearDateFilter = () => {
+    setStartDate("");
+    setEndDate("");
+    setTempStartDate("");
+    setTempEndDate("");
+    setShowDatePicker(false);
+    setIsSelectingStartDate(true);
+  };
+
+  const isDateInRange = (date) => {
+    if (!tempStartDate || !tempEndDate) return false;
+    const start = new Date(tempStartDate);
+    const end = new Date(tempEndDate);
+    const current = new Date(date);
+    
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    current.setHours(0, 0, 0, 0);
+    
+    return current >= start && current <= end;
+  };
+
+  const isDateSelected = (date) => {
+    const current = new Date(date);
+    current.setHours(0, 0, 0, 0);
+    
+    if (tempStartDate) {
+      const start = new Date(tempStartDate);
+      start.setHours(0, 0, 0, 0);
+      if (current.getTime() === start.getTime()) return 'start';
+    }
+    
+    if (tempEndDate) {
+      const end = new Date(tempEndDate);
+      end.setHours(0, 0, 0, 0);
+      if (current.getTime() === end.getTime()) return 'end';
+    }
+    
+    return false;
+  };
 
   // If user is Command Centre Supervisor, render CcsHome component
   if (isCommandCentreSupervisor) {
@@ -318,55 +401,108 @@ const Home = () => {
     </div>
   );
 
-  const DatePickerComponent = () => (
-    <div className="relative">
-      <button
-        onClick={() => setShowDatePicker(!showDatePicker)}
-        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-      >
-        <Calendar className="w-4 h-4" />
-        <span>Jan 10, 2025 - Jan 16, 2025</span>
-        <ChevronDown className="w-4 h-4" />
-      </button>
+  const DatePickerComponent = () => {
+    const calendarDays = generateCalendarDays();
+    const today = new Date();
+    
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setShowDatePicker(!showDatePicker)}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+        >
+          <Calendar className="w-4 h-4" />
+          <span>
+            {startDate && endDate 
+              ? `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`
+              : "Jan 10, 2025 - Jan 16, 2025"
+            }
+          </span>
+          <ChevronDown className="w-4 h-4" />
+        </button>
 
-      {showDatePicker && (
-        <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
-          <div className="grid grid-cols-7 gap-1 text-center text-sm">
-            <div className="p-2 font-medium text-gray-600">Sun</div>
-            <div className="p-2 font-medium text-gray-600">Mon</div>
-            <div className="p-2 font-medium text-gray-600">Tue</div>
-            <div className="p-2 font-medium text-gray-600">Wed</div>
-            <div className="p-2 font-medium text-gray-600">Thu</div>
-            <div className="p-2 font-medium text-gray-600">Fri</div>
-            <div className="p-2 font-medium text-gray-600">Sat</div>
+        {showDatePicker && (
+          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                {isSelectingStartDate ? 'Select Start Date' : 'Select End Date'}
+              </h4>
+              <div className="text-xs text-gray-500">
+                {tempStartDate && (
+                  <span>Start: {formatDateForDisplay(tempStartDate)}</span>
+                )}
+                {tempStartDate && tempEndDate && <span> | </span>}
+                {tempEndDate && (
+                  <span>End: {formatDateForDisplay(tempEndDate)}</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-7 gap-1 text-center text-sm">
+              <div className="p-2 font-medium text-gray-600">Sun</div>
+              <div className="p-2 font-medium text-gray-600">Mon</div>
+              <div className="p-2 font-medium text-gray-600">Tue</div>
+              <div className="p-2 font-medium text-gray-600">Wed</div>
+              <div className="p-2 font-medium text-gray-600">Thu</div>
+              <div className="p-2 font-medium text-gray-600">Fri</div>
+              <div className="p-2 font-medium text-gray-600">Sat</div>
 
-            {Array.from({ length: 31 }, (_, i) => (
+              {calendarDays.map((date, index) => {
+                const isCurrentMonth = date.getMonth() === today.getMonth();
+                const isToday = date.toDateString() === today.toDateString();
+                const selection = isDateSelected(date);
+                const inRange = isDateInRange(date);
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleDateSelect(date)}
+                    className={`p-2 hover:bg-blue-50 rounded text-gray-700 ${
+                      !isCurrentMonth 
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : selection === 'start' || selection === 'end'
+                        ? 'bg-blue-600 text-white'
+                        : inRange
+                        ? 'bg-blue-100 text-blue-700'
+                        : isToday
+                        ? 'bg-gray-100 text-gray-900 font-medium'
+                        : ''
+                    }`}
+                    disabled={!isCurrentMonth}
+                  >
+                    {date.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-4">
               <button
-                key={i}
-                className="p-2 hover:bg-blue-50 rounded text-gray-700"
+                onClick={clearDateFilter}
+                className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
               >
-                {i + 1}
+                Clear
               </button>
-            ))}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyDateFilter}
+                  disabled={!tempStartDate || !tempEndDate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setShowDatePicker(false)}
-              className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => setShowDatePicker(false)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
