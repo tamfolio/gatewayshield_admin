@@ -10,31 +10,36 @@ function RejectTicketSosModal({ handleRejectTicketModal, handleRejectTicketSucce
     const [loading, setLoading] = useState(false)
 
     const handleReject = async () => {
-        setLoading(true);
+      setLoading(true);
+      
+      try {
+        const payload = {
+          statusId: "01JY9RYDSKAQ06JZGDT85EJRFF"
+        };
         
-        try {
-          const res = await userRequest(token).patch(`/reject/${id}`);
-          
-          console.log("✅ Ticket rejected successfully", res.data);
-          toast.success("Ticket rejected successfully!");
-          
-          // Call success callback if provided
-          handleRejectTicketSuccess && handleRejectTicketSuccess();
-          
-          // Close modal
-          handleRejectTicketModal();
-          
-        } catch (err) {
-          console.error("❌ Error rejecting ticket:", err);
-          const errorMessage = err.response?.data?.error || 
-                              err.response?.data?.message || 
-                              "Failed to reject ticket. Please try again.";
-          
-          toast.error(errorMessage);
-        } finally {
-          setLoading(false);
-        }
-      };
+        const res = await userRequest(token).patch(`sos/updateStatus/${id}`, payload);
+        
+        
+        console.log("✅ Ticket rejected successfully", res.data);
+        toast.success("Ticket rejected successfully!");
+        
+        // Call success callback if provided
+        handleRejectTicketSuccess && handleRejectTicketSuccess();
+        
+        // Close modal
+        handleRejectTicketModal();
+        
+      } catch (err) {
+        console.error("❌ Error rejecting ticket:", err);
+        const errorMessage = err.response?.data?.error || 
+                            err.response?.data?.message || 
+                            "Failed to reject ticket. Please try again.";
+        
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
     
 //   const handleReject = () => {
 //     // Add your reject logic here
