@@ -121,7 +121,7 @@ const Sidebar = () => {
     "Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Police Station": ["dashboard", 'users', "reports", "crime-map", "feedback"],
     "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map", "help"],
-    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit","settings",'help']
+    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit",   'help']
   };
 
   // Get allowed routes for current user

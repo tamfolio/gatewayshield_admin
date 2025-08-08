@@ -13,7 +13,14 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { Calendar, Download, ChevronDown, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import {
+  Calendar,
+  Download,
+  ChevronDown,
+  AlertCircle,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
 import { useSelector } from "react-redux";
 import { userRequest } from "../../requestMethod";
 import useAccessToken from "../../Utils/useAccessToken";
@@ -28,37 +35,66 @@ const Home = () => {
   const [selectedTab, setSelectedTab] = useState("General");
   const [dashboardData, setDashboardData] = useState([]);
   const [dashboardData2, setDashboardData2] = useState([]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [tempStartDate, setTempStartDate] = useState("");
+  const [tempEndDate, setTempEndDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dataType, setDataType] = useState("General");
   const token = useAccessToken();
 
   const userData = useSelector((state) => state.user?.currentUser?.admin);
 
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
-  const userRoleId = useSelector((state) => state.user?.currentUser?.admin?.roleId);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
   const userName = useSelector((state) => state.user?.currentUser?.admin);
 
-  
   // Get the current user's role name by matching roleId with adminRoles
   const getCurrentUserRole = () => {
     if (!adminRolesList || !userRoleId) return null;
-    const role = adminRolesList.find(role => role.id === userRoleId);
+    const role = adminRolesList.find((role) => role.id === userRoleId);
     return role ? role.name : null;
   };
 
   const currentUserRole = getCurrentUserRole();
-  console.log('Current User Role:', currentUserRole);
+  console.log("Current User Role:", currentUserRole);
+
+  const formatDateForDisplay = (date) => {
+    if (!date) return "";
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatDateForAPI = (date) => {
+    if (!date) return "";
+    return new Date(date).toISOString().split('T')[0];
+  };
 
   // Check if user is Command Centre Agent or Command Centre Supervisor
   const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
-  const isCommandCentreSupervisor = currentUserRole === "Command Centre Supervisor";
+  const isCommandCentreSupervisor =
+    currentUserRole === "Command Centre Supervisor";
   const isPoliceStation = currentUserRole === "Police Station";
-
-
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const res = await userRequest(token).get(`/admin/get/dashboard`);
+        let url = `/admin/get/dashboard?type=${dataType}`;
+        
+        // Add date parameters if they exist
+        if (startDate) {
+          url += `&startDate=${formatDateForAPI(startDate)}`;
+        }
+        if (endDate) {
+          url += `&endDate=${formatDateForAPI(endDate)}`;
+        }
+        
+        const res = await userRequest(token).get(url);
         setDashboardData(res.data.data.dashboard);
       } catch (error) {
         console.error("❌ Failed to fetch Dashboard data:", error);
@@ -69,7 +105,9 @@ const Home = () => {
 
     const fetchDashboardData2 = async () => {
       try {
-        const res = await userRequest(token).get(`/feedback/generalFeedback/dashboard-stats`);
+        const res = await userRequest(token).get(
+          `/feedback/generalFeedback/dashboard-stats`
+        );
         setDashboardData2(res.data.data);
       } catch (error) {
         console.error("❌ Failed to fetch Dashboard data:", error);
@@ -80,21 +118,21 @@ const Home = () => {
 
     if (token) {
       fetchDashboardData();
-      fetchDashboardData2()
+      fetchDashboardData2();
     }
-  }, [token]);
+  }, [token, dataType]);
 
   console.log("dashboardData", dashboardData);
 
-    // If user is Command Centre Supervisor, render CcsHome component
-    if (isCommandCentreSupervisor) {
-      return <CcsHome />;
-    }
-  
-    // If user is Police Station, render PsHome component
-    if (isPoliceStation) {
-      return <PsHome />;
-    }
+  // If user is Command Centre Supervisor, render CcsHome component
+  if (isCommandCentreSupervisor) {
+    return <CcsHome />;
+  }
+
+  // If user is Police Station, render PsHome component
+  if (isPoliceStation) {
+    return <PsHome />;
+  }
 
   // Sample data for charts
   const resolutionTimeData = [
@@ -129,10 +167,34 @@ const Home = () => {
 
   // Command Centre Agent specific data
   const recentIncidents = [
-    { id: "INC-001", type: "Security", station: "Central Station", time: "2 min ago", priority: "High" },
-    { id: "INC-002", type: "Medical", station: "North Terminal", time: "5 min ago", priority: "Critical" },
-    { id: "INC-003", type: "Technical", station: "South Plaza", time: "8 min ago", priority: "Medium" },
-    { id: "INC-004", type: "Maintenance", station: "East Gate", time: "12 min ago", priority: "Low" },
+    {
+      id: "INC-001",
+      type: "Security",
+      station: "Central Station",
+      time: "2 min ago",
+      priority: "High",
+    },
+    {
+      id: "INC-002",
+      type: "Medical",
+      station: "North Terminal",
+      time: "5 min ago",
+      priority: "Critical",
+    },
+    {
+      id: "INC-003",
+      type: "Technical",
+      station: "South Plaza",
+      time: "8 min ago",
+      priority: "Medium",
+    },
+    {
+      id: "INC-004",
+      type: "Maintenance",
+      station: "East Gate",
+      time: "12 min ago",
+      priority: "Low",
+    },
   ];
 
   const stationStatuses = [
@@ -190,19 +252,23 @@ const Home = () => {
     })
   );
 
-  const bottomStationsData = (dashboardData2?.bottomStations || []).map(station => ({
-    name: station.stationName?.replace(' DIVISION', '') || 'Unknown Station',
-    rating: Number(station.avgRating) || 0,
-    totalFeedbacks: station.totalFeedbacks,
-    stationId: station.stationId
-  }));
+  const bottomStationsData = (dashboardData2?.bottomStations || []).map(
+    (station) => ({
+      name: station.stationName?.replace(" DIVISION", "") || "Unknown Station",
+      rating: Number(station.avgRating) || 0,
+      totalFeedbacks: station.totalFeedbacks,
+      stationId: station.stationId,
+    })
+  );
 
-  const topStationsData = (dashboardData2?.topStations || []).map(station => ({
-    name: station.stationName?.replace(' DIVISION', '') || 'Unknown Station',
-    rating: Number(station.avgRating) || 0,
-    totalFeedbacks: station.totalFeedbacks,
-    stationId: station.stationId
-  }));
+  const topStationsData = (dashboardData2?.topStations || []).map(
+    (station) => ({
+      name: station.stationName?.replace(" DIVISION", "") || "Unknown Station",
+      rating: Number(station.avgRating) || 0,
+      totalFeedbacks: station.totalFeedbacks,
+      stationId: station.stationId,
+    })
+  );
 
   const timeframes = ["12 months", "3 months", "30 days", "7 days", "24 hours"];
 
@@ -227,22 +293,28 @@ const Home = () => {
     </div>
   );
 
-  const AdminStatCard = ({ title, value, change, isNegative, valueColor = "text-gray-900" }) => (
+  const AdminStatCard = ({
+    title,
+    value,
+    change,
+    isNegative,
+    valueColor = "text-gray-900",
+  }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           {title}
         </h3>
         <div className="flex items-center text-xs">
-          <span className={`mr-1 ${isNegative ? "text-red-500" : "text-green-500"}`}>
+          <span
+            className={`mr-1 ${isNegative ? "text-red-500" : "text-green-500"}`}
+          >
             {isNegative ? "↓" : "↑"}
           </span>
           <span className="text-gray-600">{change}</span>
         </div>
       </div>
-      <div className={`text-2xl font-bold ${valueColor}`}>
-        {value}
-      </div>
+      <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
     </div>
   );
 
@@ -320,7 +392,8 @@ const Home = () => {
             Rating: <span className="font-medium">{data.rating}</span>
           </p>
           <p className="text-sm text-gray-600">
-            Feedbacks: <span className="font-medium">{data.totalFeedbacks}</span>
+            Feedbacks:{" "}
+            <span className="font-medium">{data.totalFeedbacks}</span>
           </p>
         </div>
       );
@@ -353,7 +426,10 @@ const Home = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex gap-8">
             <button
-              onClick={() => setSelectedTab("General")}
+              onClick={() => {
+                setDataType("General");
+                setSelectedTab("General");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "General"
                   ? "border-blue-600 text-blue-600 font-medium"
@@ -363,7 +439,10 @@ const Home = () => {
               General
             </button>
             <button
-              onClick={() => setSelectedTab("SOS")}
+              onClick={() => {
+                setDataType("SOS");
+                setSelectedTab("SOS");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "SOS"
                   ? "border-blue-600 text-blue-600 font-medium"
@@ -530,7 +609,9 @@ const Home = () => {
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: item.color }}
                         ></div>
-                        <span className="text-sm text-gray-700">{item.name}</span>
+                        <span className="text-sm text-gray-700">
+                          {item.name}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -635,7 +716,9 @@ const Home = () => {
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: item.color }}
                         ></div>
-                        <span className="text-sm text-gray-700">{item.name}</span>
+                        <span className="text-sm text-gray-700">
+                          {item.name}
+                        </span>
                       </div>
                     ))}
                   </div>
