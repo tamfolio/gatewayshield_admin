@@ -33,7 +33,7 @@ import {
 import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
-import RejectTicketSosModal from "./RejectTicketGeneralModal.jsx";
+import RejectTicketSosModal from "./RejectTicketSosModal.jsx";
 
 function SosDetails() {
   const { id } = useParams();
