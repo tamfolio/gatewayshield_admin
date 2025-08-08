@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Search,
   ChevronDown,
@@ -19,6 +19,21 @@ import {
   statusColorMap,
 } from "../../../Utils/dateUtils";
 import { Link } from "react-router-dom";
+
+const useClickOutside = (ref, callback) => {
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        callback();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [ref, callback]);
+};
 
 const General = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,6 +96,63 @@ const General = () => {
   // Search dropdown options
   const searchOptions = ["Report ID", "Citizen Name", "Phone Number"];
 
+  // Add refs for each dropdown
+  const reportStatusRef = useRef(null);
+  const policeStationRef = useRef(null);
+  const datePickerRef = useRef(null);
+  const originChannelRef = useRef(null);
+  const reportTypeRef = useRef(null);
+  const searchDropdownRef = useRef(null);
+
+  // Function to close all dropdowns
+  const closeAllDropdowns = () => {
+    setShowReportStatusDropdown(false);
+    setShowPoliceStationDropdown(false);
+    setShowDatePicker(false);
+    setShowOriginChannelDropdown(false);
+    setShowReportTypeDropdown(false);
+    setShowSearchDropdown(false);
+  };
+
+  // Enhanced dropdown toggle functions that close others first
+  const toggleReportStatusDropdown = () => {
+    closeAllDropdowns();
+    setShowReportStatusDropdown(true);
+  };
+
+  const togglePoliceStationDropdown = () => {
+    closeAllDropdowns();
+    setShowPoliceStationDropdown(true);
+  };
+
+  const toggleDatePicker = () => {
+    closeAllDropdowns();
+    setShowDatePicker(true);
+  };
+
+  const toggleOriginChannelDropdown = () => {
+    closeAllDropdowns();
+    setShowOriginChannelDropdown(true);
+  };
+
+  const toggleReportTypeDropdown = () => {
+    closeAllDropdowns();
+    setShowReportTypeDropdown(true);
+  };
+
+  const toggleSearchDropdown = () => {
+    closeAllDropdowns();
+    setShowSearchDropdown(true);
+  };
+
+  // Set up click outside listeners for each dropdown
+  useClickOutside(reportStatusRef, () => setShowReportStatusDropdown(false));
+  useClickOutside(policeStationRef, () => setShowPoliceStationDropdown(false));
+  useClickOutside(datePickerRef, () => setShowDatePicker(false));
+  useClickOutside(originChannelRef, () => setShowOriginChannelDropdown(false));
+  useClickOutside(reportTypeRef, () => setShowReportTypeDropdown(false));
+  useClickOutside(searchDropdownRef, () => setShowSearchDropdown(false));
+
   // FIRST useEffect - for fetching data when currentPage or filters change
   useEffect(() => {
     const fetchIncidents = async (page = currentPage) => {
@@ -105,8 +177,13 @@ const General = () => {
           apiUrl += `&statusId=${selectedReportStatus}`;
         }
 
-        // Add date range filter if selected
-        if (selectedCalendarDate && selectedCalendarDate.includes(',')) {
+        // Add date range filter if selected - FIXED VERSION
+        if (selectedCalendarDate && selectedCalendarDate.includes(' to ')) {
+          // Handle date range "2025-07-31 to 2025-08-03"
+          const [startDate, endDate] = selectedCalendarDate.split(' to ');
+          apiUrl += `&startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedCalendarDate && selectedCalendarDate.includes(',')) {
+          // Handle comma-separated dates "2025-07-31,2025-08-03"
           const [startDate, endDate] = selectedCalendarDate.split(',');
           apiUrl += `&startDate=${startDate}&endDate=${endDate}`;
         } else if (selectedCalendarDate && selectedCalendarDate !== 'Select Date') {
@@ -554,7 +631,8 @@ const General = () => {
     );
   };
 
-  const DropdownMenu = ({ isOpen, options, onSelect, selectedValue }) => {
+  // Enhanced DropdownMenu component with ref forwarding
+  const DropdownMenu = React.forwardRef(({ isOpen, options, onSelect, selectedValue }, ref) => {
     if (!isOpen) return null;
 
     return (
@@ -584,7 +662,7 @@ const General = () => {
         })}
       </div>
     );
-  };
+  });
 
   const SearchDropdown = () => {
     if (!showSearchDropdown) return null;
@@ -680,34 +758,41 @@ const General = () => {
 
     const applyDateFilter = () => {
       if (startDate && endDate) {
-        const formattedStartDate = startDate.toISOString().split('T')[0];
-        const formattedEndDate = endDate.toISOString().split('T')[0];
+        // Use local date formatting to avoid timezone issues
+        const formattedStartDate = startDate.getFullYear() + '-' + 
+          String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(startDate.getDate()).padStart(2, '0');
+        const formattedEndDate = endDate.getFullYear() + '-' + 
+          String(endDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(endDate.getDate()).padStart(2, '0');
         
-        // Update the selectedCalendarDate for API calls
-        setSelectedCalendarDate(`${formattedStartDate},${formattedEndDate}`);
+        // Store the formatted display string for UI
+        const displayString = `${formattedStartDate} to ${formattedEndDate}`;
+        setSelectedCalendarDate(displayString);
         
-        // Add to active filters for display
+        // Add to active filters with proper display
         let newFilters = [...activeFilters];
         newFilters = newFilters.filter((filter) => filter.type !== "dateRange" && filter.type !== "date");
         newFilters.push({
           type: "dateRange",
-          value: `${formattedStartDate},${formattedEndDate}`,
-          label: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+          value: displayString,
+          label: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
         });
         setActiveFilters(newFilters);
-        
       } else if (startDate) {
         // If only start date is selected, use it as single date
-        const formattedDate = startDate.toISOString().split('T')[0];
+        const formattedDate = startDate.getFullYear() + '-' + 
+          String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(startDate.getDate()).padStart(2, '0');
         setSelectedCalendarDate(formattedDate);
         
-        // Add to active filters for display
+        // Add to active filters
         let newFilters = [...activeFilters];
         newFilters = newFilters.filter((filter) => filter.type !== "dateRange" && filter.type !== "date");
         newFilters.push({
           type: "dateRange",
           value: formattedDate,
-          label: startDate.toLocaleDateString()
+          label: startDate.toLocaleDateString(),
         });
         setActiveFilters(newFilters);
       }
@@ -722,7 +807,10 @@ const General = () => {
     };
 
     return (
-      <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
+      <div 
+        ref={datePickerRef}
+        className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4"
+      >
         {/* Header with navigation */}
         <div className="flex items-center justify-between mb-4">
           <button
@@ -886,9 +974,9 @@ const General = () => {
             {/* Enhanced Search with Dropdown */}
             <div className="flex items-center">
               {/* Search Type Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={searchDropdownRef}>
                 <button
-                  onClick={() => setShowSearchDropdown(!showSearchDropdown)}
+                  onClick={toggleSearchDropdown}
                   className="flex items-center space-x-1 px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-white text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <span className="text-sm">{searchType}</span>
@@ -962,10 +1050,12 @@ const General = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-gray-600">Filter By:</span>
               </div>
-              <div className="relative">
+              
+              {/* Date Filter */}
+              <div className="relative" ref={datePickerRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  onClick={toggleDatePicker}
                 >
                   <span>Date</span>
                   <ChevronDown className="h-4 w-4" />
@@ -973,17 +1063,17 @@ const General = () => {
                 <DatePicker />
               </div>
 
-              <div className="relative">
+              {/* Report Status Filter */}
+              <div className="relative" ref={reportStatusRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowReportStatusDropdown(!showReportStatusDropdown)
-                  }
+                  onClick={toggleReportStatusDropdown}
                 >
                   <span>Report Status</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={reportStatusRef}
                   isOpen={showReportStatusDropdown}
                   options={incidentStatus}
                   onSelect={(id) => handleFilterSelect("reportStatus", id)}
@@ -991,42 +1081,38 @@ const General = () => {
                 />
               </div>
 
-              <div className="relative">
+              {/* Police Station Filter */}
+              <div className="relative" ref={policeStationRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowPoliceStationDropdown(!showPoliceStationDropdown)
-                  }
+                  onClick={togglePoliceStationDropdown}
                 >
                   <span>Police Station</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={policeStationRef}
                   isOpen={showPoliceStationDropdown}
                   options={stations}
-                  onSelect={(value) =>
-                    handleFilterSelect("policeStation", value)
-                  }
+                  onSelect={(value) => handleFilterSelect("policeStation", value)}
                   selectedValue={selectedPoliceStation}
                 />
               </div>
 
-              <div className="relative">
+              {/* Origin Channel Filter */}
+              <div className="relative" ref={originChannelRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowOriginChannelDropdown(!showOriginChannelDropdown)
-                  }
+                  onClick={toggleOriginChannelDropdown}
                 >
                   <span>Origin Channel</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={originChannelRef}
                   isOpen={showOriginChannelDropdown}
                   options={incidentChannels}
-                  onSelect={(value) =>
-                    handleFilterSelect("originChannel", value)
-                  }
+                  onSelect={(value) => handleFilterSelect("originChannel", value)}
                   selectedValue={selectedOriginChannel}
                 />
               </div>

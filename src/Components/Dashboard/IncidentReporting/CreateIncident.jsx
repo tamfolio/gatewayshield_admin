@@ -31,6 +31,7 @@ function CreateIncident() {
     description: "",
     channel: "", // For General reports only
     incidentType: "", // For General reports only
+    hideIdentity: false,
   });
 
   const [isRecording, setIsRecording] = useState(false);
@@ -57,12 +58,13 @@ function CreateIncident() {
       try {
         const response = await userRequest(token).get("/incident/types");
         console.log("Incident types API response:", response.data);
-        
-        const formattedData = response.data?.data?.map((item) => ({
-          label: item.name,
-          value: item.id,
-        })) || [];
-        
+
+        const formattedData =
+          response.data?.data?.map((item) => ({
+            label: item.name,
+            value: item.id,
+          })) || [];
+
         setIncidentTypes(formattedData);
       } catch (error) {
         console.error("Error fetching incident types:", error);
@@ -78,46 +80,51 @@ function CreateIncident() {
   console.log(userDataDetails);
 
   // Function to check if user exists by email
-  const checkUserByEmail = useCallback(async (email) => {
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      setEmailUserData(null);
-      return;
-    }
+  const checkUserByEmail = useCallback(
+    async (email) => {
+      if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+        setEmailUserData(null);
+        return;
+      }
 
-    setIsCheckingEmail(true);
-    try {
-      const response = await userRequest(token).get(`/incident/getUserByEmail/${encodeURIComponent(email)}`);
-      console.log("Email lookup response:", response.data);
-      
-      // Check if user exists (has id, name, not just email)
-      if (response.data?.data?.id && response.data?.data?.name) {
-        // User found
-        setEmailUserData({
-          id: response.data.data.id,
-          name: response.data.data.name,
-          email: response.data.data.email,
-          found: true
-        });
-        console.log("✅ User found:", response.data.data);
-      } else {
-        // User not found (only email returned)
+      setIsCheckingEmail(true);
+      try {
+        const response = await userRequest(token).get(
+          `/incident/getUserByEmail/${encodeURIComponent(email)}`
+        );
+        console.log("Email lookup response:", response.data);
+
+        // Check if user exists (has id, name, not just email)
+        if (response.data?.data?.id && response.data?.data?.name) {
+          // User found
+          setEmailUserData({
+            id: response.data.data.id,
+            name: response.data.data.name,
+            email: response.data.data.email,
+            found: true,
+          });
+          console.log("✅ User found:", response.data.data);
+        } else {
+          // User not found (only email returned)
+          setEmailUserData({
+            email: email,
+            found: false,
+          });
+          console.log("❌ User not found for email:", email);
+        }
+      } catch (error) {
+        console.error("Error checking email:", error);
+        // If API call fails, treat as user not found
         setEmailUserData({
           email: email,
-          found: false
+          found: false,
         });
-        console.log("❌ User not found for email:", email);
+      } finally {
+        setIsCheckingEmail(false);
       }
-    } catch (error) {
-      console.error("Error checking email:", error);
-      // If API call fails, treat as user not found
-      setEmailUserData({
-        email: email,
-        found: false
-      });
-    } finally {
-      setIsCheckingEmail(false);
-    }
-  }, [token]);
+    },
+    [token]
+  );
 
   // Debounced email check
   useEffect(() => {
@@ -157,6 +164,7 @@ function CreateIncident() {
       description: "",
       channel: "",
       incidentType: "",
+      hideIdentity: false,
     });
     setErrors({});
     setUploadedFile("");
@@ -220,66 +228,53 @@ function CreateIncident() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     if (!validateForm()) {
       return;
     }
-  
+
     setIsSubmitting(true);
-  
+
     try {
       const fileInput = fileInputRef.current;
       const selectedFile = fileInput?.files?.[0];
-  
+
       // Debug file selection
       console.log("File input ref:", fileInput);
       console.log("Selected file:", selectedFile);
       console.log("File size:", selectedFile?.size);
       console.log("File type:", selectedFile?.type);
       console.log("File name:", selectedFile?.name);
-  
+
       if (formData.reportType === "SOS") {
         // Handle SOS incident submission - MUST ALWAYS be anonymous
         console.log("🔍 Starting SOS submission process...");
-        
+
         const sosData = {};
         sosData.address = formData.address;
         sosData.comment = formData.description;
-        sosData.isAnonymous = true;  // Explicitly set to true
-        sosData.userId = null;       // Explicitly set to null
-        
+        sosData.isAnonymous = true; // Explicitly set to true
+        sosData.userId = ""; // Explicitly set to null
+
         console.log("🔍 sosData after initial creation:", sosData);
-        
-        // Force these values to ensure they're correct
-        Object.defineProperty(sosData, 'isAnonymous', {
-          value: true,
-          writable: false,
-          enumerable: true
-        });
-        
-        Object.defineProperty(sosData, 'userId', {
-          value: null,
-          writable: false,
-          enumerable: true
-        });
-        
+
         console.log("🔍 sosData after Object.defineProperty:", sosData);
-  
+
         console.log("🚀 SOS Submitting form with data:", formData);
         console.log("🚀 SOS Body data:", sosData);
-        
+
         // Verify the data before sending
         console.log("SOS Data verification:");
         console.log("isAnonymous:", sosData.isAnonymous);
         console.log("userId:", sosData.userId);
         console.log("Full sosData object:", JSON.stringify(sosData));
-  
+
         // Create FormData for SOS
         const formPayload = new FormData();
         const dataString = JSON.stringify(sosData);
         console.log("📦 Data string being sent:", dataString);
         formPayload.append("data", dataString);
-  
+
         // Append audio file if recorded
         if (audioBlob) {
           const audioFile = new File([audioBlob], "recording.wav", {
@@ -288,33 +283,37 @@ function CreateIncident() {
           formPayload.append("audio", audioFile);
           console.log("SOS: Audio file appended successfully");
         }
-  
+
         // Append image file if uploaded
-        if (selectedFile && selectedFile instanceof File && selectedFile.size > 0) {
+        if (
+          selectedFile &&
+          selectedFile instanceof File &&
+          selectedFile.size > 0
+        ) {
           formPayload.append("image", selectedFile);
           console.log("SOS: Image file appended successfully");
         }
-  
+
         // Log FormData contents for debugging
         console.log("SOS FormData contents:");
         for (let [key, value] of formPayload.entries()) {
           console.log(key, value);
         }
-  
+
         const res = await userRequest(token).post("/sos/new", formPayload, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
-  
+
         console.log("✅ SOS incident created successfully", res.data);
         toast.success("SOS report submitted successfully!");
       } else {
         // Handle General incident submission
         // Determine if user is anonymous based on email lookup
-        const isUserAnonymous = !emailUserData?.found;
-        const userId = emailUserData?.found ? emailUserData.id : null;
-        
+        const isUserAnonymous = formData.hideIdentity || !emailUserData?.found;
+        const userId = (!formData.hideIdentity && emailUserData?.found) ? emailUserData.id : null;
+
         console.log("Email lookup result:", emailUserData);
         console.log("Is user anonymous:", isUserAnonymous);
         console.log("User ID:", userId);
@@ -328,11 +327,11 @@ function CreateIncident() {
           phoneNumber: formData.phone.replace(/\D/g, ""),
           channel: formData.channel.toLowerCase(),
         };
-  
+
         console.log("🚀 General Submitting form with data:", formData);
         console.log("🚀 General Body data:", incidentData);
         console.log("Token:", token ? "Present" : "Missing");
-  
+
         // Log each field to check for null values
         Object.entries(incidentData).forEach(([key, value]) => {
           console.log(`   ${key}: ${value} (type: ${typeof value})`);
@@ -340,41 +339,49 @@ function CreateIncident() {
             console.warn(`   ⚠️  ${key} is ${value}`);
           }
         });
-  
+
         // Create FormData for General incident
         const formPayload = new FormData();
         formPayload.append("data", JSON.stringify(incidentData));
-  
+
         // Append file if uploaded
-        if (selectedFile && selectedFile instanceof File && selectedFile.size > 0) {
+        if (
+          selectedFile &&
+          selectedFile instanceof File &&
+          selectedFile.size > 0
+        ) {
           // Determine if it's an image or video based on file type
-          if (selectedFile.type.startsWith('image/')) {
+          if (selectedFile.type.startsWith("image/")) {
             formPayload.append("images", selectedFile);
             console.log("General: Image file appended successfully");
-          } else if (selectedFile.type.startsWith('video/')) {
+          } else if (selectedFile.type.startsWith("video/")) {
             formPayload.append("video", selectedFile);
             console.log("General: Video file appended successfully");
           } else {
             console.warn("General: Unsupported file type:", selectedFile.type);
           }
         }
-  
+
         // Log FormData contents for debugging
         console.log("General FormData contents:");
         for (let [key, value] of formPayload.entries()) {
           console.log(`   ${key}:`, value);
         }
-  
-        const res = await userRequest(token).post("/incident/new", formPayload, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-  
+
+        const res = await userRequest(token).post(
+          "/incident/new",
+          formPayload,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
         console.log("✅ General incident created successfully", res.data);
         toast.success("Incident reported successfully!");
       }
-  
+
       // Reset form after successful submission
       setFormData({
         reportType: "SOS",
@@ -385,11 +392,12 @@ function CreateIncident() {
         description: "",
         channel: "",
         incidentType: "",
+        hideIdentity: false,
       });
       setUploadedFile("");
       setAudioBlob(null);
       setErrors({});
-  
+
       // Clear file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -471,7 +479,7 @@ function CreateIncident() {
   // Helper function to determine field visibility based on report type
   const shouldShowField = (fieldName) => {
     const { reportType } = formData;
-    
+
     switch (fieldName) {
       case "email":
       case "fullName":
@@ -490,9 +498,16 @@ function CreateIncident() {
   // Helper function to get field order based on report type
   const getFieldOrder = () => {
     const { reportType } = formData;
-    
+
     if (reportType === "General") {
-      return ["phone", "email", "fullName", "address", "channel", "incidentType"];
+      return [
+        "phone",
+        "email",
+        "fullName",
+        "address",
+        "channel",
+        "incidentType",
+      ];
     } else {
       // For SOS, only show address
       return ["address"];
@@ -500,7 +515,7 @@ function CreateIncident() {
   };
 
   const handleIncidentTypeChange = useCallback((selectedOption) => {
-    if (!selectedOption || typeof selectedOption !== 'object') {
+    if (!selectedOption || typeof selectedOption !== "object") {
       setFormData((prev) => ({ ...prev, incidentType: null }));
       return;
     }
@@ -533,14 +548,16 @@ function CreateIncident() {
                 </div>
               )}
             </div>
-            
+
             {/* Email validation feedback */}
             {formData.email && !isCheckingEmail && emailUserData && (
-              <div className={`mt-2 p-2 rounded-md text-sm ${
-                emailUserData.found 
-                  ? "bg-green-50 text-green-700 border border-green-200" 
-                  : "bg-yellow-50 text-yellow-700 border border-yellow-200"
-              }`}>
+              <div
+                className={`mt-2 p-2 rounded-md text-sm ${
+                  emailUserData.found
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                }`}
+              >
                 {emailUserData.found ? (
                   <div className="flex items-center space-x-1">
                     <span>✓</span>
@@ -554,7 +571,7 @@ function CreateIncident() {
                 )}
               </div>
             )}
-            
+
             {errors.email && (
               <p className="mt-1 text-sm text-red-500">{errors.email}</p>
             )}
@@ -704,7 +721,7 @@ function CreateIncident() {
         </h1>
 
         <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">     
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Report Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -724,7 +741,7 @@ function CreateIncident() {
             </div>
 
             {/* Dynamic form fields based on report type */}
-            {getFieldOrder().map(fieldName => renderFormField(fieldName))}
+            {getFieldOrder().map((fieldName) => renderFormField(fieldName))}
 
             {/* Description */}
             <div>
@@ -880,6 +897,26 @@ function CreateIncident() {
                 </div>
               )}
             </div>
+
+            {formData.reportType === "General" && (
+              <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
+                <input
+                  type="checkbox"
+                  id="hideIdentity"
+                  checked={formData.hideIdentity}
+                  onChange={(e) =>
+                    handleInputChange("hideIdentity", e.target.checked)
+                  }
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <label
+                  htmlFor="hideIdentity"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Hide Identity
+                </label>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-3 pt-4">
