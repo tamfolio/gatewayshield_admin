@@ -40,8 +40,8 @@ function CreateIncident() {
   const [uploadedFile, setUploadedFile] = useState("");
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [emailUserData, setEmailUserData] = useState(null);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [phoneUserData, setPhoneUserData] = useState(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -79,65 +79,99 @@ function CreateIncident() {
 
   console.log(userDataDetails);
 
-  // Function to check if user exists by email
-  const checkUserByEmail = useCallback(
-    async (email) => {
-      if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-        setEmailUserData(null);
+  // Function to check if user exists by phone number
+  const checkUserByPhone = useCallback(
+    async (phone) => {
+      // Basic phone validation - remove all non-digits and check if it's reasonable length
+      const cleanPhone = phone.replace(/\D/g, "");
+      if (!cleanPhone || cleanPhone.length < 10) {
+        setPhoneUserData(null);
         return;
       }
 
-      setIsCheckingEmail(true);
+      setIsCheckingPhone(true);
       try {
         const response = await userRequest(token).get(
-          `/incident/getUserByEmail/${encodeURIComponent(email)}`
+          `/incident/getUserByEmail/${encodeURIComponent(phone)}`
         );
-        console.log("Email lookup response:", response.data);
+        console.log("Phone lookup response:", response.data);
 
-        // Check if user exists (has id, name, not just email)
+        // Check if user exists (has id, name, email)
         if (response.data?.data?.id && response.data?.data?.name) {
-          // User found
-          setEmailUserData({
+          // User found - auto-populate email and name
+          setPhoneUserData({
             id: response.data.data.id,
             name: response.data.data.name,
             email: response.data.data.email,
+            phoneNumber: response.data.data.phoneNumber,
             found: true,
           });
+          
+          // Auto-populate the form fields
+          setFormData(prev => ({
+            ...prev,
+            email: response.data.data.email || "",
+            fullName: response.data.data.name || "",
+          }));
+          
           console.log("✅ User found:", response.data.data);
         } else {
-          // User not found (only email returned)
-          setEmailUserData({
-            email: email,
+          // User not found
+          setPhoneUserData({
+            phoneNumber: phone,
             found: false,
           });
-          console.log("❌ User not found for email:", email);
+          
+          // Clear the auto-populated fields
+          setFormData(prev => ({
+            ...prev,
+            email: "",
+            fullName: "",
+          }));
+          
+          console.log("❌ User not found for phone:", phone);
         }
       } catch (error) {
-        console.error("Error checking email:", error);
+        console.error("Error checking phone:", error);
         // If API call fails, treat as user not found
-        setEmailUserData({
-          email: email,
+        setPhoneUserData({
+          phoneNumber: phone,
           found: false,
         });
+        
+        // Clear the auto-populated fields
+        setFormData(prev => ({
+          ...prev,
+          email: "",
+          fullName: "",
+        }));
       } finally {
-        setIsCheckingEmail(false);
+        setIsCheckingPhone(false);
       }
     },
     [token]
   );
 
-  // Debounced email check
+  // Debounced phone check
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (formData.email && formData.reportType === "General") {
-        checkUserByEmail(formData.email);
+      if (formData.phone && formData.reportType === "General") {
+        checkUserByPhone(formData.phone);
       } else {
-        setEmailUserData(null);
+        setPhoneUserData(null);
+        // Clear auto-populated fields when switching report types
+        if (formData.reportType !== "General") {
+          setFormData(prev => ({
+            ...prev,
+            email: "",
+            fullName: "",
+          }));
+        }
       }
     }, 500); // 500ms delay
 
     return () => clearTimeout(timeoutId);
-  }, [formData.email, formData.reportType, checkUserByEmail]);
+  }, [formData.phone, formData.reportType, checkUserByPhone]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -170,7 +204,7 @@ function CreateIncident() {
     setUploadedFile("");
     setAudioBlob(null);
     setIsRecording(false);
-    setEmailUserData(null); // Reset email user data
+    setPhoneUserData(null); // Reset phone user data
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -185,19 +219,22 @@ function CreateIncident() {
 
     // Validation based on report type
     if (formData.reportType === "General") {
-      // For General reports, all fields are required
-      if (!formData.email.trim()) {
-        newErrors.email = "Email is required";
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = "Please enter a valid email";
-      }
-
-      if (!formData.fullName.trim()) {
-        newErrors.fullName = "Full name is required";
-      }
-
+      // Phone number is always required for General reports
       if (!formData.phone.trim()) {
         newErrors.phone = "Phone number is required";
+      }
+
+      // Email and name are only required if user is found and not hiding identity
+      if (phoneUserData?.found && !formData.hideIdentity) {
+        if (!formData.email.trim()) {
+          newErrors.email = "Email is required";
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+          newErrors.email = "Please enter a valid email";
+        }
+
+        if (!formData.fullName.trim()) {
+          newErrors.fullName = "Full name is required";
+        }
       }
 
       if (!formData.address.trim()) {
@@ -310,11 +347,11 @@ function CreateIncident() {
         toast.success("SOS report submitted successfully!");
       } else {
         // Handle General incident submission
-        // Determine if user is anonymous based on email lookup
-        const isUserAnonymous = formData.hideIdentity || !emailUserData?.found;
-        const userId = (!formData.hideIdentity && emailUserData?.found) ? emailUserData.id : null;
+        // Determine if user is anonymous based on phone lookup
+        const isUserAnonymous = formData.hideIdentity || !phoneUserData?.found;
+        const userId = (!formData.hideIdentity && phoneUserData?.found) ? phoneUserData.id : null;
 
-        console.log("Email lookup result:", emailUserData);
+        console.log("Phone lookup result:", phoneUserData);
         console.log("Is user anonymous:", isUserAnonymous);
         console.log("User ID:", userId);
 
@@ -483,6 +520,8 @@ function CreateIncident() {
     switch (fieldName) {
       case "email":
       case "fullName":
+        // Only show email and name fields if user is found via phone lookup
+        return reportType === "General" && phoneUserData?.found;
       case "phone":
         return reportType === "General";
       case "address":
@@ -526,42 +565,51 @@ function CreateIncident() {
     if (!shouldShowField(fieldName)) return null;
 
     switch (fieldName) {
-      case "email":
+      case "phone":
         return (
-          <div key="email">
+          <div key="phone">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Registered Email <span className="text-red-500">*</span>
+              Phone number <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              />
-              {isCheckingEmail && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
+            <div className="flex">
+              <div className="relative">
+                <select className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pr-8">
+                  <option value="NG">NG</option>
+                  <option value="US">US</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+              <div className="flex-1 relative">
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                  className={`w-full px-3 py-2 border-t border-r border-b rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.phone ? "border-red-500" : "border-gray-300"
+                  }`}
+                  required
+                />
+                {isCheckingPhone && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Email validation feedback */}
-            {formData.email && !isCheckingEmail && emailUserData && (
+            {/* Phone validation feedback */}
+            {formData.phone && !isCheckingPhone && phoneUserData && (
               <div
                 className={`mt-2 p-2 rounded-md text-sm ${
-                  emailUserData.found
+                  phoneUserData.found
                     ? "bg-green-50 text-green-700 border border-green-200"
                     : "bg-yellow-50 text-yellow-700 border border-yellow-200"
                 }`}
               >
-                {emailUserData.found ? (
+                {phoneUserData.found ? (
                   <div className="flex items-center space-x-1">
                     <span>✓</span>
-                    <span>User found: {emailUserData.name}</span>
+                    <span>User found: {phoneUserData.name}</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-1">
@@ -572,6 +620,29 @@ function CreateIncident() {
               </div>
             )}
 
+            {errors.phone && (
+              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+            )}
+          </div>
+        );
+
+      case "email":
+        return (
+          <div key="email">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Registered Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 ${
+                errors.email ? "border-red-500" : "border-gray-300"
+              }`}
+              readOnly={phoneUserData?.found}
+              placeholder={phoneUserData?.found ? "Auto-populated from phone lookup" : "Enter email address"}
+              required
+            />
             {errors.email && (
               <p className="mt-1 text-sm text-red-500">{errors.email}</p>
             )}
@@ -588,43 +659,15 @@ function CreateIncident() {
               type="text"
               value={formData.fullName}
               onChange={(e) => handleInputChange("fullName", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 ${
                 errors.fullName ? "border-red-500" : "border-gray-300"
               }`}
+              readOnly={phoneUserData?.found}
+              placeholder={phoneUserData?.found ? "Auto-populated from phone lookup" : "Enter full name"}
               required
             />
             {errors.fullName && (
               <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>
-            )}
-          </div>
-        );
-
-      case "phone":
-        return (
-          <div key="phone">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone number <span className="text-red-500">*</span>
-            </label>
-            <div className="flex">
-              <div className="relative">
-                <select className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pr-8">
-                  <option value="NG">NG</option>
-                  <option value="US">US</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange("phone", e.target.value)}
-                className={`flex-1 px-3 py-2 border-t border-r border-b rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.phone ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              />
-            </div>
-            {errors.phone && (
-              <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
             )}
           </div>
         );

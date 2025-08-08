@@ -43,6 +43,8 @@ const Home = () => {
   const [dataType, setDataType] = useState("General");
   const [isSelectingStartDate, setIsSelectingStartDate] = useState(true);
   const token = useAccessToken();
+  const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date().getMonth());
+const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFullYear());
 
   const userData = useSelector((state) => state.user?.currentUser?.admin);
 
@@ -131,12 +133,8 @@ const Home = () => {
 
   // Generate calendar days for current month
   const generateCalendarDays = () => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1);
+    const lastDay = new Date(currentCalendarYear, currentCalendarMonth + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     
@@ -205,6 +203,24 @@ const Home = () => {
     }
     
     return false;
+  };
+
+  const navigateMonth = (direction) => {
+    if (direction === 'prev') {
+      if (currentCalendarMonth === 0) {
+        setCurrentCalendarMonth(11);
+        setCurrentCalendarYear(currentCalendarYear - 1);
+      } else {
+        setCurrentCalendarMonth(currentCalendarMonth - 1);
+      }
+    } else {
+      if (currentCalendarMonth === 11) {
+        setCurrentCalendarMonth(0);
+        setCurrentCalendarYear(currentCalendarYear + 1);
+      } else {
+        setCurrentCalendarMonth(currentCalendarMonth + 1);
+      }
+    }
   };
 
   // If user is Command Centre Supervisor, render CcsHome component
@@ -404,6 +420,10 @@ const Home = () => {
   const DatePickerComponent = () => {
     const calendarDays = generateCalendarDays();
     const today = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
     
     return (
       <div className="relative">
@@ -420,9 +440,28 @@ const Home = () => {
           </span>
           <ChevronDown className="w-4 h-4" />
         </button>
-
+  
         {showDatePicker && (
           <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
+            {/* Month Navigation Header */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => navigateMonth('prev')}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronDown className="w-4 h-4 transform rotate-90" />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {monthNames[currentCalendarMonth]} {currentCalendarYear}
+              </h3>
+              <button
+                onClick={() => navigateMonth('next')}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronDown className="w-4 h-4 transform -rotate-90" />
+              </button>
+            </div>
+  
             <div className="mb-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2">
                 {isSelectingStartDate ? 'Select Start Date' : 'Select End Date'}
@@ -446,9 +485,9 @@ const Home = () => {
               <div className="p-2 font-medium text-gray-600">Thu</div>
               <div className="p-2 font-medium text-gray-600">Fri</div>
               <div className="p-2 font-medium text-gray-600">Sat</div>
-
+  
               {calendarDays.map((date, index) => {
-                const isCurrentMonth = date.getMonth() === today.getMonth();
+                const isCurrentMonth = date.getMonth() === currentCalendarMonth;
                 const isToday = date.toDateString() === today.toDateString();
                 const selection = isDateSelected(date);
                 const inRange = isDateInRange(date);
@@ -459,16 +498,15 @@ const Home = () => {
                     onClick={() => handleDateSelect(date)}
                     className={`p-2 hover:bg-blue-50 rounded text-gray-700 ${
                       !isCurrentMonth 
-                        ? 'text-gray-300 cursor-not-allowed'
+                        ? 'text-gray-300'
                         : selection === 'start' || selection === 'end'
                         ? 'bg-blue-600 text-white'
                         : inRange
                         ? 'bg-blue-100 text-blue-700'
                         : isToday
                         ? 'bg-gray-100 text-gray-900 font-medium'
-                        : ''
+                        : 'hover:bg-gray-100'
                     }`}
-                    disabled={!isCurrentMonth}
                   >
                     {date.getDate()}
                   </button>
