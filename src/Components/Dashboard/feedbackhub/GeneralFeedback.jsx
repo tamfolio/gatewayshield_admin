@@ -539,6 +539,25 @@ const GeneralFeedback = () => {
     );
   }
 
+  // Calculate average officer rating
+const calculateAverageOfficerRating = () => {
+  const ratings = dashboardData?.averageOfficerRating || [];
+  if (ratings.length === 0) return "0.0";
+
+  const total = ratings.reduce((sum, item) => sum + (item?.avgRating || 0), 0);
+  return (total / ratings.length).toFixed(1);
+};
+
+// Calculate average station rating
+const calculateAverageStationRating = () => {
+  const ratings = dashboardData?.averageStationRating || [];
+  if (ratings.length === 0) return "0.0";
+
+  const total = ratings.reduce((sum, item) => sum + (item?.avgRating || 0), 0);
+  return (total / ratings.length).toFixed(1);
+};
+
+
   return (
     <div className="p-6 pt-0">
       <div className="max-w-7xl mx-auto">
@@ -584,7 +603,8 @@ const GeneralFeedback = () => {
             <Card>
               <LineChart 
                 title="Average Officer Rating" 
-                rating={dashboardData?.averageOfficerRating?.toFixed(1) || "0.0"} 
+                rating={calculateAverageOfficerRating()}
+
                 loading={loading}
                 data={dashboardData?.officerRatingTrend || []}
               />
@@ -592,7 +612,8 @@ const GeneralFeedback = () => {
             <Card>
               <LineChart 
                 title="Average Station Rating" 
-                rating={dashboardData?.averageStationRating?.toFixed(1) || "0.0"}
+                rrating={calculateAverageStationRating()}
+
                 loading={loading}
                 data={dashboardData?.stationRatingTrend || []}
               />
