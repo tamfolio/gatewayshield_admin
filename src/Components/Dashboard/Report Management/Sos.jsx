@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Search,
   ChevronDown,
@@ -19,6 +19,21 @@ import {
   statusColorMap,
 } from "../../../Utils/dateUtils";
 import { Link } from "react-router-dom";
+
+const useClickOutside = (ref, callback) => {
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        callback();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [ref, callback]);
+};
 
 const Sos = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +93,59 @@ const Sos = () => {
     (state) => state.user?.currentUser?.tokens?.access?.token
   );
 
+  const reportStatusRef = useRef(null);
+  const policeStationRef = useRef(null);
+  const datePickerRef = useRef(null);
+  const originChannelRef = useRef(null);
+  const reportTypeRef = useRef(null);
+  const searchDropdownRef = useRef(null);
+
+  const closeAllDropdowns = () => {
+    setShowReportStatusDropdown(false);
+    setShowPoliceStationDropdown(false);
+    setShowDatePicker(false);
+    setShowOriginChannelDropdown(false);
+    setShowReportTypeDropdown(false);
+    setShowSearchDropdown(false);
+  };
+
+  const toggleReportStatusDropdown = () => {
+    closeAllDropdowns();
+    setShowReportStatusDropdown(true);
+  };
+
+  const togglePoliceStationDropdown = () => {
+    closeAllDropdowns();
+    setShowPoliceStationDropdown(true);
+  };
+
+  const toggleDatePicker = () => {
+    closeAllDropdowns();
+    setShowDatePicker(true);
+  };
+
+  const toggleOriginChannelDropdown = () => {
+    closeAllDropdowns();
+    setShowOriginChannelDropdown(true);
+  };
+
+  const toggleReportTypeDropdown = () => {
+    closeAllDropdowns();
+    setShowReportTypeDropdown(true);
+  };
+
+  const toggleSearchDropdown = () => {
+    closeAllDropdowns();
+    setShowSearchDropdown(true);
+  };
+
+  useClickOutside(reportStatusRef, () => setShowReportStatusDropdown(false));
+  useClickOutside(policeStationRef, () => setShowPoliceStationDropdown(false));
+  useClickOutside(datePickerRef, () => setShowDatePicker(false));
+  useClickOutside(originChannelRef, () => setShowOriginChannelDropdown(false));
+  useClickOutside(reportTypeRef, () => setShowReportTypeDropdown(false));
+  useClickOutside(searchDropdownRef, () => setShowSearchDropdown(false));
+
   useEffect(() => {
     const fetchIncidents = async () => {
       setLoading(true);
@@ -102,7 +170,12 @@ const Sos = () => {
         }
   
         // Add date range filter if selected
-        if (selectedCalendarDate && selectedCalendarDate.includes(',')) {
+        if (selectedCalendarDate && selectedCalendarDate.includes(' to ')) {
+          // Handle date range "2025-07-31 to 2025-08-03"
+          const [startDate, endDate] = selectedCalendarDate.split(' to ');
+          apiUrl += `&startDate=${startDate}&endDate=${endDate}`;
+        } else if (selectedCalendarDate && selectedCalendarDate.includes(',')) {
+          // Handle comma-separated dates "2025-07-31,2025-08-03"
           const [startDate, endDate] = selectedCalendarDate.split(',');
           apiUrl += `&startDate=${startDate}&endDate=${endDate}`;
         } else if (selectedCalendarDate && selectedCalendarDate !== 'Select Date') {
@@ -256,16 +329,12 @@ const Sos = () => {
     }
   };
 
-
-
   // Calendar state
-
 
   // Search dropdown options
   const searchOptions = ["Report ID", "Citizen Name", "Phone Number"];
 
   // Filter options
-
 
   const handleSelectAll = () => {
     setSelectedAll(!selectedAll);
@@ -378,6 +447,7 @@ const Sos = () => {
         setSelectedPoliceStation("");
         break;
       case "date":
+      case "dateRange":
         setSelectedDate("");
         setSelectedCalendarDate("");
         break;
@@ -539,7 +609,7 @@ const Sos = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">
                     {report.incidentType}
                   </h3>
-                  <p className="text-gray-600 text-sm">{report.description}</p>
+                  <p className="text-gray-600 text-sm">{report.description || report?.comment}</p>
                 </div>
               </div>
 
@@ -583,13 +653,12 @@ const Sos = () => {
     );
   };
 
-  const DropdownMenu = ({ isOpen, options, onSelect, selectedValue }) => {
+  const DropdownMenu = React.forwardRef(({ isOpen, options, onSelect, selectedValue }, ref) => {
     if (!isOpen) return null;
 
     return (
       <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-[500px] overflow-y-scroll">
         {options.map((option) => {
-          // Check if option is an object or string
           const isObject = typeof option === "object";
           const key = isObject ? option.id : option;
           const displayValue = isObject
@@ -613,7 +682,7 @@ const Sos = () => {
         })}
       </div>
     );
-  };
+  });
 
   const SearchDropdown = () => {
     if (!showSearchDropdown) return null;
@@ -709,19 +778,43 @@ const Sos = () => {
   
     const applyDateFilter = () => {
       if (startDate && endDate) {
-        const formattedStartDate = startDate.toISOString().split('T')[0];
-        const formattedEndDate = endDate.toISOString().split('T')[0];
+        // Use local date formatting to avoid timezone issues
+        const formattedStartDate = startDate.getFullYear() + '-' + 
+          String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(startDate.getDate()).padStart(2, '0');
+        const formattedEndDate = endDate.getFullYear() + '-' + 
+          String(endDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(endDate.getDate()).padStart(2, '0');
         
-        // Update your filter state with string representation
-        setSelectedCalendarDate(`${formattedStartDate} to ${formattedEndDate}`);
+        // Store the formatted display string for UI
+        const displayString = `${formattedStartDate} to ${formattedEndDate}`;
+        setSelectedCalendarDate(displayString);
         
-        // Pass as comma-separated string to avoid object rendering issues
-        handleFilterSelect("dateRange", `${formattedStartDate},${formattedEndDate}`);
+        // Add to active filters with proper display
+        let newFilters = [...activeFilters];
+        newFilters = newFilters.filter((filter) => filter.type !== "dateRange" && filter.type !== "date");
+        newFilters.push({
+          type: "dateRange",
+          value: displayString,
+          label: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
+        });
+        setActiveFilters(newFilters);
       } else if (startDate) {
         // If only start date is selected, use it as single date
-        const formattedDate = startDate.toISOString().split('T')[0];
+        const formattedDate = startDate.getFullYear() + '-' + 
+          String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+          String(startDate.getDate()).padStart(2, '0');
         setSelectedCalendarDate(formattedDate);
-        handleFilterSelect("dateRange", formattedDate);
+        
+        // Add to active filters
+        let newFilters = [...activeFilters];
+        newFilters = newFilters.filter((filter) => filter.type !== "dateRange" && filter.type !== "date");
+        newFilters.push({
+          type: "dateRange",
+          value: formattedDate,
+          label: startDate.toLocaleDateString(),
+        });
+        setActiveFilters(newFilters);
       }
       
       setShowDatePicker(false);
@@ -734,7 +827,10 @@ const Sos = () => {
     };
   
     return (
-      <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4">
+      <div 
+        ref={datePickerRef}
+        className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4"
+      >
         {/* Header with navigation */}
         <div className="flex items-center justify-between mb-4">
           <button
@@ -900,9 +996,9 @@ const Sos = () => {
             {/* Enhanced Search with Dropdown */}
             <div className="flex items-center">
               {/* Search Type Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={searchDropdownRef}>
                 <button
-                  onClick={() => setShowSearchDropdown(!showSearchDropdown)}
+                  onClick={toggleSearchDropdown}
                   className="flex items-center space-x-1 px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-white text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <span className="text-sm">{searchType}</span>
@@ -976,10 +1072,12 @@ const Sos = () => {
               <div className="flex items-center space-x-2">
                 <span className="text-gray-600">Filter By:</span>
               </div>
-              <div className="relative">
+              
+              {/* Date Filter */}
+              <div className="relative" ref={datePickerRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  onClick={toggleDatePicker}
                 >
                   <span>Date</span>
                   <ChevronDown className="h-4 w-4" />
@@ -987,17 +1085,17 @@ const Sos = () => {
                 <DatePicker />
               </div>
 
-              <div className="relative">
+              {/* Report Status Filter */}
+              <div className="relative" ref={reportStatusRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowReportStatusDropdown(!showReportStatusDropdown)
-                  }
+                  onClick={toggleReportStatusDropdown}
                 >
                   <span>Report Status</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={reportStatusRef}
                   isOpen={showReportStatusDropdown}
                   options={incidentStatus}
                   onSelect={(id) => handleFilterSelect("reportStatus", id)}
@@ -1005,42 +1103,38 @@ const Sos = () => {
                 />
               </div>
 
-              <div className="relative">
+              {/* Police Station Filter */}
+              <div className="relative" ref={policeStationRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowPoliceStationDropdown(!showPoliceStationDropdown)
-                  }
+                  onClick={togglePoliceStationDropdown}
                 >
                   <span>Police Station</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={policeStationRef}
                   isOpen={showPoliceStationDropdown}
                   options={stations}
-                  onSelect={(value) =>
-                    handleFilterSelect("policeStation", value)
-                  }
+                  onSelect={(value) => handleFilterSelect("policeStation", value)}
                   selectedValue={selectedPoliceStation}
                 />
               </div>
 
-              <div className="relative">
+              {/* Origin Channel Filter */}
+              <div className="relative" ref={originChannelRef}>
                 <button
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
-                  onClick={() =>
-                    setShowOriginChannelDropdown(!showOriginChannelDropdown)
-                  }
+                  onClick={toggleOriginChannelDropdown}
                 >
                   <span>Origin Channel</span>
                   <ChevronDown className="h-4 w-4" />
                 </button>
                 <DropdownMenu
+                  ref={originChannelRef}
                   isOpen={showOriginChannelDropdown}
                   options={incidentChannels}
-                  onSelect={(value) =>
-                    handleFilterSelect("originChannel", value)
-                  }
+                  onSelect={(value) => handleFilterSelect("originChannel", value)}
                   selectedValue={selectedOriginChannel}
                 />
               </div>

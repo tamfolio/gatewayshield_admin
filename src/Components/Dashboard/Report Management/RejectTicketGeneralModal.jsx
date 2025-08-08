@@ -16,7 +16,7 @@ function RejectTicketGeneralModal({
     setLoading(true);
     
     try {
-      const res = await userRequest(token).patch(`/reject/${id}`);
+      const res = await userRequest(token).patch(`incident/reject/${id}`);
       
       console.log("✅ Ticket rejected successfully", res.data);
       toast.success("Ticket rejected successfully!");
