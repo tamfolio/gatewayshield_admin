@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Search,
   Upload,
@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { userRequest } from "../../../requestMethod";
 import useAccessToken from "../../../Utils/useAccessToken";
@@ -20,12 +22,15 @@ const ManageUsers = () => {
   const [adminRoles, setAdminRoles] = useState([]);
   const [adminFormation, setAdminFormation] = useState([]);
   const [adminRanks, setAdminRanks] = useState([]);
+  
+  // Updated filters structure for dropdown filters
   const [selectedFilters, setSelectedFilters] = useState({
     status: "",
     roleId: "",
     rankId: "",
     formationId: ""
   });
+  
   const [adminData, setAdminData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -33,9 +38,13 @@ const ManageUsers = () => {
   const [sortBy, setSortBy] = useState("name");
   const [updatingUserId, setUpdatingUserId] = useState(null);
   
+  // Dropdown states
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const dropdownRefs = useRef({});
+  
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
   const token = useAccessToken();
@@ -122,8 +131,10 @@ const ManageUsers = () => {
         (user) =>
           `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          getRankName(user.rankId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-          getRoleName(user.roleId).toLowerCase().includes(searchTerm.toLowerCase())
+          (user.rankName || getRankName(user.rankId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.roleName || getRoleName(user.roleId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.formationName || getFormationName(user.formationId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.badgeNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -135,11 +146,15 @@ const ManageUsers = () => {
           const nameB = `${b.firstName} ${b.lastName}`;
           return nameA.localeCompare(nameB);
         case "rank":
-          return getRankName(a.rankId).localeCompare(getRankName(b.rankId));
+          const rankA = a.rankName || getRankName(a.rankId);
+          const rankB = b.rankName || getRankName(b.rankId);
+          return rankA.localeCompare(rankB);
         case "status":
           return (a.status || "").localeCompare(b.status || "");
         case "role":
-          return getRoleName(a.roleId).localeCompare(getRoleName(b.roleId));
+          const roleA = a.roleName || getRoleName(a.roleId);
+          const roleB = b.roleName || getRoleName(b.roleId);
+          return roleA.localeCompare(roleB);
         default:
           return 0;
       }
@@ -217,10 +232,97 @@ const ManageUsers = () => {
     return formation ? formation.name : "N/A";
   };
 
+  // Get unique values for filters
+  const getUniqueFormations = () => {
+    const formations = adminData.map(user => user.formationName || getFormationName(user.formationId));
+    return [...new Set(formations)].filter(f => f !== "N/A").sort();
+  };
+
+  const getUniqueRoles = () => {
+    const roles = adminData.map(user => user.roleName || getRoleName(user.roleId));
+    return [...new Set(roles)].filter(r => r !== "N/A").sort();
+  };
+
+  const getUniqueRanks = () => {
+    const ranks = adminData.map(user => user.rankName || getRankName(user.rankId));
+    return [...new Set(ranks)].filter(r => r !== "N/A").sort();
+  };
+
+  // Filter handlers
+  const toggleDropdown = (dropdownName) => {
+    setOpenDropdown(openDropdown === dropdownName ? null : dropdownName);
+  };
+
+  const toggleFilter = (filterType, value) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].includes(value)
+        ? prev[filterType].filter(item => item !== value)
+        : [...prev[filterType], value]
+    }));
+  };
+
+ 
+
+  const getActiveFiltersCount = () => {
+    return Object.values(selectedFilters).reduce((count, filters) => count + filters.length, 0);
+  };
+
+  // Filter Dropdown Component
+  const FilterDropdown = ({ title, filterType, options, isOpen }) => (
+    <div className="relative" ref={el => dropdownRefs.current[filterType] = el}>
+      <button
+        onClick={() => toggleDropdown(filterType)}
+        className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+          selectedFilters[filterType].length > 0
+            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+        }`}
+      >
+        {title}
+        {selectedFilters[filterType].length > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+            {selectedFilters[filterType].length}
+          </span>
+        )}
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+          <div className="p-2">
+            {options.map((option) => (
+              <label
+                key={option}
+                className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-gray-50 rounded cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedFilters[filterType].includes(option)}
+                  onChange={() => toggleFilter(filterType, option)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-900">{option}</span>
+                {selectedFilters[filterType].includes(option) && (
+                  <Check className="w-3 h-3 text-blue-600 ml-auto" />
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
   };
 
   const handleStatusUpdate = async (adminId, currentStatus) => {
@@ -249,6 +351,8 @@ const ManageUsers = () => {
     const range = [];
     const rangeWithDots = [];
 
+    if (totalPages <= 1) return [1];
+
     for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
       range.push(i);
     }
@@ -263,7 +367,7 @@ const ManageUsers = () => {
 
     if (currentPage + delta < totalPages - 1) {
       rangeWithDots.push('...', totalPages);
-    } else {
+    } else if (totalPages > 1) {
       rangeWithDots.push(totalPages);
     }
 
@@ -407,6 +511,16 @@ const ManageUsers = () => {
               {totalItems} user{totalItems !== 1 ? 's' : ''} found
             </span>
             <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -419,6 +533,13 @@ const ManageUsers = () => {
           </div>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

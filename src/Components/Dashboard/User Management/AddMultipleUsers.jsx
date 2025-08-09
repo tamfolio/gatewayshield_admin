@@ -18,7 +18,7 @@ function AddMultipleUsers() {
 
   const handleDownloadTemplate = () => {
     // Updated CSV template with sample data for testing
-    const csvContent = firstName,lastName,phoneNumber,email,roleId,formationId,rankId,badgeNumber,address,coordinate;
+    const csvContent = `firstName,lastName,phoneNumber,email,roleId,formationId,rankId,badgeNumber,address,coordinate`;
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -42,14 +42,14 @@ function AddMultipleUsers() {
     // Validate headers
     const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
     if (missingHeaders.length > 0) {
-      throw new Error(Missing required columns: ${missingHeaders.join(', ')});
+      throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
     }
 
     const data = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(value => value.trim());
       if (values.length !== headers.length) {
-        throw new Error(Row ${i + 1} has ${values.length} columns but expected ${headers.length});
+        throw new Error(`Row ${i + 1} has ${values.length} columns but expected ${headers.length}`);
       }
 
       const row = {};
@@ -60,7 +60,7 @@ function AddMultipleUsers() {
       // Validate required fields
       const emptyFields = requiredHeaders.filter(field => !row[field] || row[field].trim() === '');
       if (emptyFields.length > 0) {
-        throw new Error(Row ${i + 1} has empty required fields: ${emptyFields.join(', ')});
+        throw new Error(`Row ${i + 1} has empty required fields: ${emptyFields.join(', ')}`);
       }
 
       data.push(row);
@@ -163,7 +163,7 @@ function AddMultipleUsers() {
             }, 1000);
           } catch (parseError) {
             setUploadStatus('error');
-            setError(CSV parsing error: ${parseError.message});
+            setError(`CSV parsing error: ${parseError.message}`);
           }
         };
         reader.onerror = () => {
@@ -177,12 +177,12 @@ function AddMultipleUsers() {
           await parseExcelFile(file);
         } catch (parseError) {
           setUploadStatus('error');
-          setError(Excel parsing error: ${parseError.message});
+          setError(`Excel parsing error: ${parseError.message}`);
         }
       }
     } catch (error) {
       setUploadStatus('error');
-      setError(File processing error: ${error.message});
+      setError(`File processing error: ${error.message}`);
     }
   };
 
@@ -266,7 +266,7 @@ function AddMultipleUsers() {
       console.log('✅ Bulk upload successful:', response.data);
       
       // Show success toast message
-      toast.success(response.data.message || Successfully uploaded ${parsedData.length} users!);
+      toast.success(response.data.message || `Successfully uploaded ${parsedData.length} users!`);
       
       // Clear uploaded files and data
       setUploadedFiles([]);
@@ -276,7 +276,6 @@ function AddMultipleUsers() {
     } catch (error) {
       console.error('❌ Bulk upload failed:', error);
       const message = error?.response?.data?.error || error?.response?.data?.message || 'Failed to upload users. Please try again.';
-      toast.error(message);
       setError(message);
     } finally {
       setLoading(false);
@@ -326,11 +325,11 @@ function AddMultipleUsers() {
 
   const formatFileSize = (sizeInKB) => {
     if (sizeInKB < 1024) {
-      return ${sizeInKB} KB;
+      return `${sizeInKB} KB`;
     } else {
-      return ${(sizeInKB / 1024).toFixed(1)} MB;
+      return `${(sizeInKB / 1024).toFixed(1)} MB`;
     }
-  };
+};
 
   const getTotalRecords = () => {
     return uploadedFiles.reduce((total, file) => total + (file.recordCount || 0), 0);
@@ -521,7 +520,7 @@ function AddMultipleUsers() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          {loading ? 'Processing...' : Upload ${getTotalRecords()} Users}
+          {loading ? 'Processing...' : `Upload ${getTotalRecords()} Users`}
         </button>
       </div>
     </div>
