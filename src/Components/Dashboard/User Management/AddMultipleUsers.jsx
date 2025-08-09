@@ -276,7 +276,6 @@ function AddMultipleUsers() {
     } catch (error) {
       console.error('❌ Bulk upload failed:', error);
       const message = error?.response?.data?.error || error?.response?.data?.message || 'Failed to upload users. Please try again.';
-      toast.error(message);
       setError(message);
     } finally {
       setLoading(false);
@@ -330,7 +329,7 @@ function AddMultipleUsers() {
     } else {
       return `${(sizeInKB / 1024).toFixed(1)} MB`;
     }
-  };
+};
 
   const getTotalRecords = () => {
     return uploadedFiles.reduce((total, file) => total + (file.recordCount || 0), 0);

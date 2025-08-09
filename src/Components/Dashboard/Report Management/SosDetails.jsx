@@ -33,7 +33,7 @@ import {
 import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
-import RejectTicketSosModal from "./RejectTicketSosModal.jsx";
+import RejectTicketGeneralModal from "./RejectTicketGeneralModal.jsx";
 
 function SosDetails() {
   const { id } = useParams();
@@ -98,12 +98,21 @@ function SosDetails() {
   };
 
   const handleRejectTicketSuccess = () => {
-    // Add your rejection logic here - API call, state updates, etc.
-    console.log("Ticket rejected successfully");
-    // You might want to refresh the incident data or show a success message
+    // Refresh incident data after rejection
+    const fetchIncident = async () => {
+      try {
+        const res = await userRequest(token).get(`/sos/${id}`);
+        setIncident(res.data.data.sos);
+      } catch (error) {
+        console.error("❌ Failed to refresh incident:", error);
+      }
+    };
+
+    fetchIncident();
+    console.log("Ticket rejected successfully - data refreshed");
   };
 
-  // Add handlers for new buttons
+  // handlers for new buttons
   const handleReassignTicketModal = () => {
     // You'll need to implement this modal
     console.log("Reassign ticket modal");
@@ -146,7 +155,6 @@ function SosDetails() {
       }
     } catch (error) {
       console.error("❌ Failed to mark SOS incident as treated:", error);
-      // Handle error - show error message to user
     } finally {
       setMarkingAsTreated(false);
     }
@@ -313,7 +321,9 @@ function SosDetails() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   {incident?.incidentType}
                 </h3>
-                <p className="text-gray-600 text-sm">{incident?.description || incident?.comment}</p>
+                <p className="text-gray-600 text-sm">
+                  {incident?.description || incident?.comment}
+                </p>
               </div>
             </div>
 
@@ -560,7 +570,9 @@ function SosDetails() {
       )}
 
       {rejectTicketModal && (
-        <RejectTicketSosModal
+        <RejectTicketGeneralModal
+          id={id}
+          token={token}
           handleRejectTicketModal={handleRejectTicketModal}
           handleRejectTicketSuccess={handleRejectTicketSuccess}
         />
@@ -617,7 +629,9 @@ function SosDetails() {
                   <div className="px-6 pb-6">
                     <div className="space-y-4">
                       <p className="text-gray-700 leading-relaxed">
-                        {incident?.description || incident?.comment || "No description Attached"}
+                        {incident?.description ||
+                          incident?.comment ||
+                          "No description Attached"}
                       </p>
                     </div>
                   </div>
@@ -648,7 +662,7 @@ function SosDetails() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Action Buttons - Now Role Based */}
+            {/* Action Buttons */}
             {renderActionButtons()}
 
             {/* Contact Information */}
