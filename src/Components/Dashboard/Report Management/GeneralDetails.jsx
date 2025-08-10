@@ -34,6 +34,7 @@ import {
 } from "../../../Utils/dateUtils";
 import PastHistorySOS from "./PastTrailHistory.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
+import { toast } from "react-toastify";
 
 function GeneralDetails() {
   const { id } = useParams();
@@ -50,12 +51,13 @@ function GeneralDetails() {
   const [exportSuccessModal, setExportSuccessModal] = useState(false);
   const [closeTicketModal, setCloseTicketModal] = useState(false);
   const [assignTicketModal, setAssignTicketModal] = useState(false);
-  const [assignTicketSuccessModal, setAssignTicketSuccessModal] = useState(false);
+  const [assignTicketSuccessModal, setAssignTicketSuccessModal] =
+    useState(false);
   const [confirmCloseTicketModal, setConfirmCloseTicketModal] = useState(false);
   const [rejectTicketModal, setRejectTicketModal] = useState(false);
   const [markingAsTreated, setMarkingAsTreated] = useState(false);
   const [puttingOnHold, setPuttingOnHold] = useState(false);
-  
+
   // Image modal states
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
@@ -125,11 +127,11 @@ function GeneralDetails() {
     }
   
     setMarkingAsTreated(true);
-    
+  
     try {
       const requestBody = {
         incidentId: id,
-        stationId: incident.assignedStation
+        stationId: incident.assignedStation,
       };
   
       const res = await userRequest(token).patch(
@@ -137,32 +139,31 @@ function GeneralDetails() {
         requestBody
       );
   
-      if (res.data.success) {
-        setIncident(prev => ({
-          ...prev,
-          slaStatus: "Treated"
-        }));
-        
+      // Check for the message instead of success
+      if (res.data.message) {
         console.log("Incident marked as treated successfully");
+        toast.success(res.data.message); // Show the success message
+        fetchIncident(); // This should now run
       }
     } catch (error) {
       console.error("❌ Failed to mark incident as treated:", error);
+      toast.error("Failed to mark incident as treated");
     } finally {
       setMarkingAsTreated(false);
     }
   };
-  
+
   const handlePutOnHoldModal = async () => {
     if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
       return;
     }
   
     setPuttingOnHold(true);
-    
+  
     try {
       const requestBody = {
         incidentId: id,
-        stationId: incident.assignedStation
+        stationId: incident.assignedStation,
       };
   
       const res = await userRequest(token).patch(
@@ -170,16 +171,15 @@ function GeneralDetails() {
         requestBody
       );
   
-      if (res.data.success) {
-        setIncident(prev => ({
-          ...prev,
-          slaStatus: "OnHold"
-        }));
-        
+      // Check for the message instead of success
+      if (res.data.message) {
         console.log("Incident put on hold successfully");
+        toast.success(res.data.message); // Show the success message
+        fetchIncident();
       }
     } catch (error) {
       console.error("❌ Failed to put incident on hold:", error);
+      toast.error("Failed to put incident on hold");
     } finally {
       setPuttingOnHold(false);
     }
@@ -219,18 +219,18 @@ function GeneralDetails() {
     }
   };
 
-  useEffect(() => {
-    const fetchIncident = async () => {
-      try {
-        const res = await userRequest(token).get(`/incident/${id}`);
-        setIncident(res.data.data.incident);
-      } catch (error) {
-        console.error("❌ Failed to fetch incident:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchIncident = async () => {
+    try {
+      const res = await userRequest(token).get(`/incident/${id}`);
+      setIncident(res.data.data.incident);
+    } catch (error) {
+      console.error("❌ Failed to fetch incident:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     const fetchPastHistory = async () => {
       try {
         const res = await userRequest(token).get(
@@ -376,7 +376,9 @@ function GeneralDetails() {
 
     return (
       <div className="mt-6">
-        <h4 className="text-lg font-medium text-gray-900 mb-4">Incident Images</h4>
+        <h4 className="text-lg font-medium text-gray-900 mb-4">
+          Incident Images
+        </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {images.map((imageUrl, index) => (
             <div
@@ -389,8 +391,8 @@ function GeneralDetails() {
                 alt={`Incident image ${index + 1}`}
                 className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                 onError={(e) => {
-                  e.target.src = '/placeholder-image.png'; // Fallback image
-                  e.target.alt = 'Image failed to load';
+                  e.target.src = "/placeholder-image.png"; // Fallback image
+                  e.target.alt = "Image failed to load";
                 }}
               />
               <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
@@ -408,7 +410,10 @@ function GeneralDetails() {
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+        onClick={onClose}
+      >
         <div className="relative max-w-4xl max-h-screen p-4">
           <button
             onClick={onClose}
@@ -431,18 +436,18 @@ function GeneralDetails() {
   const renderActionButtons = () => {
     const isIncidentInProgress = () => {
       const status = incident?.incidentStatus?.toLowerCase();
-      return status === 'new' || status === 'in progress';
+      return status === "new" || status === "inprogress";
     };
 
-    const isMarkAsTreatedDisabled = 
-      !incident?.assignedStation || 
-      incident?.slaStatus === "Treated" || 
+    const isMarkAsTreatedDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "Treated" ||
       !isIncidentInProgress() ||
       markingAsTreated;
 
-    const isPutOnHoldDisabled = 
-      !incident?.assignedStation || 
-      incident?.slaStatus === "OnHold" || 
+    const isPutOnHoldDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "OnHold" ||
       !isIncidentInProgress() ||
       puttingOnHold;
 
@@ -495,7 +500,7 @@ function GeneralDetails() {
               onClick={handleMarkAsTreatedModal}
               disabled={isMarkAsTreatedDisabled}
               title={
-                !isIncidentInProgress() 
+                !isIncidentInProgress()
                   ? "Incident must be 'New' or 'In Progress' to mark as treated"
                   : !incident?.assignedStation
                   ? "Incident must be assigned to a station"
@@ -504,7 +509,7 @@ function GeneralDetails() {
                   : ""
               }
             >
-              {markingAsTreated ? "Marking..." : "Mark as Treated"}
+             {markingAsTreated ? "Marking..." : incident?.incidentStatus === "treated" ? "Treated" : "Mark as Treated"}
             </button>
             <button
               className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -515,7 +520,7 @@ function GeneralDetails() {
               onClick={handlePutOnHoldModal}
               disabled={isPutOnHoldDisabled}
               title={
-                !isIncidentInProgress() 
+                !isIncidentInProgress()
                   ? "Incident must be 'New' or 'In Progress' to put on hold"
                   : !incident?.assignedStation
                   ? "Incident must be assigned to a station"
@@ -636,7 +641,7 @@ function GeneralDetails() {
           handleRejectTicketSuccess={handleRejectTicketSuccess}
         />
       )}
-      
+
       <div className="p-6 bg-gray-50 min-h-screen">
         {/* Breadcrumb */}
         <div className="flex items-center text-sm text-gray-600 mb-6">
@@ -673,33 +678,36 @@ function GeneralDetails() {
                 ))}
               </nav>
             </div>
-            
+
             {activeTab === "Citizen Report" && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="px-6 py-6">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-3">Report Description</h4>
+                      <h4 className="text-lg font-medium text-gray-900 mb-3">
+                        Report Description
+                      </h4>
                       <p className="text-gray-700 leading-relaxed">
                         {incident?.description}
                       </p>
                     </div>
-                    
+
                     {/* Images Section */}
-                    {incident?.incidentImages && incident.incidentImages.length > 0 && (
-                      <ImagesGallery images={incident.incidentImages} />
-                    )}
+                    {incident?.incidentImages &&
+                      incident.incidentImages.length > 0 && (
+                        <ImagesGallery images={incident.incidentImages} />
+                      )}
                   </div>
                 </div>
               </div>
             )}
-            
+
             {activeTab === "Past SOS History" && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <PastHistorySOS pastHistory={pastHistory} />
               </div>
             )}
-            
+
             {activeTab === "Audit Trail" && (
               <div className="bg-white rounded-lg shadow-sm border">
                 <AuditTrailSection auditTrail={auditTrail} />
@@ -713,7 +721,7 @@ function GeneralDetails() {
             {renderActionButtons()}
 
             {/* Contact Information */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Contact Information
@@ -721,30 +729,39 @@ function GeneralDetails() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm text-gray-600">Reported By</label>
-                    <div className="font-medium">{incident?.user?.name || "John Doe"}</div>
+                    <div className="font-medium">
+                      {incident?.user?.name || "John Doe"}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Phone Number
                     </label>
-                    <div className="font-medium">{incident?.user?.phoneNumber || "+234 81 34456666"}</div>
+                    <div className="font-medium">
+                      {incident?.user?.phoneNumber || "+234 81 34456666"}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Date Created
                     </label>
-                    <div className="font-medium">{extractDate(incident?.datePublished) || "16th May, 2025"}</div>
+                    <div className="font-medium">
+                      {extractDate(incident?.datePublished) || "16th May, 2025"}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
                       Submission Time
                     </label>
-                    <div className="font-medium">{extractTime(incident?.datePublished) || "8:00am"}</div>
+                    <div className="font-medium">
+                      {extractTime(incident?.datePublished) || "8:00am"}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">Status</label>
                     <div className="font-medium">
-                      {incident?.incidentStatus || "Report received and under review"}
+                      {incident?.incidentStatus ||
+                        "Report received and under review"}
                     </div>
                   </div>
                   <div>
@@ -755,10 +772,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Citizen Feedback */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Citizen Feedback
@@ -781,7 +798,9 @@ function GeneralDetails() {
                     <label className="text-sm text-gray-600">
                       Station Name
                     </label>
-                    <div className="font-medium">{incident?.station?.formation || "Lorem Ipsum"}</div>
+                    <div className="font-medium">
+                      {incident?.station?.formation || "Lorem Ipsum"}
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm text-gray-600">
@@ -812,10 +831,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Internal Note */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Internal Note
@@ -836,10 +855,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Closure Note */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">Closure Note</h3>
                 <div className="space-y-3">
@@ -862,7 +881,7 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
