@@ -314,11 +314,20 @@ function CreateIncident() {
 
         // Append audio file if recorded
         if (audioBlob) {
-          const audioFile = new File([audioBlob], "recording.wav", {
-            type: "audio/wav",
+          let filename = 'recording.webm';
+          if (audioBlob.type.includes('webm')) {
+            filename = 'recording.webm';
+          } else if (audioBlob.type.includes('mp4')) {
+            filename = 'recording.mp4';
+          } else if (audioBlob.type.includes('mpeg')) {
+            filename = 'recording.mp3';
+          }
+        
+          const audioFile = new File([audioBlob], filename, {
+            type: audioBlob.type, // Use the actual recorded type
           });
           formPayload.append("audio", audioFile);
-          console.log("SOS: Audio file appended successfully");
+          console.log("Audio file type:", audioFile.type); // Debug log
         }
 
         // Append image file if uploaded
@@ -454,27 +463,42 @@ function CreateIncident() {
 
   const toggleRecording = async () => {
     if (!isRecording) {
-      // Start recording
+      // Start recording with better format options
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          }
         });
-        const recorder = new MediaRecorder(stream);
+  
+        // Use WebM format instead of default
+        let options = {};
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        }
+  
+        const recorder = new MediaRecorder(stream, options);
         const chunks = [];
-
+  
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             chunks.push(event.data);
           }
         };
-
+  
         recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: "audio/wav" });
+          const mimeType = recorder.mimeType || 'audio/webm';
+          const blob = new Blob(chunks, { type: mimeType });
           setAudioBlob(blob);
-          // Stop all tracks to release microphone
           stream.getTracks().forEach((track) => track.stop());
         };
-
+  
         recorder.start();
         setMediaRecorder(recorder);
         setIsRecording(true);

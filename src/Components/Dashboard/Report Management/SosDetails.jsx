@@ -34,6 +34,7 @@ import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
 import RejectTicketGeneralModal from "./RejectTicketGeneralModal.jsx";
+import { toast } from "react-toastify";
 
 function SosDetails() {
   const { id } = useParams();
@@ -99,16 +100,7 @@ function SosDetails() {
 
   const handleRejectTicketSuccess = () => {
     // Refresh incident data after rejection
-    const fetchIncident = async () => {
-      try {
-        const res = await userRequest(token).get(`/sos/${id}`);
-        setIncident(res.data.data.sos);
-      } catch (error) {
-        console.error("❌ Failed to refresh incident:", error);
-      }
-    };
-
-    fetchIncident();
+    fetchIncident(); // Use the external fetchIncident function
     console.log("Ticket rejected successfully - data refreshed");
   };
 
@@ -126,35 +118,29 @@ function SosDetails() {
     if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
       return;
     }
-
+  
     setMarkingAsTreated(true);
-
+  
     try {
       const requestBody = {
         incidentId: id,
         stationId: incident?.assignedStation,
       };
-
+  
       const res = await userRequest(token).patch(
         `/sos/mark-as-treated/${id}`,
         requestBody
       );
-
-      if (res.data.success) {
-        // Update the incident state to reflect the new status
-        setIncident((prev) => ({
-          ...prev,
-          slaStatus: "Treated",
-        }));
-
-        // Show success message or handle success
+  
+      // Check for the message instead of success
+      if (res.data.message) {
         console.log("SOS incident marked as treated successfully");
-
-        // Optionally refresh the incident data
-        // fetchIncident();
+        toast.success(res.data.message); // Show the success message
+        fetchIncident(); // This should now run
       }
     } catch (error) {
       console.error("❌ Failed to mark SOS incident as treated:", error);
+      toast.error("Failed to mark SOS incident as treated");
     } finally {
       setMarkingAsTreated(false);
     }
@@ -164,36 +150,29 @@ function SosDetails() {
     if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
       return;
     }
-
+  
     setPuttingOnHold(true);
-
+  
     try {
       const requestBody = {
         incidentId: id,
         stationId: incident?.assignedStation,
       };
-
+  
       const res = await userRequest(token).patch(
         `/sos/put-on-hold/${id}`,
         requestBody
       );
-
-      if (res.data.success) {
-        // Update the incident state to reflect the new status
-        setIncident((prev) => ({
-          ...prev,
-          slaStatus: "OnHold",
-        }));
-
-        // Show success message or handle success
+  
+      // Check for the message instead of success
+      if (res.data.message) {
         console.log("SOS incident put on hold successfully");
-
-        // Optionally refresh the incident data
-        // fetchIncident();
+        toast.success(res.data.message); // Show the success message
+        fetchIncident();
       }
     } catch (error) {
       console.error("❌ Failed to put SOS incident on hold:", error);
-      // Handle error - show error message to user
+      toast.error("Failed to put SOS incident on hold");
     } finally {
       setPuttingOnHold(false);
     }
@@ -233,18 +212,18 @@ function SosDetails() {
     }
   };
 
-  useEffect(() => {
-    const fetchIncident = async () => {
-      try {
-        const res = await userRequest(token).get(`/sos/${id}`);
-        setIncident(res.data.data.sos);
-      } catch (error) {
-        console.error("❌ Failed to fetch incident:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchIncident = async () => {
+    try {
+      const res = await userRequest(token).get(`/sos/${id}`);
+      setIncident(res.data.data.sos);
+    } catch (error) {
+      console.error("❌ Failed to fetch incident:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     const fetchPastHistory = async () => {
       try {
         const res = await userRequest(token).get(
@@ -378,7 +357,7 @@ function SosDetails() {
     // Helper function to check if incident status allows marking as treated or putting on hold
     const isIncidentInProgress = () => {
       const status = incident?.incidentStatus?.toLowerCase();
-      return status === "new" || status === "in progress";
+      return status === "new" || status === "inprogress";
     };
 
     const isMarkAsTreatedDisabled =
@@ -451,7 +430,7 @@ function SosDetails() {
                   : ""
               }
             >
-              {markingAsTreated ? "Marking..." : "Mark as Treated"}
+              {markingAsTreated ? "Marking..." : incident?.incidentStatus === "treated" ? "Treated" : "Mark as Treated"}
             </button>
             <button
               className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
