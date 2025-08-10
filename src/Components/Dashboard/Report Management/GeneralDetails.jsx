@@ -721,7 +721,7 @@ function GeneralDetails() {
             {renderActionButtons()}
 
             {/* Contact Information */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Contact Information
@@ -772,10 +772,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Citizen Feedback */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Citizen Feedback
@@ -831,10 +831,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Internal Note */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Internal Note
@@ -855,10 +855,10 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Closure Note */}
-            <div className="bg-white rounded-lg shadow-sm border">
+            {/* <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">Closure Note</h3>
                 <div className="space-y-3">
@@ -881,7 +881,7 @@ function GeneralDetails() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
