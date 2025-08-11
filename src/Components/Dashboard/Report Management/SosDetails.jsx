@@ -33,7 +33,7 @@ import {
 import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
-import RejectTicketGeneralModal from "./RejectTicketGeneralModal.jsx";
+import RejectTicketGeneralModal from "./RejectTicketSosModal.jsx";
 import { toast } from "react-toastify";
 
 function SosDetails() {
@@ -90,6 +90,10 @@ function SosDetails() {
     setAssignTicketSuccessModal(!assignTicketSuccessModal);
   };
 
+  const handleAssignTicketSuccessModal = () => {
+    setAssignTicketSuccessModal(!assignTicketSuccessModal);
+  };
+
   const handleExportSosSuccessModal = () => {
     setExportSosSuccessModal(!exportSosSuccessModal);
   };
@@ -115,64 +119,86 @@ function SosDetails() {
   };
 
   const handleMarkAsTreatedModal = async () => {
-    if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
+    if (markingAsTreated) return; // Prevent double clicks
+
+    if (incident?.incidentStatus?.toLowerCase() !== "inprogress") {
+      console.log("Cannot mark as treated - status is not 'inprogress'");
       return;
     }
-  
+
     setMarkingAsTreated(true);
-  
+
     try {
-      const requestBody = {
-        incidentId: id,
-        stationId: incident?.assignedStation,
+      const payload = {
+        statusId: "01JY9RYDSKAQ06JZGDT85EJRCC", // Mark as treated status ID
       };
-  
+
       const res = await userRequest(token).patch(
-        `/sos/mark-as-treated/${id}`,
-        requestBody
+        `sos/updateStatus/${id}`,
+        payload
       );
-  
-      // Check for the message instead of success
-      if (res.data.message) {
-        console.log("SOS incident marked as treated successfully");
-        toast.success(res.data.message); // Show the success message
-        fetchIncident(); // This should now run
+
+      console.log("✅ SOS marked as treated successfully", res.data);
+      toast.success("SOS marked as treated successfully!");
+
+      // Call success callback if provided
+      if (handleRejectTicketSuccess) {
+        handleRejectTicketSuccess();
       }
-    } catch (error) {
-      console.error("❌ Failed to mark SOS incident as treated:", error);
-      toast.error("Failed to mark SOS incident as treated");
+
+      // Refresh the incident data
+      fetchIncident();
+    } catch (err) {
+      console.error("❌ Error marking SOS as treated:", err);
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to mark SOS as treated. Please try again.";
+
+      toast.error(errorMessage);
     } finally {
       setMarkingAsTreated(false);
     }
   };
 
   const handlePutOnHoldModal = async () => {
-    if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
+    if (puttingOnHold) return; // Prevent double clicks
+
+    if (incident?.incidentStatus?.toLowerCase() !== "inprogress") {
+      console.log("Cannot put on hold - status is not 'inprogress'");
       return;
     }
-  
+
     setPuttingOnHold(true);
-  
+
     try {
-      const requestBody = {
-        incidentId: id,
-        stationId: incident?.assignedStation,
+      const payload = {
+        statusId: "01JY9RYDSKAQ06JZGDT85EJRDD", // Put on hold status ID
       };
-  
+
       const res = await userRequest(token).patch(
-        `/sos/put-on-hold/${id}`,
-        requestBody
+        `sos/updateStatus/${id}`,
+        payload
       );
-  
-      // Check for the message instead of success
-      if (res.data.message) {
-        console.log("SOS incident put on hold successfully");
-        toast.success(res.data.message); // Show the success message
-        fetchIncident();
+
+      console.log("✅ SOS put on hold successfully", res.data);
+      toast.success("SOS put on hold successfully!");
+
+      // Call success callback if provided
+      if (handleRejectTicketSuccess) {
+        handleRejectTicketSuccess();
       }
-    } catch (error) {
-      console.error("❌ Failed to put SOS incident on hold:", error);
-      toast.error("Failed to put SOS incident on hold");
+
+      // Refresh the incident data
+      fetchIncident();
+    } catch (err) {
+      console.error("❌ Error putting SOS on hold:", err);
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to put SOS on hold. Please try again.";
+
+      toast.error(errorMessage);
     } finally {
       setPuttingOnHold(false);
     }
@@ -190,10 +216,12 @@ function SosDetails() {
     }
   };
 
-  const getStations = async () => {
+  const getPossibleStations = async () => {
     try {
-      const res = await userRequest(token).get(`/incident/${id}/stations`);
-      setStations(res.data.data.stations);
+      const res = await userRequest(token).get(
+        `/admin/get/all?roleid=01K0Q73GECFSBSNXDQ8TQCGEPZ`
+      );
+      setStations(res.data.data.admins);
     } catch (error) {
       console.error("❌ Failed to fetch incident:", error);
     } finally {
@@ -256,7 +284,7 @@ function SosDetails() {
   }, [id, token]);
 
   useEffect(() => {
-    getStations();
+    getPossibleStations();
     getClosureReasons();
   }, []);
 
@@ -353,34 +381,59 @@ function SosDetails() {
   };
 
   // Function to render buttons based on role
+  // Function to render buttons based on role - UPDATED FOR SOS
   const renderActionButtons = () => {
-    // Helper function to check if incident status allows marking as treated or putting on hold
-    const isIncidentInProgress = () => {
-      const status = incident?.incidentStatus?.toLowerCase();
-      return status === "new" || status === "inprogress";
-    };
-
+    // Check incident status
+    const isIncidentTreated = incident?.incidentStatus?.toLowerCase() === "treated";
+    const isIncidentClosed = incident?.incidentStatus?.toLowerCase() === "closed";
+    const isIncidentInProgress = incident?.incidentStatus?.toLowerCase() === "inprogress";
+    
+    // Check assignment status
+    const isAlreadyAssigned = incident?.assignedStatus === "assigned";
+  
+    // Button availability logic
     const isMarkAsTreatedDisabled =
-      !incident?.assignedStation ||
-      incident?.slaStatus === "Treated" ||
-      !isIncidentInProgress() ||
-      markingAsTreated;
-
+      incident?.incidentStatus?.toLowerCase() !== "inprogress" || markingAsTreated;
+  
     const isPutOnHoldDisabled =
-      !incident?.assignedStation ||
-      incident?.slaStatus === "OnHold" ||
-      !isIncidentInProgress() ||
-      puttingOnHold;
-
+      incident?.incidentStatus?.toLowerCase() !== "inprogress" || puttingOnHold;
+  
+    // Disable assign button ONLY if treated OR closed (allow reassignment if assigned + inprogress)
+    const isAssignDisabled = isIncidentTreated || isIncidentClosed;
+  
+    // Close ticket is only active if incident status is "treated"
+    const isCloseDisabled = !isIncidentTreated;
+  
+    // Determine button text for assign/reassign
+    const getAssignButtonText = () => {
+      if (isIncidentTreated) return "Treated";
+      if (isIncidentClosed) return "Closed";
+      if (isAlreadyAssigned && isIncidentInProgress) return "Reassign Ticket";
+      if (isAlreadyAssigned) return "Already Assigned";
+      return "Assign Ticket";
+    };
+  
     switch (currentUserRole) {
       case "Command Centre supervisor":
         return (
           <div className="space-y-3">
             <button
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isAssignDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
               onClick={handleAssignSosTicketModal}
+              disabled={isAssignDisabled}
+              title={
+                isIncidentTreated
+                  ? "Cannot assign a treated SOS incident"
+                  : isIncidentClosed
+                  ? "Cannot assign a closed SOS incident"
+                  : ""
+              }
             >
-              {incident?.assignedStation ? "Reassign Ticket" : "Assign Ticket"}
+              {getAssignButtonText()}
             </button>
             <button
               className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
@@ -396,7 +449,7 @@ function SosDetails() {
             </button>
           </div>
         );
-
+  
       case "Command Centre Agent":
         return (
           <div className="space-y-3">
@@ -408,7 +461,7 @@ function SosDetails() {
             </button>
           </div>
         );
-
+  
       case "Police Station":
         return (
           <div className="space-y-3">
@@ -421,16 +474,16 @@ function SosDetails() {
               onClick={handleMarkAsTreatedModal}
               disabled={isMarkAsTreatedDisabled}
               title={
-                !isIncidentInProgress()
-                  ? "SOS incident must be 'New' or 'In Progress' to mark as treated"
-                  : !incident?.assignedStation
-                  ? "SOS incident must be assigned to a station"
-                  : incident?.slaStatus === "Treated"
-                  ? "SOS incident is already marked as treated"
+                incident?.incidentStatus?.toLowerCase() !== "inprogress"
+                  ? "SOS incident must be 'In Progress' to mark as treated"
                   : ""
               }
             >
-              {markingAsTreated ? "Marking..." : incident?.incidentStatus === "treated" ? "Treated" : "Mark as Treated"}
+              {markingAsTreated
+                ? "Marking..."
+                : incident?.incidentStatus === "treated"
+                ? "Treated"
+                : "Mark as Treated"}
             </button>
             <button
               className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -441,12 +494,8 @@ function SosDetails() {
               onClick={handlePutOnHoldModal}
               disabled={isPutOnHoldDisabled}
               title={
-                !isIncidentInProgress()
-                  ? "SOS incident must be 'New' or 'In Progress' to put on hold"
-                  : !incident?.assignedStation
-                  ? "SOS incident must be assigned to a station"
-                  : incident?.slaStatus === "OnHold"
-                  ? "SOS incident is already on hold"
+                incident?.incidentStatus?.toLowerCase() !== "inprogress"
+                  ? "SOS incident must be 'In Progress' to put on hold"
                   : ""
               }
             >
@@ -460,22 +509,44 @@ function SosDetails() {
             </button>
           </div>
         );
-
+  
       case "Super Admin":
       case "Admin":
         return (
           <div className="space-y-3">
             <button
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700"
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isAssignDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
               onClick={handleAssignSosTicketModal}
+              disabled={isAssignDisabled}
+              title={
+                isIncidentTreated
+                  ? "Cannot assign a treated SOS incident"
+                  : isIncidentClosed
+                  ? "Cannot assign a closed SOS incident"
+                  : ""
+              }
             >
-              Assign Ticket
+              {getAssignButtonText()}
             </button>
             <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isCloseDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
               onClick={handleCloseSosTicketModal}
+              disabled={isCloseDisabled}
+              title={
+                !isIncidentTreated
+                  ? "SOS incident must be 'treated' before it can be closed"
+                  : ""
+              }
             >
-              Close Ticket
+              {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
             </button>
             <button
               className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
@@ -485,9 +556,8 @@ function SosDetails() {
             </button>
           </div>
         );
-
+  
       default:
-        // Fallback - show only export for unknown roles
         return (
           <div className="space-y-3">
             <button
@@ -500,7 +570,6 @@ function SosDetails() {
         );
     }
   };
-
   const tabs = ["Citizen Report", "Past SOS History", "Audit Trail"];
 
   return (
@@ -540,6 +609,7 @@ function SosDetails() {
           handleAssignSosTicketModal={handleAssignSosTicketModal}
           stations={stations}
           handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
       {exportSosSuccessModal && (
@@ -558,7 +628,7 @@ function SosDetails() {
       )}
       {assignTicketSuccessModal && (
         <TicketAssignedSuccessModal
-          handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
       {confirmCloseTicketModal && (
@@ -616,12 +686,12 @@ function SosDetails() {
                   </div>
                 </div>
                 {incident?.audio && (
-                <AudioPlayer
-                  src={incident?.audio}
-                  onPlay={(e) => console.log("Playing")}
-                  controls
-                />
-              )}
+                  <AudioPlayer
+                    src={incident?.audio}
+                    onPlay={(e) => console.log("Playing")}
+                    controls
+                  />
+                )}
               </>
             )}
 

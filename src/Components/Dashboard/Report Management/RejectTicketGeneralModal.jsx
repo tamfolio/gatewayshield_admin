@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { userRequest } from "../../../requestMethod";
+import useAccessToken from "../../../Utils/useAccessToken";
+import { useParams } from "react-router-dom";
 
 const RejectTicketGeneralModal = ({
-  id,
-  token,
   handleRejectTicketModal,
   handleRejectTicketSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
+  const token = useAccessToken();
+  const { id } = useParams();
 
   const handleRejectTicket = async () => {
     if (loading) return; // Prevent double clicks
@@ -16,10 +18,17 @@ const RejectTicketGeneralModal = ({
     setLoading(true);
     try {
       const res = await userRequest(token).patch(`incident/reject/${id}`);
-      if (res.data?.success) {
-        toast.success("Ticket rejected successfully!");
-        handleRejectTicketSuccess(); // Call success callback
-        handleRejectTicketModal(); // Close modal
+      if (res.data) {
+        handleCancel()
+        toast.success(res.data.message);
+        
+        // Call success callback if provided
+        if (handleRejectTicketSuccess) {
+          handleRejectTicketSuccess();
+        }
+        
+        // Close modal (already called in handleCancel but keeping for consistency)
+        handleRejectTicketModal();
       } else {
         toast.error(res.data?.message || "Failed to reject ticket.");
       }
