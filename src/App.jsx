@@ -1,6 +1,7 @@
 import "./App.css";
 import { Routes, Route } from "react-router-dom";
 import LoginCentral from "./Components/Auth/LoginCentral";
+import ProtectedRoute from "./Components/Auth/ProtectedRoute";
 import Dashboard from "./Pages/Dashboard";
 import Home from "./Components/Dashboard/Home";
 import AddUsers from "./Components/Dashboard/User Management/AddUsers";
@@ -22,7 +23,6 @@ import SLAHub from "./Components/Dashboard/system-settings/SLAHub";
 import ResourcesHub from "./Components/Dashboard/help/ResourcesHub";
 import UserHub from "./Components/Dashboard/user-profile/UserHub";
 import CreateIncident from "./Components/Dashboard/IncidentReporting/CreateIncident";
-// Import more components as needed...
 
 function App() {
   return (
@@ -33,7 +33,14 @@ function App() {
         <Route path="/" element={<LoginCentral />} />
         <Route path="/forgot-password" element={<ForgotPasswordFlow />} />
         <Route path="/activate-account" element={<ActivateAccount />} />
-        <Route path="/dashboard" element={<Dashboard />}>
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Home />} />
           <Route path="users/add" element={<AddUsers />} />
           <Route path="users/edit/:id" element={<EditUser />} />
@@ -50,7 +57,6 @@ function App() {
             path="admin/emergency-broadcast"
             element={<EmergencyBroadcastForm />}
           />
-          <Route path="feedback" element={<FeedbackHub />} />
           <Route path="audit" element={<AuditLogs />} />
           <Route path="settings" element={<SLAHub />} />
           <Route path="help" element={<ResourcesHub />} />

@@ -70,6 +70,18 @@ function AddSingleUser({ activeTab, setActiveTab }) {
     }));
   };
 
+  // Handle formation change and auto-populate address and coordinates
+  const handleFormationChange = (formationId) => {
+    const selectedFormation = adminFormation.find(formation => formation.id === formationId);
+    
+    setFormData((prev) => ({
+      ...prev,
+      formation: formationId,
+      address: selectedFormation ? selectedFormation.address : "",
+      coordinate: selectedFormation ? selectedFormation.coordinates : "",
+    }));
+  };
+
   const handleSubmit = async () => {
     const payload = {
       firstName: formData.firstName,
@@ -239,9 +251,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     <div className="relative">
                       <select
                         value={formData.formation}
-                        onChange={(e) =>
-                          handleInputChange("formation", e.target.value)
-                        }
+                        onChange={(e) => handleFormationChange(e.target.value)}
                         className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500"
                       >
                         <option value="">Select the Formation</option>
@@ -255,7 +265,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     </div>
                   </div>
 
-                  {/* Address */}
+                  {/* Address - Auto-populated from Formation */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Address <span className="text-red-500">*</span>
@@ -263,15 +273,13 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.address}
-                      onChange={(e) =>
-                        handleInputChange("address", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter address"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                      placeholder="Address will be auto-filled when formation is selected"
                     />
                   </div>
 
-                  {/* Coordinate */}
+                  {/* Coordinate - Auto-populated from Formation */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Coordinate <span className="text-red-500">*</span>
@@ -279,11 +287,9 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.coordinate}
-                      onChange={(e) =>
-                        handleInputChange("coordinate", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter coordinate"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                      placeholder="Coordinates will be auto-filled when formation is selected"
                     />
                   </div>
 
@@ -327,13 +333,6 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                     />
                   </div>
                 </div>
-
-                {/* Select Formation first notice */}
-                {/* <div className="mt-6">
-                  <p className="text-sm text-gray-500">
-                    Select Formation first
-                  </p>
-                </div> */}
               </div>
             </div>
 
