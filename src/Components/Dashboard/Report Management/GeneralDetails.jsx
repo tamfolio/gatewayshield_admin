@@ -67,6 +67,7 @@ function GeneralDetails() {
   const userRoleId = useSelector(
     (state) => state.user?.currentUser?.admin?.roleId
   );
+  console.log(userRoleId)
   const userName = useSelector((state) => state.user?.currentUser?.admin);
 
   // Get the current user's role name by matching roleId with adminRoles
@@ -197,10 +198,33 @@ function GeneralDetails() {
     }
   };
 
-  const getStations = async () => {
+  // const getStations = async () => {
+  //   try {
+  //     const res = await userRequest(token).get(`/incident/${id}/stations`);
+  //     setStations(res.data.data.stations);
+  //   } catch (error) {
+  //     console.error("❌ Failed to fetch incident:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // const fetchAdminRoles = async () => {
+  //   try {
+  //     const res = await userRequest(token).get(
+  //       "/options/adminRoles/all"
+  //     );
+      
+  //     setAdminRoles(res.data?.data?.adminRoles || []);
+  //   } catch (err) {
+  //     console.error("❌ Failed to fetch admin roles:", err);
+  //   } 
+  // };
+
+  const getPossibleStations = async () => {
     try {
-      const res = await userRequest(token).get(`/incident/${id}/stations`);
-      setStations(res.data.data.stations);
+      const res = await userRequest(token).get(`/admin/get/all?roleid=01K0Q73GECFSBSNXDQ8TQCGEPZ`);
+      setStations(res.data.data.admins);
     } catch (error) {
       console.error("❌ Failed to fetch incident:", error);
     } finally {
@@ -261,11 +285,11 @@ function GeneralDetails() {
       fetchIncident();
       fetchPastHistory();
       fetchAuditTrail();
+      getPossibleStations();
     }
   }, [id, token]);
 
   useEffect(() => {
-    getStations();
     getClosureReasons();
   }, []);
 

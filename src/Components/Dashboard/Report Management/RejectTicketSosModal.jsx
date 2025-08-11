@@ -22,7 +22,7 @@ function RejectTicketSosModal({ handleRejectTicketModal, handleRejectTicketSucce
         const res = await userRequest(token).patch(`sos/updateStatus/${id}`, payload);
         
         console.log("✅ Ticket rejected successfully", res.data);
-        
+        handleCancel();
         // Only show toast here, remove from parent component
         toast.success("Ticket rejected successfully!");
         

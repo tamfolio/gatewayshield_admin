@@ -33,7 +33,7 @@ import {
 import PastHistorySOS from "./PastSosTrailHistory.jsx";
 import AuditTrailSectionSos from "./AuditrailSos.jsx";
 import ReportExportTemplate from "./ReportExportTemplate.jsx";
-import RejectTicketGeneralModal from "./RejectTicketGeneralModal.jsx";
+import RejectTicketGeneralModal from "./RejectTicketSosModal.jsx";
 import { toast } from "react-toastify";
 
 function SosDetails() {
@@ -87,6 +87,10 @@ function SosDetails() {
   };
 
   const handleAssignSosTicketSuccessModal = () => {
+    setAssignTicketSuccessModal(!assignTicketSuccessModal);
+  };
+
+  const handleAssignTicketSuccessModal = () => {
     setAssignTicketSuccessModal(!assignTicketSuccessModal);
   };
 
@@ -190,10 +194,10 @@ function SosDetails() {
     }
   };
 
-  const getStations = async () => {
+  const getPossibleStations = async () => {
     try {
-      const res = await userRequest(token).get(`/incident/${id}/stations`);
-      setStations(res.data.data.stations);
+      const res = await userRequest(token).get(`/admin/get/all?roleid=01K0Q73GECFSBSNXDQ8TQCGEPZ`);
+      setStations(res.data.data.admins);
     } catch (error) {
       console.error("❌ Failed to fetch incident:", error);
     } finally {
@@ -256,7 +260,7 @@ function SosDetails() {
   }, [id, token]);
 
   useEffect(() => {
-    getStations();
+    getPossibleStations();
     getClosureReasons();
   }, []);
 
@@ -540,6 +544,7 @@ function SosDetails() {
           handleAssignSosTicketModal={handleAssignSosTicketModal}
           stations={stations}
           handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
       {exportSosSuccessModal && (
@@ -558,7 +563,7 @@ function SosDetails() {
       )}
       {assignTicketSuccessModal && (
         <TicketAssignedSuccessModal
-          handleAssignSosTicketSuccessModal={handleAssignSosTicketSuccessModal}
+          handleAssignTicketSuccessModal={handleAssignTicketSuccessModal}
         />
       )}
       {confirmCloseTicketModal && (
