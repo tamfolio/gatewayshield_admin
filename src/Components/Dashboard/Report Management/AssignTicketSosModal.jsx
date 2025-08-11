@@ -10,12 +10,13 @@ const AssignTicketSosModal = ({
   handleAssignSosTicketModal,
   stations,
   handleAssignSosTicketSuccessModal,
+  handleAssignTicketSuccessModal
 }) => {
   const [selectedStation, setSelectedStation] = useState(null);
   const { id } = useParams();
   const stationOptions = stations.map((station) => ({
     value: station.id,
-    label: station.formation,
+    label: station.formationName,
   }));
 
   const token = useSelector(
@@ -38,7 +39,7 @@ const AssignTicketSosModal = ({
 
       console.log("✅ Incident assigned successfully", res.data); 
       handleAssignSosTicketModal();
-      handleAssignSosTicketSuccessModal();
+      handleAssignTicketSuccessModal();
     } catch (err) {
       console.error(
         "❌ Error assigning incident",

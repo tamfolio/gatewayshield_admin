@@ -16,7 +16,7 @@ const AssignTicketModal = ({
   const { id } = useParams();
   const stationOptions = stations.map((station) => ({
     value: station.id,
-    label: station.formation,
+    label: station.formationName,
   }));
 
   const token = useSelector(
