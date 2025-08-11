@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { loginAdmin } from "../../Redux/apiCalls";
 import { toast } from "react-toastify";
@@ -13,6 +13,7 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +27,17 @@ export default function SignIn() {
     try {
       await loginAdmin(dispatch, credentials);
       toast.success("Login successful!");
-      navigate("/dashboard");
+      
+      // Check for redirect parameter
+      const redirectTo = searchParams.get('redirect');
+      
+      if (redirectTo) {
+        // Decode the redirect URL and navigate to it
+        navigate(decodeURIComponent(redirectTo));
+      } else {
+        // Default redirect to dashboard
+        navigate("/dashboard");
+      }
     } catch (err) {
       toast.error(err?.response?.data?.error);
       console.error("Login Error:", err?.response?.data?.error);
