@@ -69,7 +69,7 @@ const General = () => {
       case "Report ID":
         return "reportId";
       case "Citizen Name":
-        return "citizen_name";
+        return "fullName";
       case "Phone Number":
         return "phone_number";
       case "Ticket ID":
