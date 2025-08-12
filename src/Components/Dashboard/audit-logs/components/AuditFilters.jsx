@@ -49,6 +49,22 @@ const AuditFilters = ({
     onFilterChange({ userRole: [], timeStamp: null });
   };
 
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return "";
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("❌ Invalid date format:", dateString);
+      return "Invalid Date";
+    }
+  };
+
   // Only show if there are active filters
   if (!hasActiveFilters) return null;
 
@@ -69,7 +85,7 @@ const AuditFilters = ({
             type="timeStamp"
             value={selectedFilters.timeStamp}
             onRemove={removeFilter}
-            formatValue={(date) => auditLogsUtils?.formatDateForDisplay?.(date) || date}
+            formatValue={formatDateForDisplay}
           />
         )}
       </div>
