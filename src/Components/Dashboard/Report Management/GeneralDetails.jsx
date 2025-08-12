@@ -46,6 +46,8 @@ function GeneralDetails() {
   const [pastHistory, setPastHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stations, setStations] = useState([]);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [auditTrail, setAuditTrail] = useState([]);
   const [closureReasons, setClosureReasons] = useState([]);
   const [exportSuccessModal, setExportSuccessModal] = useState(false);
@@ -67,9 +69,171 @@ function GeneralDetails() {
   const userRoleId = useSelector(
     (state) => state.user?.currentUser?.admin?.roleId
   );
-  console.log(userRoleId)
+  console.log(userRoleId);
   const userName = useSelector((state) => state.user?.currentUser?.admin);
 
+  // Update the modal handlers
+  const openMediaModal = (mediaUrl) => {
+    setSelectedMedia(mediaUrl);
+    setMediaModalOpen(true);
+  };
+
+  const closeMediaModal = () => {
+    setSelectedMedia(null);
+    setMediaModalOpen(false);
+  };
+
+  // Enhanced Images Gallery Component that handles both images and videos
+// Fixed Enhanced Images Gallery Component that handles both images and videos
+const MediaGallery = ({ images }) => {
+  if (!images || images.length === 0) {
+    return null;
+  }
+
+  // Function to check if a file is a video
+  const isVideo = (url) => {
+    const videoExtensions = [
+      ".mp4",
+      ".avi",
+      ".mov",
+      ".wmv",
+      ".flv",
+      ".webm",
+      ".mkv",
+    ];
+    return videoExtensions.some((ext) => url.toLowerCase().includes(ext));
+  };
+
+  // Function to get media type for display
+  const getMediaType = (url) => {
+    return isVideo(url) ? "video" : "image";
+  };
+
+  return (
+    <div className="mt-6">
+      <h4 className="text-lg font-medium text-gray-900 mb-4">
+        Incident Media
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {images.map((mediaUrl, index) => {
+          const mediaType = getMediaType(mediaUrl);
+
+          return (
+            <div
+              key={index}
+              className="relative group cursor-pointer rounded-lg overflow-hidden aspect-square"
+              onClick={() => openMediaModal(mediaUrl)} // FIXED: Use openMediaModal instead of openImageModal
+            >
+              {mediaType === "video" ? (
+                <>
+                  <video
+                    src={mediaUrl}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 hidden">
+                    <div className="text-center">
+                      <Play className="w-8 h-8 mx-auto mb-2" />
+                      <span className="text-sm">Video failed to load</span>
+                    </div>
+                  </div>
+                  {/* Video overlay indicator */}
+                  <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
+                    <div className="bg-white bg-opacity-80 rounded-full p-2">
+                      <Play className="w-6 h-6 text-gray-800" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={mediaUrl}
+                    alt={`Incident image ${index + 1}`}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      e.target.src = "/placeholder-image.png"; // Fallback image
+                      e.target.alt = "Image failed to load";
+                    }}
+                  />
+                </>
+              )}
+
+              <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
+                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+              </div>
+
+              {/* Media type badge */}
+              <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                {mediaType === "video" ? "Video" : "Image"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+  // Enhanced Image Modal Component that handles both images and videos
+  const MediaModal = ({ isOpen, mediaUrl, onClose }) => {
+    if (!isOpen) return null;
+
+    const isVideo = (url) => {
+      const videoExtensions = [
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".wmv",
+        ".flv",
+        ".webm",
+        ".mkv",
+      ];
+      return videoExtensions.some((ext) => url.toLowerCase().includes(ext));
+    };
+
+    const mediaType = isVideo(mediaUrl) ? "video" : "image";
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+        onClick={onClose}
+      >
+        <div className="relative max-w-4xl max-h-screen p-4">
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 z-10 bg-white rounded-full p-2 hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-6 h-6 text-gray-600" />
+          </button>
+
+          {mediaType === "video" ? (
+            <video
+              src={mediaUrl}
+              controls
+              autoPlay
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                console.error("Video failed to load:", mediaUrl);
+              }}
+            >
+              Your browser does not support the video tag.
+            </video>
+          ) : (
+            <img
+              src={mediaUrl}
+              alt="Incident media enlarged"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
   // Get the current user's role name by matching roleId with adminRoles
   const getCurrentUserRole = () => {
     if (!adminRolesList || !userRoleId) return null;
@@ -126,20 +290,20 @@ function GeneralDetails() {
     if (!incident?.assignedStation || incident?.slaStatus === "Treated") {
       return;
     }
-  
+
     setMarkingAsTreated(true);
-  
+
     try {
       const requestBody = {
         incidentId: id,
         stationId: incident.assignedStation,
       };
-  
+
       const res = await userRequest(token).patch(
         `/incident/mark-as-treated/${id}`,
         requestBody
       );
-  
+
       // Check for the message instead of success
       if (res.data.message) {
         console.log("Incident marked as treated successfully");
@@ -158,20 +322,20 @@ function GeneralDetails() {
     if (!incident?.assignedStation || incident?.slaStatus === "OnHold") {
       return;
     }
-  
+
     setPuttingOnHold(true);
-  
+
     try {
       const requestBody = {
         incidentId: id,
         stationId: incident.assignedStation,
       };
-  
+
       const res = await userRequest(token).patch(
         `/incident/put-on-hold/${id}`,
         requestBody
       );
-  
+
       // Check for the message instead of success
       if (res.data.message) {
         console.log("Incident put on hold successfully");
@@ -214,16 +378,18 @@ function GeneralDetails() {
   //     const res = await userRequest(token).get(
   //       "/options/adminRoles/all"
   //     );
-      
+
   //     setAdminRoles(res.data?.data?.adminRoles || []);
   //   } catch (err) {
   //     console.error("❌ Failed to fetch admin roles:", err);
-  //   } 
+  //   }
   // };
 
   const getPossibleStations = async () => {
     try {
-      const res = await userRequest(token).get(`/admin/get/all?roleid=01K0Q73GECFSBSNXDQ8TQCGEPZ`);
+      const res = await userRequest(token).get(
+        `/admin/get/all?roleid=01K0Q73GECFSBSNXDQ8TQCGEPZ`
+      );
       setStations(res.data.data.admins);
     } catch (error) {
       console.error("❌ Failed to fetch incident:", error);
@@ -457,214 +623,218 @@ function GeneralDetails() {
   };
 
   // Function to render buttons based on role
-// Function to render buttons based on role - UPDATED VERSION
-const renderActionButtons = () => {
-  const isIncidentInProgress = () => {
-    const status = incident?.incidentStatus?.toLowerCase();
-    return status === "new" || status === "inprogress";
+  // Function to render buttons based on role - UPDATED VERSION
+  const renderActionButtons = () => {
+    const isIncidentInProgress = () => {
+      const status = incident?.incidentStatus?.toLowerCase();
+      return status === "new" || status === "inprogress";
+    };
+
+    // Check if incident is treated or closed
+    const isIncidentTreated =
+      incident?.incidentStatus?.toLowerCase() === "treated";
+    const isIncidentClosed =
+      incident?.incidentStatus?.toLowerCase() === "closed";
+
+    const isMarkAsTreatedDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "Treated" ||
+      !isIncidentInProgress() ||
+      markingAsTreated;
+
+    const isPutOnHoldDisabled =
+      !incident?.assignedStation ||
+      incident?.slaStatus === "OnHold" ||
+      !isIncidentInProgress() ||
+      puttingOnHold;
+
+    // Disable assign button if incident is treated OR closed
+    const isAssignDisabled = isIncidentTreated || isIncidentClosed;
+
+    // Disable close button if incident is already closed
+    const isCloseDisabled = isIncidentClosed;
+
+    switch (currentUserRole) {
+      case "Command Centre supervisor":
+        return (
+          <div className="space-y-3">
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isAssignDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              onClick={handleAssignTicketModal}
+              disabled={isAssignDisabled}
+              title={
+                isIncidentTreated
+                  ? "Cannot assign a treated incident"
+                  : isIncidentClosed
+                  ? "Cannot assign a closed incident"
+                  : ""
+              }
+            >
+              {isIncidentTreated
+                ? "Treated"
+                : isIncidentClosed
+                ? "Closed"
+                : incident?.assignedStation
+                ? "Reassign Ticket"
+                : "Assign Ticket"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleRejectTicketModal}
+            >
+              Reject Ticket
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Command Centre Agent":
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Police Station":
+        return (
+          <div className="space-y-3">
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isMarkAsTreatedDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              onClick={handleMarkAsTreatedModal}
+              disabled={isMarkAsTreatedDisabled}
+              title={
+                !isIncidentInProgress()
+                  ? "Incident must be 'New' or 'In Progress' to mark as treated"
+                  : !incident?.assignedStation
+                  ? "Incident must be assigned to a station"
+                  : incident?.slaStatus === "Treated"
+                  ? "Incident is already marked as treated"
+                  : ""
+              }
+            >
+              {markingAsTreated
+                ? "Marking..."
+                : incident?.incidentStatus === "treated"
+                ? "Treated"
+                : "Mark as Treated"}
+            </button>
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isPutOnHoldDisabled
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
+              }`}
+              onClick={handlePutOnHoldModal}
+              disabled={isPutOnHoldDisabled}
+              title={
+                !isIncidentInProgress()
+                  ? "Incident must be 'New' or 'In Progress' to put on hold"
+                  : !incident?.assignedStation
+                  ? "Incident must be assigned to a station"
+                  : incident?.slaStatus === "OnHold"
+                  ? "Incident is already on hold"
+                  : ""
+              }
+            >
+              {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      case "Super Admin":
+      case "Admin":
+        return (
+          <div className="space-y-3">
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isAssignDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+              onClick={handleAssignTicketModal}
+              disabled={isAssignDisabled}
+              title={
+                isIncidentTreated
+                  ? "Cannot assign a treated incident"
+                  : isIncidentClosed
+                  ? "Cannot assign a closed incident"
+                  : ""
+              }
+            >
+              {isIncidentTreated
+                ? "Treated"
+                : isIncidentClosed
+                ? "Closed"
+                : "Assign Ticket"}
+            </button>
+            <button
+              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                isCloseDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
+              onClick={handleCloseTicketModal}
+              disabled={isCloseDisabled}
+              title={isIncidentClosed ? "Incident is already closed" : ""}
+            >
+              {isIncidentClosed ? "Already Closed" : "Close Ticket"}
+            </button>
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-3">
+            <button
+              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+              onClick={handleExportModal}
+            >
+              Export Report
+            </button>
+          </div>
+        );
+    }
   };
-
-  // Check if incident is treated or closed
-  const isIncidentTreated = incident?.incidentStatus?.toLowerCase() === "treated";
-  const isIncidentClosed = incident?.incidentStatus?.toLowerCase() === "closed";
-
-  const isMarkAsTreatedDisabled =
-    !incident?.assignedStation ||
-    incident?.slaStatus === "Treated" ||
-    !isIncidentInProgress() ||
-    markingAsTreated;
-
-  const isPutOnHoldDisabled =
-    !incident?.assignedStation ||
-    incident?.slaStatus === "OnHold" ||
-    !isIncidentInProgress() ||
-    puttingOnHold;
-
-  // Disable assign button if incident is treated OR closed
-  const isAssignDisabled = isIncidentTreated || isIncidentClosed;
-
-  // Disable close button if incident is already closed
-  const isCloseDisabled = isIncidentClosed;
-
-  switch (currentUserRole) {
-    case "Command Centre supervisor":
-      return (
-        <div className="space-y-3">
-          <button
-            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-              isAssignDisabled
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-            onClick={handleAssignTicketModal}
-            disabled={isAssignDisabled}
-            title={
-              isIncidentTreated 
-                ? "Cannot assign a treated incident" 
-                : isIncidentClosed 
-                  ? "Cannot assign a closed incident" 
-                  : ""
-            }
-          >
-            {isIncidentTreated 
-              ? "Treated" 
-              : isIncidentClosed
-                ? "Closed"
-                : incident?.assignedStation 
-                  ? "Reassign Ticket" 
-                  : "Assign Ticket"
-            }
-          </button>
-          <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-            onClick={handleRejectTicketModal}
-          >
-            Reject Ticket
-          </button>
-          <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-            onClick={handleExportModal}
-          >
-            Export Report
-          </button>
-        </div>
-      );
-
-    case "Command Centre Agent":
-      return (
-        <div className="space-y-3">
-          <button
-            className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
-            onClick={handleExportModal}
-          >
-            Export Report
-          </button>
-        </div>
-      );
-
-    case "Police Station":
-      return (
-        <div className="space-y-3">
-          <button
-            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-              isMarkAsTreatedDisabled
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-            onClick={handleMarkAsTreatedModal}
-            disabled={isMarkAsTreatedDisabled}
-            title={
-              !isIncidentInProgress()
-                ? "Incident must be 'New' or 'In Progress' to mark as treated"
-                : !incident?.assignedStation
-                ? "Incident must be assigned to a station"
-                : incident?.slaStatus === "Treated"
-                ? "Incident is already marked as treated"
-                : ""
-            }
-          >
-           {markingAsTreated ? "Marking..." : incident?.incidentStatus === "treated" ? "Treated" : "Mark as Treated"}
-          </button>
-          <button
-            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-              isPutOnHoldDisabled
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
-            }`}
-            onClick={handlePutOnHoldModal}
-            disabled={isPutOnHoldDisabled}
-            title={
-              !isIncidentInProgress()
-                ? "Incident must be 'New' or 'In Progress' to put on hold"
-                : !incident?.assignedStation
-                ? "Incident must be assigned to a station"
-                : incident?.slaStatus === "OnHold"
-                ? "Incident is already on hold"
-                : ""
-            }
-          >
-            {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
-          </button>
-          <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-            onClick={handleExportModal}
-          >
-            Export Report
-          </button>
-        </div>
-      );
-
-    case "Super Admin":
-    case "Admin":
-      return (
-        <div className="space-y-3">
-          <button
-            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-              isAssignDisabled
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-            onClick={handleAssignTicketModal}
-            disabled={isAssignDisabled}
-            title={
-              isIncidentTreated 
-                ? "Cannot assign a treated incident" 
-                : isIncidentClosed 
-                  ? "Cannot assign a closed incident" 
-                  : ""
-            }
-          >
-            {isIncidentTreated 
-              ? "Treated" 
-              : isIncidentClosed
-                ? "Closed"
-                : "Assign Ticket"
-            }
-          </button>
-          <button
-            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-              isCloseDisabled
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={handleCloseTicketModal}
-            disabled={isCloseDisabled}
-            title={isIncidentClosed ? "Incident is already closed" : ""}
-          >
-            {isIncidentClosed ? "Already Closed" : "Close Ticket"}
-          </button>
-          <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-            onClick={handleExportModal}
-          >
-            Export Report
-          </button>
-        </div>
-      );
-
-    default:
-      return (
-        <div className="space-y-3">
-          <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-            onClick={handleExportModal}
-          >
-            Export Report
-          </button>
-        </div>
-      );
-  }
-};
 
   const tabs = ["Citizen Report", "Past SOS History", "Audit Trail"];
 
   return (
     <>
       {/* Image Modal */}
-      <ImageModal
-        isOpen={imageModalOpen}
-        imageUrl={selectedImage}
-        onClose={closeImageModal}
+      <MediaModal
+        isOpen={mediaModalOpen}
+        mediaUrl={selectedMedia}
+        onClose={closeMediaModal}
       />
 
       <div style={{ display: "none" }}>
@@ -772,7 +942,7 @@ const renderActionButtons = () => {
                     {/* Images Section */}
                     {incident?.incidentImages &&
                       incident.incidentImages.length > 0 && (
-                        <ImagesGallery images={incident.incidentImages} />
+                        <MediaGallery images={incident.incidentImages} />
                       )}
                   </div>
                 </div>
@@ -798,7 +968,7 @@ const renderActionButtons = () => {
             {renderActionButtons()}
 
             {/* Contact Information */}
-            {/* <div className="bg-white rounded-lg shadow-sm border">
+            <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4">
                 <h3 className="font-medium text-gray-900 mb-4">
                   Contact Information
@@ -849,7 +1019,7 @@ const renderActionButtons = () => {
                   </div>
                 </div>
               </div>
-            </div> */}
+            </div>
 
             {/* Citizen Feedback */}
             {/* <div className="bg-white rounded-lg shadow-sm border">
