@@ -82,9 +82,8 @@ function CreateIncident() {
   // Function to check if user exists by phone number
   const checkUserByPhone = useCallback(
     async (phone) => {
-      // Basic phone validation - remove all non-digits and check if it's reasonable length
-      const cleanPhone = phone.replace(/\D/g, "");
-      if (!cleanPhone || cleanPhone.length < 10) {
+      // The phone should already be in +234XXXXXXXXX format
+      if (!phone || phone.length < 14) { // +234 + 10 digits = 14 characters
         setPhoneUserData(null);
         return;
       }
@@ -214,14 +213,30 @@ function CreateIncident() {
     }
   };
 
+  // Updated phone validation function
+  const validatePhoneNumber = () => {
+    if (!formData.phone.trim()) {
+      return "Phone number is required";
+    }
+    
+    // Check if it's in the correct +234XXXXXXXXX format
+    const phoneRegex = /^\+234[789]\d{9}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      return "Please enter a valid Nigerian phone number starting with 7, 8, or 9";
+    }
+    
+    return null;
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
     // Validation based on report type
     if (formData.reportType === "General") {
-      // Phone number is always required for General reports
-      if (!formData.phone.trim()) {
-        newErrors.phone = "Phone number is required";
+      // Phone number validation for General reports
+      const phoneError = validatePhoneNumber();
+      if (phoneError) {
+        newErrors.phone = phoneError;
       }
 
       // Email and name are only required if user is found and not hiding identity
@@ -590,24 +605,76 @@ function CreateIncident() {
 
     switch (fieldName) {
       case "phone":
+        // Function to format phone number for display
+        const formatPhoneForDisplay = (value) => {
+          if (!value) return '';
+          
+          // Remove all non-digits
+          const digitsOnly = value.replace(/\D/g, '');
+          
+          // If it starts with 234, remove it for display
+          if (digitsOnly.startsWith('234')) {
+            const localNumber = digitsOnly.substring(3);
+            // Add leading 0 if the local number doesn't start with 0
+            return localNumber.startsWith('0') ? localNumber : '0' + localNumber;
+          }
+          
+          return digitsOnly;
+        };
+
+        // Function to format phone number for storage (with +234)
+        const formatPhoneForStorage = (displayValue) => {
+          if (!displayValue) return '';
+          
+          // Remove all non-digits
+          let digitsOnly = displayValue.replace(/\D/g, '');
+          
+          // Remove leading 0 if present
+          if (digitsOnly.startsWith('0')) {
+            digitsOnly = digitsOnly.substring(1);
+          }
+          
+          // Add +234 prefix
+          return '+234' + digitsOnly;
+        };
+
+        // Handle phone input change
+        const handlePhoneChange = (e) => {
+          const inputValue = e.target.value;
+          
+          // Remove all non-digits
+          let digitsOnly = inputValue.replace(/\D/g, '');
+          
+          // Ensure it starts with 0 for display
+          if (digitsOnly && !digitsOnly.startsWith('0')) {
+            digitsOnly = '0' + digitsOnly;
+          }
+          
+          // Limit to 11 digits (0 + 10 digits)
+          if (digitsOnly.length > 11) {
+            digitsOnly = digitsOnly.substring(0, 11);
+          }
+          
+          // Store the formatted version with +234
+          const storageValue = formatPhoneForStorage(digitsOnly);
+          handleInputChange("phone", storageValue);
+        };
+
         return (
           <div key="phone">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Phone number <span className="text-red-500">*</span>
             </label>
             <div className="flex">
-              <div className="relative">
-                <select className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pr-8">
-                  <option value="NG">NG</option>
-                  <option value="US">US</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <div className="flex items-center px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 text-gray-700 font-medium">
+                +234
               </div>
               <div className="flex-1 relative">
                 <input
                   type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                  value={formatPhoneForDisplay(formData.phone)}
+                  onChange={handlePhoneChange}
+                  placeholder="0801234567"
                   className={`w-full px-3 py-2 border-t border-r border-b rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.phone ? "border-red-500" : "border-gray-300"
                   }`}
