@@ -483,7 +483,7 @@ const MediaGallery = ({ images }) => {
               <div className="flex flex-col bg-white">
                 <div className="flex bg-[#E9EAEB] items-center justify-center">
                   <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
-                    #{incident?.id}
+                    {incident?.id}
                   </div>
                 </div>
                 <StatusBadge

@@ -6,11 +6,14 @@ import UploadSuccessModal from "./UploadSuccessModal";
 import UploadFailureModal from "./UploadFailureModal";
 import { userRequest } from "../../../requestMethod";
 import useAccessToken from "../../../Utils/useAccessToken";
+import { useSearchParams } from 'react-router-dom';
 
 function AddUsers() {
-  const [activeTab, setActiveTab] = useState("Single User");
   const [successModal, setSuccessModal] = useState(false);
   const [failureModal, setFailureModal] = useState(false);
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "Single User");
   const token = useAccessToken();
   // Single user form state
   const [formData, setFormData] = useState({

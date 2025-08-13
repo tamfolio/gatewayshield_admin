@@ -44,7 +44,7 @@ const Home = () => {
   const [isSelectingStartDate, setIsSelectingStartDate] = useState(true);
   const token = useAccessToken();
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date().getMonth());
-const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFullYear());
+  const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFullYear());
 
   const userData = useSelector((state) => state.user?.currentUser?.admin);
 
@@ -85,7 +85,7 @@ const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFul
   // Check if user is Command Centre Agent or Command Centre Supervisor
   const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
   const isCommandCentreSupervisor =
-    currentUserRole === "Command Centre Supervisor";
+    currentUserRole === "Command Centre supervisor";
   const isPoliceStation = currentUserRole === "Police Station";
 
   useEffect(() => {
@@ -223,6 +223,132 @@ const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFul
     }
   };
 
+  // MOVE DatePickerComponent DEFINITION HERE - BEFORE THE ROLE CHECKS
+  const DatePickerComponent = () => {
+    const calendarDays = generateCalendarDays();
+    const today = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setShowDatePicker(!showDatePicker)}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+        >
+          <Calendar className="w-4 h-4" />
+          <span>
+            {startDate && endDate 
+              ? `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`
+              : "Jan 10, 2025 - Jan 16, 2025"
+            }
+          </span>
+          <ChevronDown className="w-4 h-4" />
+        </button>
+  
+        {showDatePicker && (
+          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
+            {/* Month Navigation Header */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => navigateMonth('prev')}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronDown className="w-4 h-4 transform rotate-90" />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {monthNames[currentCalendarMonth]} {currentCalendarYear}
+              </h3>
+              <button
+                onClick={() => navigateMonth('next')}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronDown className="w-4 h-4 transform -rotate-90" />
+              </button>
+            </div>
+  
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                {isSelectingStartDate ? 'Select Start Date' : 'Select End Date'}
+              </h4>
+              <div className="text-xs text-gray-500">
+                {tempStartDate && (
+                  <span>Start: {formatDateForDisplay(tempStartDate)}</span>
+                )}
+                {tempStartDate && tempEndDate && <span> | </span>}
+                {tempEndDate && (
+                  <span>End: {formatDateForDisplay(tempEndDate)}</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-7 gap-1 text-center text-sm">
+              <div className="p-2 font-medium text-gray-600">Sun</div>
+              <div className="p-2 font-medium text-gray-600">Mon</div>
+              <div className="p-2 font-medium text-gray-600">Tue</div>
+              <div className="p-2 font-medium text-gray-600">Wed</div>
+              <div className="p-2 font-medium text-gray-600">Thu</div>
+              <div className="p-2 font-medium text-gray-600">Fri</div>
+              <div className="p-2 font-medium text-gray-600">Sat</div>
+  
+              {calendarDays.map((date, index) => {
+                const isCurrentMonth = date.getMonth() === currentCalendarMonth;
+                const isToday = date.toDateString() === today.toDateString();
+                const selection = isDateSelected(date);
+                const inRange = isDateInRange(date);
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleDateSelect(date)}
+                    className={`p-2 hover:bg-blue-50 rounded text-gray-700 ${
+                      !isCurrentMonth 
+                        ? 'text-gray-300'
+                        : selection === 'start' || selection === 'end'
+                        ? 'bg-blue-600 text-white'
+                        : inRange
+                        ? 'bg-blue-100 text-blue-700'
+                        : isToday
+                        ? 'bg-gray-100 text-gray-900 font-medium'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    {date.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={clearDateFilter}
+                className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+              >
+                Clear
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyDateFilter}
+                  disabled={!tempStartDate || !tempEndDate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // If user is Command Centre Supervisor, render CcsHome component
   if (isCommandCentreSupervisor) {
     return <CcsHome />;
@@ -230,7 +356,19 @@ const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFul
 
   // If user is Police Station, render PsHome component
   if (isPoliceStation) {
-    return <PsHome />;
+    return (
+      <PsHome 
+        dashboardData={dashboardData}
+        dashboardData2={dashboardData2}
+        loading={loading}
+        userData={userData}
+        selectedTab={selectedTab}
+        setSelectedTab={setSelectedTab}
+        dataType={dataType}
+        setDataType={setDataType}
+        DatePickerComponent={DatePickerComponent}
+      />
+    );
   }
 
   // Sample data for charts
@@ -417,131 +555,6 @@ const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFul
     </div>
   );
 
-  const DatePickerComponent = () => {
-    const calendarDays = generateCalendarDays();
-    const today = new Date();
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    
-    return (
-      <div className="relative">
-        <button
-          onClick={() => setShowDatePicker(!showDatePicker)}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <Calendar className="w-4 h-4" />
-          <span>
-            {startDate && endDate 
-              ? `${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`
-              : "Jan 10, 2025 - Jan 16, 2025"
-            }
-          </span>
-          <ChevronDown className="w-4 h-4" />
-        </button>
-  
-        {showDatePicker && (
-          <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
-            {/* Month Navigation Header */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => navigateMonth('prev')}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <ChevronDown className="w-4 h-4 transform rotate-90" />
-              </button>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {monthNames[currentCalendarMonth]} {currentCalendarYear}
-              </h3>
-              <button
-                onClick={() => navigateMonth('next')}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <ChevronDown className="w-4 h-4 transform -rotate-90" />
-              </button>
-            </div>
-  
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">
-                {isSelectingStartDate ? 'Select Start Date' : 'Select End Date'}
-              </h4>
-              <div className="text-xs text-gray-500">
-                {tempStartDate && (
-                  <span>Start: {formatDateForDisplay(tempStartDate)}</span>
-                )}
-                {tempStartDate && tempEndDate && <span> | </span>}
-                {tempEndDate && (
-                  <span>End: {formatDateForDisplay(tempEndDate)}</span>
-                )}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-7 gap-1 text-center text-sm">
-              <div className="p-2 font-medium text-gray-600">Sun</div>
-              <div className="p-2 font-medium text-gray-600">Mon</div>
-              <div className="p-2 font-medium text-gray-600">Tue</div>
-              <div className="p-2 font-medium text-gray-600">Wed</div>
-              <div className="p-2 font-medium text-gray-600">Thu</div>
-              <div className="p-2 font-medium text-gray-600">Fri</div>
-              <div className="p-2 font-medium text-gray-600">Sat</div>
-  
-              {calendarDays.map((date, index) => {
-                const isCurrentMonth = date.getMonth() === currentCalendarMonth;
-                const isToday = date.toDateString() === today.toDateString();
-                const selection = isDateSelected(date);
-                const inRange = isDateInRange(date);
-                
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDateSelect(date)}
-                    className={`p-2 hover:bg-blue-50 rounded text-gray-700 ${
-                      !isCurrentMonth 
-                        ? 'text-gray-300'
-                        : selection === 'start' || selection === 'end'
-                        ? 'bg-blue-600 text-white'
-                        : inRange
-                        ? 'bg-blue-100 text-blue-700'
-                        : isToday
-                        ? 'bg-gray-100 text-gray-900 font-medium'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    {date.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex justify-between mt-4">
-              <button
-                onClick={clearDateFilter}
-                className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-              >
-                Clear
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowDatePicker(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={applyDateFilter}
-                  disabled={!tempStartDate || !tempEndDate}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const { name, value, color } = payload[0];
@@ -640,7 +653,7 @@ const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFul
         {/* Total Reports Header */}
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            Total Reports (2200)
+          Total Reports ({dashboardData?.base?.["total report"]})
           </h2>
         </div>
 

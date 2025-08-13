@@ -288,7 +288,7 @@ const CcsHome = () => {
         {/* Total Reports Header */}
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            Total Reports (2200)
+            Total Reports ({dashboardData?.base?.["total report"]})
           </h2>
         </div>
 
@@ -298,7 +298,7 @@ const CcsHome = () => {
           <div className="grid grid-cols-3 gap-6">
             <StatCard
               title="In Progress"
-              value={dashboardData?.base?.["in-progress"] ?? 912}
+              value={dashboardData?.base?.["in-progress"] ?? 0}
               change="2%"
               isNegative={false}
             />
@@ -464,10 +464,10 @@ const CcsHome = () => {
 
             <div className="text-center mb-6">
               <div className="text-4xl font-bold text-gray-900">
-                {dashboardData2?.averageStationRating ? 
+                {/* {dashboardData2?.averageStationRating ? 
                   `${dashboardData2.averageStationRating.toFixed(1)} star` : 
                   '4.5 star'
-                }
+                } */}
               </div>
             </div>
 
