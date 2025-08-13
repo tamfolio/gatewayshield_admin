@@ -16,32 +16,33 @@ import {
 import { userRequest } from "../../../requestMethod";
 import useAccessToken from "../../../Utils/useAccessToken";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [adminRoles, setAdminRoles] = useState([]);
   const [adminFormation, setAdminFormation] = useState([]);
   const [adminRanks, setAdminRanks] = useState([]);
-  
+
   // Updated filters structure for dropdown filters
   const [selectedFilters, setSelectedFilters] = useState({
     status: "",
     roleId: "",
     rankId: "",
-    formationId: ""
+    formationId: "",
   });
-  
+
   const [adminData, setAdminData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [updatingUserId, setUpdatingUserId] = useState(null);
-  
+
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState(null);
   const dropdownRefs = useRef({});
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -55,15 +56,18 @@ const ManageUsers = () => {
     try {
       // Build query parameters
       const queryParams = new URLSearchParams();
-      
-      if (filters.status) queryParams.append('status', filters.status);
-      if (filters.roleId) queryParams.append('roleId', filters.roleId);
-      if (filters.rankId) queryParams.append('rankId', filters.rankId);
-      if (filters.formationId) queryParams.append('formationId', filters.formationId);
-      
+
+      if (filters.status) queryParams.append("status", filters.status);
+      if (filters.roleId) queryParams.append("roleId", filters.roleId);
+      if (filters.rankId) queryParams.append("rankId", filters.rankId);
+      if (filters.formationId)
+        queryParams.append("formationId", filters.formationId);
+
       const queryString = queryParams.toString();
-      const endpoint = queryString ? `/admin/get/all?${queryString}` : "/admin/get/all";
-      
+      const endpoint = queryString
+        ? `/admin/get/all?${queryString}`
+        : "/admin/get/all";
+
       const res = await userRequest(token).get(endpoint);
       console.log("✅:", res.data.data.admins);
       const admins = res.data?.data?.admins || [];
@@ -90,7 +94,9 @@ const ManageUsers = () => {
 
     const fetchAdminFormation = async () => {
       try {
-        const res = await userRequest(token).get("/options/adminFormations/all");
+        const res = await userRequest(token).get(
+          "/options/adminFormations/all"
+        );
         setAdminFormation(res.data?.data?.adminFormations || []);
       } catch (err) {
         console.error("❌ Failed to fetch admin Formation:", err);
@@ -129,11 +135,19 @@ const ManageUsers = () => {
     if (searchTerm) {
       filtered = filtered.filter(
         (user) =>
-          `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          `${user.firstName} ${user.lastName}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
           user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (user.rankName || getRankName(user.rankId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (user.roleName || getRoleName(user.roleId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (user.formationName || getFormationName(user.formationId)).toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.rankName || getRankName(user.rankId))
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (user.roleName || getRoleName(user.roleId))
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (user.formationName || getFormationName(user.formationId))
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
           user.badgeNumber?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -165,6 +179,25 @@ const ManageUsers = () => {
     setCurrentPage(1);
   }, [searchTerm, sortBy, adminData, adminRoles, adminRanks, adminFormation]);
 
+  const adminRolesList = useSelector((state) => state.user?.adminRoles);
+  console.log(adminRolesList);
+  const userRoleId = useSelector(
+    (state) => state.user?.currentUser?.admin?.roleId
+  );
+  const userName = useSelector((state) => state.user?.currentUser?.admin);
+
+  const getCurrentUserRole = () => {
+    if (!adminRolesList || !userRoleId) return null;
+    const role = adminRolesList.find((role) => role.id === userRoleId);
+    return role ? role.name : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  console.log("Current User Role:", currentUserRole);
+
+  const isCommandCentreSupervisor =
+    currentUserRole === "Command Centre supervisor";
+
   // Pagination calculations
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -190,20 +223,32 @@ const ManageUsers = () => {
 
   const getRandomColor = (id) => {
     const colors = [
-      "#6366F1", "#8B5CF6", "#EC4899", "#EF4444", "#F97316",
-      "#F59E0B", "#84CC16", "#22C55E", "#10B981", "#06B6D4",
-      "#0EA5E9", "#3B82F6"
+      "#6366F1",
+      "#8B5CF6",
+      "#EC4899",
+      "#EF4444",
+      "#F97316",
+      "#F59E0B",
+      "#84CC16",
+      "#22C55E",
+      "#10B981",
+      "#06B6D4",
+      "#0EA5E9",
+      "#3B82F6",
     ];
     const index = id
-      ? id.split("").map((char) => char.charCodeAt(0)).reduce((sum, val) => sum + val, 0) % colors.length
+      ? id
+          .split("")
+          .map((char) => char.charCodeAt(0))
+          .reduce((sum, val) => sum + val, 0) % colors.length
       : 0;
     return colors[index];
   };
 
   const handleFilterChange = (filterType, value) => {
-    setSelectedFilters(prev => ({
+    setSelectedFilters((prev) => ({
       ...prev,
-      [filterType]: value
+      [filterType]: value,
     }));
   };
 
@@ -212,7 +257,7 @@ const ManageUsers = () => {
       status: "",
       roleId: "",
       rankId: "",
-      formationId: ""
+      formationId: "",
     });
     setSearchTerm("");
   };
@@ -234,18 +279,24 @@ const ManageUsers = () => {
 
   // Get unique values for filters
   const getUniqueFormations = () => {
-    const formations = adminData.map(user => user.formationName || getFormationName(user.formationId));
-    return [...new Set(formations)].filter(f => f !== "N/A").sort();
+    const formations = adminData.map(
+      (user) => user.formationName || getFormationName(user.formationId)
+    );
+    return [...new Set(formations)].filter((f) => f !== "N/A").sort();
   };
 
   const getUniqueRoles = () => {
-    const roles = adminData.map(user => user.roleName || getRoleName(user.roleId));
-    return [...new Set(roles)].filter(r => r !== "N/A").sort();
+    const roles = adminData.map(
+      (user) => user.roleName || getRoleName(user.roleId)
+    );
+    return [...new Set(roles)].filter((r) => r !== "N/A").sort();
   };
 
   const getUniqueRanks = () => {
-    const ranks = adminData.map(user => user.rankName || getRankName(user.rankId));
-    return [...new Set(ranks)].filter(r => r !== "N/A").sort();
+    const ranks = adminData.map(
+      (user) => user.rankName || getRankName(user.rankId)
+    );
+    return [...new Set(ranks)].filter((r) => r !== "N/A").sort();
   };
 
   // Filter handlers
@@ -254,29 +305,33 @@ const ManageUsers = () => {
   };
 
   const toggleFilter = (filterType, value) => {
-    setSelectedFilters(prev => ({
+    setSelectedFilters((prev) => ({
       ...prev,
       [filterType]: prev[filterType].includes(value)
-        ? prev[filterType].filter(item => item !== value)
-        : [...prev[filterType], value]
+        ? prev[filterType].filter((item) => item !== value)
+        : [...prev[filterType], value],
     }));
   };
 
- 
-
   const getActiveFiltersCount = () => {
-    return Object.values(selectedFilters).reduce((count, filters) => count + filters.length, 0);
+    return Object.values(selectedFilters).reduce(
+      (count, filters) => count + filters.length,
+      0
+    );
   };
 
   // Filter Dropdown Component
   const FilterDropdown = ({ title, filterType, options, isOpen }) => (
-    <div className="relative" ref={el => dropdownRefs.current[filterType] = el}>
+    <div
+      className="relative"
+      ref={(el) => (dropdownRefs.current[filterType] = el)}
+    >
       <button
         onClick={() => toggleDropdown(filterType)}
         className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
           selectedFilters[filterType].length > 0
-            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-            : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+            ? "bg-blue-50 text-blue-700 border border-blue-200"
+            : "text-gray-700 hover:bg-gray-50 border border-transparent"
         }`}
       >
         {title}
@@ -285,7 +340,11 @@ const ManageUsers = () => {
             {selectedFilters[filterType].length}
           </span>
         )}
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-4 h-4 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {isOpen && (
@@ -329,15 +388,14 @@ const ManageUsers = () => {
     setUpdatingUserId(adminId);
     try {
       const newStatus = currentStatus === 1 ? false : true;
-      
+
       await userRequest(token).patch("/admin/update/status", {
         adminId: adminId,
-        isActive: newStatus
+        isActive: newStatus,
       });
 
       // Refetch data to get updated status
       fetchAdmins(selectedFilters);
-
     } catch (err) {
       console.error("❌ Failed to update admin status:", err);
       setError("Failed to update admin status");
@@ -353,12 +411,16 @@ const ManageUsers = () => {
 
     if (totalPages <= 1) return [1];
 
-    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
       range.push(i);
     }
 
     if (currentPage - delta > 2) {
-      rangeWithDots.push(1, '...');
+      rangeWithDots.push(1, "...");
     } else {
       rangeWithDots.push(1);
     }
@@ -366,7 +428,7 @@ const ManageUsers = () => {
     rangeWithDots.push(...range);
 
     if (currentPage + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages);
+      rangeWithDots.push("...", totalPages);
     } else if (totalPages > 1) {
       rangeWithDots.push(totalPages);
     }
@@ -374,7 +436,9 @@ const ManageUsers = () => {
     return rangeWithDots;
   };
 
-  const hasActiveFilters = Object.values(selectedFilters).some(value => value !== "");
+  const hasActiveFilters = Object.values(selectedFilters).some(
+    (value) => value !== ""
+  );
 
   if (loading) {
     return (
@@ -392,7 +456,9 @@ const ManageUsers = () => {
       <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
         <span className="hover:text-gray-700 cursor-pointer">Dashboard</span>
         <span>›</span>
-        <span className="hover:text-gray-700 cursor-pointer">User Management</span>
+        <span className="hover:text-gray-700 cursor-pointer">
+          User Management
+        </span>
         <span>›</span>
         <span className="text-gray-900 font-medium">Manage Users</span>
       </div>
@@ -407,14 +473,18 @@ const ManageUsers = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <Upload className="w-4 h-4" />
-              Bulk Upload
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <Plus className="w-4 h-4" />
-              Add User
-            </button>
+            <Link to="/dashboard/users/add?tab=Multiple User">
+              <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <Upload className="w-4 h-4" />
+                Bulk Upload
+              </button>
+            </Link>
+            <Link to="/dashboard/users/add">
+              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <Plus className="w-4 h-4" />
+                Add User
+              </button>
+            </Link>
           </div>
         </div>
 
@@ -436,13 +506,15 @@ const ManageUsers = () => {
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-700 font-medium">Filters:</span>
+              <span className="text-sm text-gray-700 font-medium">
+                Filters:
+              </span>
             </div>
 
             {/* Status Filter */}
             <select
               value={selectedFilters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
+              onChange={(e) => handleFilterChange("status", e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Status</option>
@@ -452,23 +524,25 @@ const ManageUsers = () => {
             </select>
 
             {/* Role Filter */}
-            <select
-              value={selectedFilters.roleId}
-              onChange={(e) => handleFilterChange('roleId', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Roles</option>
-              {adminRoles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
+            {!isCommandCentreSupervisor && (
+              <select
+                value={selectedFilters.roleId}
+                onChange={(e) => handleFilterChange("roleId", e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Roles</option>
+                {adminRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Rank Filter */}
             <select
               value={selectedFilters.rankId}
-              onChange={(e) => handleFilterChange('rankId', e.target.value)}
+              onChange={(e) => handleFilterChange("rankId", e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Ranks</option>
@@ -482,7 +556,9 @@ const ManageUsers = () => {
             {/* Formation Filter */}
             <select
               value={selectedFilters.formationId}
-              onChange={(e) => handleFilterChange('formationId', e.target.value)}
+              onChange={(e) =>
+                handleFilterChange("formationId", e.target.value)
+              }
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Formations</option>
@@ -508,7 +584,7 @@ const ManageUsers = () => {
           {/* Results Count and Sort */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500">
-              {totalItems} user{totalItems !== 1 ? 's' : ''} found
+              {totalItems} user{totalItems !== 1 ? "s" : ""} found
             </span>
             <select
               value={itemsPerPage}
@@ -547,12 +623,24 @@ const ManageUsers = () => {
           <table className="w-full table-fixed">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-80">Name</th>
-                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-32">Rank</th>
-                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-40">Role</th>
-                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-28">Status</th>
-                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-40">Formation</th>
-                <th className="text-right py-4 px-6 font-semibold text-gray-900 w-36">Actions</th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-80">
+                  Name
+                </th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-32">
+                  Rank
+                </th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-40">
+                  Role
+                </th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-28">
+                  Status
+                </th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-900 w-40">
+                  Formation
+                </th>
+                <th className="text-right py-4 px-6 font-semibold text-gray-900 w-36">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -561,7 +649,7 @@ const ManageUsers = () => {
                   <tr
                     key={user.id}
                     className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                      index === currentItems.length - 1 ? 'border-b-0' : ''
+                      index === currentItems.length - 1 ? "border-b-0" : ""
                     }`}
                   >
                     <td className="py-4 px-6">
@@ -569,7 +657,9 @@ const ManageUsers = () => {
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white shadow-sm flex-shrink-0"
                           style={{
-                            backgroundColor: user.avatar ? "transparent" : getRandomColor(user.id),
+                            backgroundColor: user.avatar
+                              ? "transparent"
+                              : getRandomColor(user.id),
                           }}
                         >
                           {user.avatar ? (
@@ -584,9 +674,13 @@ const ManageUsers = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-gray-900 truncate">
-                            {`${user.firstName || ""} ${user.lastName || ""}`.trim()}
+                            {`${user.firstName || ""} ${
+                              user.lastName || ""
+                            }`.trim()}
                           </div>
-                          <div className="text-sm text-gray-500 truncate">{user.email}</div>
+                          <div className="text-sm text-gray-500 truncate">
+                            {user.email}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -596,7 +690,9 @@ const ManageUsers = () => {
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="text-sm text-gray-900 truncate block">{getRoleName(user.roleId)}</span>
+                      <span className="text-sm text-gray-900 truncate block">
+                        {getRoleName(user.roleId)}
+                      </span>
                     </td>
                     <td className="py-4 px-6">
                       <span
@@ -604,7 +700,8 @@ const ManageUsers = () => {
                           user.status
                         )}`}
                       >
-                        {user.status?.charAt(0).toUpperCase() + user.status?.slice(1) || 'N/A'}
+                        {user.status?.charAt(0).toUpperCase() +
+                          user.status?.slice(1) || "N/A"}
                       </span>
                     </td>
                     <td className="py-4 px-6">
@@ -615,8 +712,10 @@ const ManageUsers = () => {
                     <td className="py-4 px-6">
                       <div className="flex items-center justify-end gap-1">
                         {user.status?.toLowerCase() === "active" && (
-                          <button 
-                            onClick={() => handleStatusUpdate(user.id, user.status)}
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(user.id, user.status)
+                            }
                             disabled={updatingUserId === user.id}
                             className="px-2 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 whitespace-nowrap"
                           >
@@ -627,8 +726,10 @@ const ManageUsers = () => {
                           </button>
                         )}
                         {user.status?.toLowerCase() === "deactivated" && (
-                          <button 
-                            onClick={() => handleStatusUpdate(user.id, user.status)}
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(user.id, user.status)
+                            }
                             disabled={updatingUserId === user.id}
                             className="px-2 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 whitespace-nowrap"
                           >
@@ -655,13 +756,21 @@ const ManageUsers = () => {
                   <td colSpan="6" className="py-12 text-center text-gray-500">
                     {searchTerm || hasActiveFilters ? (
                       <div>
-                        <p className="text-lg font-medium mb-2">No users found</p>
-                        <p className="text-sm">Try adjusting your search or filters</p>
+                        <p className="text-lg font-medium mb-2">
+                          No users found
+                        </p>
+                        <p className="text-sm">
+                          Try adjusting your search or filters
+                        </p>
                       </div>
                     ) : (
                       <div>
-                        <p className="text-lg font-medium mb-2">No users available</p>
-                        <p className="text-sm">Get started by adding your first user</p>
+                        <p className="text-lg font-medium mb-2">
+                          No users available
+                        </p>
+                        <p className="text-sm">
+                          Get started by adding your first user
+                        </p>
                       </div>
                     )}
                   </td>
@@ -670,7 +779,7 @@ const ManageUsers = () => {
             </tbody>
           </table>
         </div>
-        </div>
+      </div>
     </div>
   );
 };
