@@ -71,7 +71,7 @@ const General = () => {
       case "Citizen Name":
         return "fullName";
       case "Phone Number":
-        return "phone_number";
+        return "phoneNumber";
       case "Ticket ID":
         return "ticketId";
       default:
@@ -650,7 +650,7 @@ const General = () => {
                       onClick={(e) => e.stopPropagation()}
                     />
                     <div className="bg-[#E9EAEB] px-3 py-2 text-sm font-medium text-gray-600">
-                      #{report.id}
+                      {report.id}
                     </div>
                   </div>
                   <StatusBadge

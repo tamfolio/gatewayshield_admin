@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -13,19 +13,21 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { Calendar, Download, ChevronDown, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-const PsHome = () => {
+const PsHome = ({ 
+  dashboardData = {},
+  dashboardData2 = {},
+  loading = false,
+  userData,
+  selectedTab,
+  setSelectedTab,
+  dataType,
+  setDataType,
+  DatePickerComponent
+}) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState("30 days");
   const [selectedRatingTimeframe, setSelectedRatingTimeframe] = useState("30 days");
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedTab, setSelectedTab] = useState("General");
-  const [dashboardData, setDashboardData] = useState({});
-  const [dashboardData2, setDashboardData2] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  // Mock user data for demo
-  const userData = { firstName: "Sienna" };
 
   // Sample data for charts
   const resolutionTimeData = [
@@ -67,33 +69,35 @@ const PsHome = () => {
     { name: "Call", key: "call", color: "#59A14F" },
   ].map((channel) => ({
     name: channel.name,
-    value: rawChannelData[channel.key] ?? 25,
+    value: rawChannelData[channel.key] ?? 0,
     color: channel.color,
   }));
 
-  const incidentData = [
-    { name: "Rape", value: 45, color: "#4E79A7" },
-    { name: "Kidnapping", value: 30, color: "#F28E2B" },
-    { name: "Theft", value: 25, color: "#E15759" },
-    { name: "Robbery", value: 20, color: "#76B7B2" },
-    { name: "Vandalism", value: 15, color: "#59A14F" },
-  ];
+  // Use dynamic incident data from API if available
+  const colorPalette = ["#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", "#E0E0FF"];
+  const incidentData = Object.entries(dashboardData?.incidentTypes || {}).map(
+    ([name, value], index) => ({
+      name,
+      value,
+      color: colorPalette[index % colorPalette.length],
+    })
+  );
 
-  // Sample officer performance data
+  // Sample officer performance data - replace with real data when API is available
   const bottomOfficersData = [
-    { name: "Akpan", rating: 2.5, totalReports: 45 },
-    { name: "Akpan", rating: 3.5, totalReports: 32 },
-    { name: "Akpan", rating: 2.0, totalReports: 28 },
+    { name: "Akpan A.", rating: 2.5, totalReports: 45 },
+    { name: "Okoro B.", rating: 3.0, totalReports: 32 },
+    { name: "Adamu C.", rating: 2.0, totalReports: 28 },
     { name: "R. Okoro", rating: 3.5, totalReports: 22 },
-    { name: "R. Okoro", rating: 2.0, totalReports: 18 },
+    { name: "S. James", rating: 2.8, totalReports: 18 },
   ];
 
   const topOfficersData = [
-    { name: "Ikeja", rating: 2.5, totalReports: 45 },
-    { name: "Ikoyi", rating: 3.5, totalReports: 38 },
-    { name: "Surulere", rating: 2.0, totalReports: 35 },
-    { name: "R. Okoro", rating: 3.5, totalReports: 32 },
-    { name: "R. Okoro", rating: 2.0, totalReports: 28 },
+    { name: "Ibrahim T.", rating: 4.5, totalReports: 45 },
+    { name: "Olumide K.", rating: 4.2, totalReports: 38 },
+    { name: "Grace M.", rating: 4.8, totalReports: 35 },
+    { name: "Daniel R.", rating: 4.3, totalReports: 32 },
+    { name: "Favour N.", rating: 4.6, totalReports: 28 },
   ];
 
   const timeframes = ["12 months", "3 months", "30 days", "7 days", "24 hours"];
@@ -102,11 +106,11 @@ const PsHome = () => {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-200">
       <h3 className="text-sm font-medium text-gray-600 mb-3">{title}</h3>
       <div className="flex items-end justify-between">
-        <div className="text-3xl font-bold text-gray-900">{typeof value === 'number' ? value.toLocaleString() : value}</div>
+        <div className="text-3xl font-bold text-gray-900">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </div>
         <div className={`flex items-center text-xs px-2 py-1 rounded-full font-medium ${
-          isNegative 
-            ? "text-red-600" 
-            : "text-green-600"
+          isNegative ? "text-red-600" : "text-green-600"
         }`}>
           <span className="mr-1">
             {isNegative ? "↗" : "↗"}
@@ -114,56 +118,6 @@ const PsHome = () => {
           {change}
         </div>
       </div>
-    </div>
-  );
-
-  const DatePickerComponent = () => (
-    <div className="relative">
-      <button
-        onClick={() => setShowDatePicker(!showDatePicker)}
-        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-      >
-        <Calendar className="w-4 h-4" />
-        <span>Jan 10, 2025 - Jan 16, 2025</span>
-        <ChevronDown className="w-4 h-4" />
-      </button>
-
-      {showDatePicker && (
-        <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-80">
-          <div className="grid grid-cols-7 gap-1 text-center text-sm">
-            <div className="p-2 font-medium text-gray-600">Sun</div>
-            <div className="p-2 font-medium text-gray-600">Mon</div>
-            <div className="p-2 font-medium text-gray-600">Tue</div>
-            <div className="p-2 font-medium text-gray-600">Wed</div>
-            <div className="p-2 font-medium text-gray-600">Thu</div>
-            <div className="p-2 font-medium text-gray-600">Fri</div>
-            <div className="p-2 font-medium text-gray-600">Sat</div>
-
-            {Array.from({ length: 31 }, (_, i) => (
-              <button
-                key={i}
-                className="p-2 hover:bg-blue-50 rounded text-gray-700"
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setShowDatePicker(false)}
-              className="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => setShowDatePicker(false)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -224,7 +178,10 @@ const PsHome = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex gap-8">
             <button
-              onClick={() => setSelectedTab("General")}
+              onClick={() => {
+                setDataType("General");
+                setSelectedTab("General");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "General"
                   ? "border-blue-600 text-blue-600 font-medium"
@@ -234,7 +191,10 @@ const PsHome = () => {
               General
             </button>
             <button
-              onClick={() => setSelectedTab("SOS")}
+              onClick={() => {
+                setDataType("SOS");
+                setSelectedTab("SOS");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "SOS"
                   ? "border-blue-600 text-blue-600 font-medium"
@@ -258,7 +218,7 @@ const PsHome = () => {
         {/* Total Reports Header */}
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            Total Reports (My Station)(2200)
+            Total Reports ({dashboardData?.base?.["total report"] ?? 0})
           </h2>
         </div>
 
@@ -268,19 +228,19 @@ const PsHome = () => {
           <div className="grid grid-cols-3 gap-6">
             <StatCard
               title="In Progress"
-              value={dashboardData?.base?.["in-progress"] ?? 912}
+              value={dashboardData?.base?.["in-progress"] ?? 0}
               change="2%"
               isNegative={false}
             />
             <StatCard
               title="Unassigned"
-              value={dashboardData?.base?.["unassigned"] ?? 14}
+              value={dashboardData?.base?.["unassigned"] ?? 0}
               change="12%"
               isNegative={false}
             />
             <StatCard
               title="SLA Breached"
-              value={dashboardData?.base?.["sla breached"] ?? 914}
+              value={dashboardData?.base?.["sla breached"] ?? 0}
               change="2%"
               isNegative={true}
             />
@@ -290,13 +250,13 @@ const PsHome = () => {
           <div className="grid grid-cols-2 gap-6">
             <StatCard
               title="Closed"
-              value={dashboardData?.base?.["closed"] ?? 912}
+              value={dashboardData?.base?.["closed"] ?? 0}
               change="2%"
               isNegative={false}
             />
             <StatCard
               title="Rejected"
-              value={dashboardData?.base?.["rejected"] ?? 92}
+              value={dashboardData?.base?.["rejected"] ?? 0}
               change="2%"
               isNegative={true}
             />
@@ -434,7 +394,10 @@ const PsHome = () => {
 
             <div className="text-center mb-6">
               <div className="text-4xl font-bold text-gray-900">
-                4.5 star
+                {/* {dashboardData2?.averageStationRating ? 
+                  `${dashboardData2.averageStationRating.toFixed(1)} star` : 
+                  '4.5 star'
+                } */}
               </div>
             </div>
 
