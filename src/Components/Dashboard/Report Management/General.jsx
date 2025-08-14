@@ -51,7 +51,7 @@ const General = () => {
 
   // New search and toggle states
   const [showMyReports, setShowMyReports] = useState(false);
-  const [searchType, setSearchType] = useState("Report ID");
+  const [searchType, setSearchType] = useState("Phone Number");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
   const token = useSelector(
@@ -131,12 +131,7 @@ const General = () => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
 
   // Search dropdown options
-  const searchOptions = [
-    "Report ID",
-    "Citizen Name",
-    "Phone Number",
-    "Ticket ID",
-  ];
+  const searchOptions = ["Phone Number","Report ID", "Ticket ID", "Full Name"];
 
   // Add refs for each dropdown
   const reportStatusRef = useRef(null);
