@@ -12,11 +12,15 @@ import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import useAccessToken from "../../../Utils/useAccessToken";
 import Select from "react-select";
+import OgunStateAddressAutocomplete from "./OgunStateAddressAutoComplete";
 
 function CreateIncident() {
   const [userDataDetails, setUserDataDetails] = useState([]);
   const [incidentTypes, setIncidentTypes] = useState([]);
   const userData = useSelector((state) => state.user?.currentUser);
+  // Add these state variables after your existing useState declarations
+  // Add this state variable after your existing useState declarations
+  const [addressCoordinates, setAddressCoordinates] = useState(null);
   console.log(userData);
   const token = useAccessToken();
 
@@ -83,7 +87,8 @@ function CreateIncident() {
   const checkUserByPhone = useCallback(
     async (phone) => {
       // The phone should already be in +234XXXXXXXXX format
-      if (!phone || phone.length < 14) { // +234 + 10 digits = 14 characters
+      if (!phone || phone.length < 14) {
+        // +234 + 10 digits = 14 characters
         setPhoneUserData(null);
         return;
       }
@@ -105,14 +110,14 @@ function CreateIncident() {
             phoneNumber: response.data.data.phoneNumber,
             found: true,
           });
-          
+
           // Auto-populate the form fields
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             email: response.data.data.email || "",
             fullName: response.data.data.name || "",
           }));
-          
+
           console.log("✅ User found:", response.data.data);
         } else {
           // User not found
@@ -120,14 +125,14 @@ function CreateIncident() {
             phoneNumber: phone,
             found: false,
           });
-          
+
           // Clear the auto-populated fields
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             email: "",
             fullName: "",
           }));
-          
+
           console.log("❌ User not found for phone:", phone);
         }
       } catch (error) {
@@ -137,9 +142,9 @@ function CreateIncident() {
           phoneNumber: phone,
           found: false,
         });
-        
+
         // Clear the auto-populated fields
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           email: "",
           fullName: "",
@@ -151,6 +156,16 @@ function CreateIncident() {
     [token]
   );
 
+  // Add this useEffect to load Google Maps API
+useEffect(() => {
+  if (!window.google) {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyALniH6V8qHvDGFQzIM6dAWetIwQbx6ueU&libraries=places`;
+    script.async = true;
+    document.head.appendChild(script);
+  }
+}, []);
+
   // Debounced phone check
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -160,7 +175,7 @@ function CreateIncident() {
         setPhoneUserData(null);
         // Clear auto-populated fields when switching report types
         if (formData.reportType !== "General") {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             email: "",
             fullName: "",
@@ -186,6 +201,18 @@ function CreateIncident() {
     }
   };
 
+  // Add this function after your existing functions
+  const handleAddressPlaceSelect = (addressData) => {
+    console.log("Address selected:", addressData);
+    setAddressCoordinates(addressData.coordinates);
+
+    if (!addressData.isInOgunState) {
+      toast.warning(
+        "Please note: This address appears to be outside Ogun State"
+      );
+    }
+  };
+
   const handleReportTypeChange = (reportType) => {
     // Reset form when changing report type
     setFormData({
@@ -203,6 +230,7 @@ function CreateIncident() {
     setUploadedFile("");
     setAudioBlob(null);
     setIsRecording(false);
+    setAddressCoordinates(null); // Add this line
     setPhoneUserData(null); // Reset phone user data
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -218,13 +246,13 @@ function CreateIncident() {
     if (!formData.phone.trim()) {
       return "Phone number is required";
     }
-    
+
     // Check if it's in the correct +234XXXXXXXXX format
     const phoneRegex = /^\+234[789]\d{9}$/;
     if (!phoneRegex.test(formData.phone)) {
       return "Please enter a valid Nigerian phone number starting with 7, 8, or 9";
     }
-    
+
     return null;
   };
 
@@ -329,15 +357,15 @@ function CreateIncident() {
 
         // Append audio file if recorded
         if (audioBlob) {
-          let filename = 'recording.webm';
-          if (audioBlob.type.includes('webm')) {
-            filename = 'recording.webm';
-          } else if (audioBlob.type.includes('mp4')) {
-            filename = 'recording.mp4';
-          } else if (audioBlob.type.includes('mpeg')) {
-            filename = 'recording.mp3';
+          let filename = "recording.webm";
+          if (audioBlob.type.includes("webm")) {
+            filename = "recording.webm";
+          } else if (audioBlob.type.includes("mp4")) {
+            filename = "recording.mp4";
+          } else if (audioBlob.type.includes("mpeg")) {
+            filename = "recording.mp3";
           }
-        
+
           const audioFile = new File([audioBlob], filename, {
             type: audioBlob.type, // Use the actual recorded type
           });
@@ -373,7 +401,10 @@ function CreateIncident() {
         // Handle General incident submission
         // Determine if user is anonymous based on phone lookup
         const isUserAnonymous = formData.hideIdentity || !phoneUserData?.found;
-        const userId = (!formData.hideIdentity && phoneUserData?.found) ? phoneUserData.id : null;
+        const userId =
+          !formData.hideIdentity && phoneUserData?.found
+            ? phoneUserData.id
+            : null;
 
         console.log("Phone lookup result:", phoneUserData);
         console.log("Is user anonymous:", isUserAnonymous);
@@ -458,6 +489,7 @@ function CreateIncident() {
       setUploadedFile("");
       setAudioBlob(null);
       setErrors({});
+      setAddressCoordinates(null); // Add this line
 
       // Clear file input
       if (fileInputRef.current) {
@@ -485,35 +517,35 @@ function CreateIncident() {
             echoCancellation: true,
             noiseSuppression: true,
             sampleRate: 44100,
-          }
+          },
         });
-  
+
         // Use WebM format instead of default
         let options = {};
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          options = { mimeType: 'audio/webm;codecs=opus' };
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/webm' };
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          options = { mimeType: 'audio/mp4' };
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          options = { mimeType: "audio/webm;codecs=opus" };
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options = { mimeType: "audio/webm" };
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          options = { mimeType: "audio/mp4" };
         }
-  
+
         const recorder = new MediaRecorder(stream, options);
         const chunks = [];
-  
+
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             chunks.push(event.data);
           }
         };
-  
+
         recorder.onstop = () => {
-          const mimeType = recorder.mimeType || 'audio/webm';
+          const mimeType = recorder.mimeType || "audio/webm";
           const blob = new Blob(chunks, { type: mimeType });
           setAudioBlob(blob);
           stream.getTracks().forEach((track) => track.stop());
         };
-  
+
         recorder.start();
         setMediaRecorder(recorder);
         setIsRecording(true);
@@ -607,54 +639,56 @@ function CreateIncident() {
       case "phone":
         // Function to format phone number for display
         const formatPhoneForDisplay = (value) => {
-          if (!value) return '';
-          
+          if (!value) return "";
+
           // Remove all non-digits
-          const digitsOnly = value.replace(/\D/g, '');
-          
+          const digitsOnly = value.replace(/\D/g, "");
+
           // If it starts with 234, remove it for display
-          if (digitsOnly.startsWith('234')) {
+          if (digitsOnly.startsWith("234")) {
             const localNumber = digitsOnly.substring(3);
             // Add leading 0 if the local number doesn't start with 0
-            return localNumber.startsWith('0') ? localNumber : '0' + localNumber;
+            return localNumber.startsWith("0")
+              ? localNumber
+              : "0" + localNumber;
           }
-          
+
           return digitsOnly;
         };
 
         // Function to format phone number for storage (with +234)
         const formatPhoneForStorage = (displayValue) => {
-          if (!displayValue) return '';
-          
+          if (!displayValue) return "";
+
           // Remove all non-digits
-          let digitsOnly = displayValue.replace(/\D/g, '');
-          
+          let digitsOnly = displayValue.replace(/\D/g, "");
+
           // Remove leading 0 if present
-          if (digitsOnly.startsWith('0')) {
+          if (digitsOnly.startsWith("0")) {
             digitsOnly = digitsOnly.substring(1);
           }
-          
+
           // Add +234 prefix
-          return '+234' + digitsOnly;
+          return "+234" + digitsOnly;
         };
 
         // Handle phone input change
         const handlePhoneChange = (e) => {
           const inputValue = e.target.value;
-          
+
           // Remove all non-digits
-          let digitsOnly = inputValue.replace(/\D/g, '');
-          
+          let digitsOnly = inputValue.replace(/\D/g, "");
+
           // Ensure it starts with 0 for display
-          if (digitsOnly && !digitsOnly.startsWith('0')) {
-            digitsOnly = '0' + digitsOnly;
+          if (digitsOnly && !digitsOnly.startsWith("0")) {
+            digitsOnly = "0" + digitsOnly;
           }
-          
+
           // Limit to 11 digits (0 + 10 digits)
           if (digitsOnly.length > 11) {
             digitsOnly = digitsOnly.substring(0, 11);
           }
-          
+
           // Store the formatted version with +234
           const storageValue = formatPhoneForStorage(digitsOnly);
           handleInputChange("phone", storageValue);
@@ -731,7 +765,11 @@ function CreateIncident() {
                 errors.email ? "border-red-500" : "border-gray-300"
               }`}
               readOnly={phoneUserData?.found}
-              placeholder={phoneUserData?.found ? "Auto-populated from phone lookup" : "Enter email address"}
+              placeholder={
+                phoneUserData?.found
+                  ? "Auto-populated from phone lookup"
+                  : "Enter email address"
+              }
               required
             />
             {errors.email && (
@@ -754,7 +792,11 @@ function CreateIncident() {
                 errors.fullName ? "border-red-500" : "border-gray-300"
               }`}
               readOnly={phoneUserData?.found}
-              placeholder={phoneUserData?.found ? "Auto-populated from phone lookup" : "Enter full name"}
+              placeholder={
+                phoneUserData?.found
+                  ? "Auto-populated from phone lookup"
+                  : "Enter full name"
+              }
               required
             />
             {errors.fullName && (
@@ -769,15 +811,12 @@ function CreateIncident() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Address <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <OgunStateAddressAutocomplete
               value={formData.address}
               onChange={(e) => handleInputChange("address", e.target.value)}
-              placeholder="Your Address"
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 ${
-                errors.address ? "border-red-500" : "border-gray-300"
-              }`}
-              required
+              onPlaceSelect={handleAddressPlaceSelect}
+              placeholder="Start typing your address in Ogun State..."
+              disabled={false}
             />
             {errors.address && (
               <p className="mt-1 text-sm text-red-500">{errors.address}</p>
