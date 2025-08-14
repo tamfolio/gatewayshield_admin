@@ -74,7 +74,7 @@ const Sos = () => {
 
   // New search and toggle states
   const [showMyReports, setShowMyReports] = useState(false);
-  const [searchType, setSearchType] = useState("Report ID");
+  const [searchType, setSearchType] = useState("Phone Number");
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
@@ -94,7 +94,7 @@ const Sos = () => {
       case "Phone Number":
         return "phoneNumber";
       default:
-        return "reportId";
+        return "phoneNumber";
     }
   };
 
@@ -399,7 +399,7 @@ useEffect(() => {
   // Calendar state
 
   // Search dropdown options
-  const searchOptions = ["Report ID", "Ticket ID", "Full Name", "Phone Number"];
+  const searchOptions = ["Phone Number","Report ID", "Ticket ID", "Full Name"];
 
   const handleSelectAll = () => {
     setSelectedAll(!selectedAll);
@@ -427,14 +427,14 @@ useEffect(() => {
 
   const getSearchPlaceholder = () => {
     switch (searchType) {
+      case "Phone Number":
+        return "Search by Phone Number (e.g., +2348156170217)...";
       case "Report ID":
         return "Search by Report ID...";
       case "Ticket ID":
         return "Search by Ticket ID...";
       case "Full Name":
         return "Search by Full Name...";
-      case "Phone Number":
-        return "Search by Phone Number (e.g., +2348156170217)...";
       default:
         return "Search...";
     }
