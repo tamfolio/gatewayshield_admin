@@ -25,15 +25,37 @@ const CcsHome = () => {
   const [selectedTab, setSelectedTab] = useState("General");
   const [dashboardData, setDashboardData] = useState([]);
   const [dashboardData2, setDashboardData2] = useState([]);
+  const [dataType, setDataType] = useState("General"); // Added this state
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const token = useAccessToken();
 
   const userData = useSelector((state) => state.user?.currentUser?.admin);
 
+  const formatDateForAPI = (date) => {
+    if (!date) return "";
+    const localDate = new Date(date);
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const res = await userRequest(token).get(`/admin/get/dashboard`);
+        let url = `/admin/get/dashboard?type=${dataType}`;
+        
+        // Add date parameters if they exist
+        if (startDate) {
+          url += `&startDate=${formatDateForAPI(startDate)}`;
+        }
+        if (endDate) {
+          url += `&endDate=${formatDateForAPI(endDate)}`;
+        }
+        
+        const res = await userRequest(token).get(url);
         setDashboardData(res.data.data.dashboard);
       } catch (error) {
         console.error("❌ Failed to fetch Dashboard data:", error);
@@ -57,7 +79,7 @@ const CcsHome = () => {
       fetchDashboardData();
       fetchDashboardData2();
     }
-  }, [token]);
+  }, [token, dataType, startDate, endDate]); // Added dataType to dependency array
 
   // Sample data for charts
   const resolutionTimeData = [
@@ -254,7 +276,10 @@ const CcsHome = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex gap-8">
             <button
-              onClick={() => setSelectedTab("General")}
+              onClick={() => {
+                setDataType("General");
+                setSelectedTab("General");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "General"
                   ? "border-blue-600 text-blue-600 font-medium"
@@ -264,7 +289,10 @@ const CcsHome = () => {
               General
             </button>
             <button
-              onClick={() => setSelectedTab("SOS")}
+              onClick={() => {
+                setDataType("SOS");
+                setSelectedTab("SOS");
+              }}
               className={`pb-3 border-b-2 transition-colors ${
                 selectedTab === "SOS"
                   ? "border-blue-600 text-blue-600 font-medium"
