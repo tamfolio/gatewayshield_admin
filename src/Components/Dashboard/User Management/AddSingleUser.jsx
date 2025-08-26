@@ -135,7 +135,7 @@ function AddSingleUser({ activeTab, setActiveTab }) {
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
                   User Info
                 </h2>
-                <p className="text-sm text-gray-500">Update User details.</p>
+                <p className="text-sm text-gray-500">Add User details.</p>
               </div>
 
               {/* Right Side - Form */}

@@ -33,12 +33,10 @@ import { toast } from "react-toastify";
 
 const Sidebar = () => {
   const adminRolesList = useSelector((state) => state.user?.adminRoles);
-  console.log(adminRolesList)
   const userRoleId = useSelector((state) => state.user?.currentUser?.admin?.roleId);
   const userName = useSelector((state) => state.user?.currentUser?.admin);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  console.log(userName)
   const token = useAccessToken();
 
   const handleLogout = async () => {
@@ -121,7 +119,6 @@ const Sidebar = () => {
     "Admin": ["dashboard", "users", "reports", "crime-map", "admin", "feedback", "audit", "settings", "help"],
     "Police Station": ["dashboard","reports", "crime-map", "feedback"],
     "Command Centre Agent": ["dashboard", "Incident", "reports", "crime-map", "help"],
-    "Command Centre supervisor": ["dashboard","users", "reports", "crime-map", "audit",   'help']
   };
 
   // Get allowed routes for current user
