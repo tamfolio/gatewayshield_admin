@@ -34,7 +34,6 @@ publicRequest.interceptors.response.use(
   }
 );
 
-console.log("state",store.getState());
 
 export const userRequest = (token) => axios.create({
   baseURL: BASE_URL,
