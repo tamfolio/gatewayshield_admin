@@ -29,16 +29,20 @@ function EditUser({ activeTab, setActiveTab }) {
 
   // Get current user data from Redux
   const userData = useSelector((state) => state.user?.currentUser?.admin);
-  
-  // Find current user's role name by matching roleId with adminRoles
-  const currentUserRoleObj = adminRoles.length > 0 ? adminRoles.find(role => role.id === userData?.roleId) : null;
-  const currentUserRole = currentUserRoleObj?.name;
-  const isCurrentUserAdmin = currentUserRole === 'Admin' || currentUserRole === 'Super Admin';
 
-  console.log(userData)
+  // Find current user's role name by matching roleId with adminRoles
+  const currentUserRoleObj =
+    adminRoles.length > 0
+      ? adminRoles.find((role) => role.id === userData?.roleId)
+      : null;
+  const currentUserRole = currentUserRoleObj?.name;
+  const isCurrentUserAdmin =
+    currentUserRole === "Admin" || currentUserRole === "Super Admin";
+
+  console.log(userData);
   // Check if current user is editing their own profile using email comparison
   const isEditingSelf = userData?.email === userDetails?.email;
-  
+
   // Determine what fields can be edited
   const canEditAllFields = isEditingSelf; // Only when editing themselves
   const canEditAllFieldsExceptName = isCurrentUserAdmin && !isEditingSelf; // Admin editing others (except names)
@@ -55,7 +59,9 @@ function EditUser({ activeTab, setActiveTab }) {
 
     const fetchAdminFormation = async () => {
       try {
-        const res = await userRequest(token).get("/options/adminFormations/all");
+        const res = await userRequest(token).get(
+          "/options/adminFormations/all"
+        );
         setAdminFormation(res.data?.data?.adminFormations || []);
       } catch (err) {
         console.error("❌ Failed to fetch admin Formation:", err);
@@ -76,7 +82,7 @@ function EditUser({ activeTab, setActiveTab }) {
         const res = await userRequest(token).get(`/admin/get/${id}`);
         const userDetailsData = res.data?.data?.admin || {};
         setUserDetails(userDetailsData);
-        
+
         // Initialize form data with user details
         setFormData({
           firstName: userDetailsData.firstName || "",
@@ -118,10 +124,23 @@ function EditUser({ activeTab, setActiveTab }) {
     }));
   };
 
+  const handleFormationChange = (formationId) => {
+    const selectedFormation = adminFormation.find(
+      (formation) => formation.id === formationId
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      formation: formationId,
+      address: selectedFormation ? selectedFormation.address : "",
+      coordinate: selectedFormation ? selectedFormation.coordinates : "",
+    }));
+  };
+
   const handleSubmit = async () => {
     let payload;
     let endpoint;
-    
+
     if (isEditingSelf) {
       // User editing their own profile - use /admin/update endpoint
       payload = {
@@ -182,14 +201,18 @@ function EditUser({ activeTab, setActiveTab }) {
     };
     setIsLoading(true);
     try {
-      const res = await userRequest(token).patch("/admin/update/status", payload);
+      const res = await userRequest(token).patch(
+        "/admin/update/status",
+        payload
+      );
       toast.success(res.data.message);
       setIsLoading(false);
       // Update local state
-      setUserDetails(prev => ({ ...prev, isActive: !adminActive }));
+      setUserDetails((prev) => ({ ...prev, isActive: !adminActive }));
     } catch (err) {
       setIsLoading(false);
-      const message = err?.response?.data?.error || "❌ Failed to update Admin Status";
+      const message =
+        err?.response?.data?.error || "❌ Failed to update Admin Status";
       toast.error(message);
     }
   };
@@ -209,7 +232,7 @@ function EditUser({ activeTab, setActiveTab }) {
           <span className="text-gray-900">Edit User</span>
         </div>
       </div>
-      
+
       {/* Main Content */}
       <div className="w-full mx-auto p-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -221,19 +244,22 @@ function EditUser({ activeTab, setActiveTab }) {
                   Edit Info
                 </h2>
                 <p className="text-sm text-gray-500">
-                  {isEditingSelf 
-                    ? "Update your profile details." 
-                    : canEditAllFieldsExceptName 
-                    ? "Update user details (names cannot be changed)." 
+                  {isEditingSelf
+                    ? "Update your profile details."
+                    : canEditAllFieldsExceptName
+                    ? "Update user details (names cannot be changed)."
                     : "Update user details."}
                 </p>
-                
+
                 {/* Permission indicator */}
                 <div className="mt-3 p-2 bg-blue-50 rounded-lg">
                   <p className="text-xs text-blue-600">
                     {isEditingSelf && "You can edit all your profile details."}
-                    {canEditAllFieldsExceptName && "You can edit all fields except first and last name."}
-                    {!isEditingSelf && !canEditAllFieldsExceptName && "Limited editing permissions."}
+                    {canEditAllFieldsExceptName &&
+                      "You can edit all fields except first and last name."}
+                    {!isEditingSelf &&
+                      !canEditAllFieldsExceptName &&
+                      "Limited editing permissions."}
                   </p>
                 </div>
               </div>
@@ -250,9 +276,13 @@ function EditUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("firstName", e.target.value)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !canEditAllFields ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !canEditAllFields
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : ""
                       }`}
                       placeholder="Enter first name"
                       disabled={!canEditAllFields}
@@ -267,9 +297,13 @@ function EditUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("lastName", e.target.value)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !canEditAllFields ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !canEditAllFields
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : ""
                       }`}
                       placeholder="Enter last name"
                       disabled={!canEditAllFields}
@@ -288,12 +322,18 @@ function EditUser({ activeTab, setActiveTab }) {
                       <input
                         type="email"
                         value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("email", e.target.value)
+                        }
                         className={`w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
                         }`}
                         placeholder="Enter email address"
-                        disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                        disabled={
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                        }
                       />
                     </div>
                   </div>
@@ -305,11 +345,15 @@ function EditUser({ activeTab, setActiveTab }) {
                     </label>
                     <div className="flex">
                       <div className="relative">
-                        <select 
+                        <select
                           className={`appearance-none bg-white border border-gray-300 rounded-l-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
-                            !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                            !(canEditAllFields || canEditAllFieldsExceptName)
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : ""
                           }`}
-                          disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                          disabled={
+                            !(canEditAllFields || canEditAllFieldsExceptName)
+                          }
                         >
                           <option>NG</option>
                         </select>
@@ -318,12 +362,18 @@ function EditUser({ activeTab, setActiveTab }) {
                       <input
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => handleInputChange("phone", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("phone", e.target.value)
+                        }
                         className={`flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
                         }`}
                         placeholder="+234**********"
-                        disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                        disabled={
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                        }
                       />
                     </div>
                   </div>
@@ -336,11 +386,17 @@ function EditUser({ activeTab, setActiveTab }) {
                     <div className="relative">
                       <select
                         value={formData.role}
-                        onChange={(e) => handleInputChange("role", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("role", e.target.value)
+                        }
                         className={`appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500 ${
-                          !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
                         }`}
-                        disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                        disabled={
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                        }
                       >
                         <option value="">Select the Role</option>
                         {adminRoles.map((role) => (
@@ -361,11 +417,15 @@ function EditUser({ activeTab, setActiveTab }) {
                     <div className="relative">
                       <select
                         value={formData.formation}
-                        onChange={(e) => handleInputChange("formation", e.target.value)}
+                        onChange={(e) => handleFormationChange(e.target.value)} // CHANGED: Use handleFormationChange instead of handleInputChange
                         className={`appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500 ${
-                          !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
                         }`}
-                        disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                        disabled={
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                        }
                       >
                         <option value="">Select the Formation</option>
                         {adminFormation.map((formation) => (
@@ -386,12 +446,25 @@ function EditUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.address}
-                      onChange={(e) => handleInputChange("address", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("address", e.target.value)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : formData.formation
+                          ? "bg-gray-50 text-gray-500"
+                          : "" // Show as auto-filled when formation is selected
                       }`}
-                      placeholder="Enter address"
-                      disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                      placeholder={
+                        formData.formation
+                          ? "Auto-filled from formation"
+                          : "Enter address"
+                      }
+                      disabled={
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                      }
+                      readOnly={!!formData.formation} // Make read-only when formation is selected
                     />
                   </div>
 
@@ -403,12 +476,25 @@ function EditUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.coordinate}
-                      onChange={(e) => handleInputChange("coordinate", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("coordinate", e.target.value)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : formData.formation
+                          ? "bg-gray-50 text-gray-500"
+                          : "" // Show as auto-filled when formation is selected
                       }`}
-                      placeholder="Enter coordinate"
-                      disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                      placeholder={
+                        formData.formation
+                          ? "Auto-filled from formation"
+                          : "Enter coordinate"
+                      }
+                      disabled={
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                      }
+                      readOnly={!!formData.formation} // Make read-only when formation is selected
                     />
                   </div>
 
@@ -420,11 +506,17 @@ function EditUser({ activeTab, setActiveTab }) {
                     <div className="relative">
                       <select
                         value={formData.rank}
-                        onChange={(e) => handleInputChange("rank", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("rank", e.target.value)
+                        }
                         className={`appearance-none w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-500 ${
-                          !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
                         }`}
-                        disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                        disabled={
+                          !(canEditAllFields || canEditAllFieldsExceptName)
+                        }
                       >
                         <option value="">Select the Rank</option>
                         {adminRanks.map((rank) => (
@@ -445,12 +537,18 @@ function EditUser({ activeTab, setActiveTab }) {
                     <input
                       type="text"
                       value={formData.badgeNumber}
-                      onChange={(e) => handleInputChange("badgeNumber", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("badgeNumber", e.target.value)
+                      }
                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        !(canEditAllFields || canEditAllFieldsExceptName) ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : ""
                       }`}
                       placeholder="Enter badge number"
-                      disabled={!(canEditAllFields || canEditAllFieldsExceptName)}
+                      disabled={
+                        !(canEditAllFields || canEditAllFieldsExceptName)
+                      }
                     />
                   </div>
                 </div>
@@ -468,7 +566,7 @@ function EditUser({ activeTab, setActiveTab }) {
                       </h3>
                     </div>
                   )}
-                  
+
                   <div className="flex gap-3 ml-auto">
                     <button
                       onClick={handleCancel}

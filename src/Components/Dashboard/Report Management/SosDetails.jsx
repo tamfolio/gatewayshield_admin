@@ -380,196 +380,211 @@ function SosDetails() {
     );
   };
 
-  // Function to render buttons based on role
-  // Function to render buttons based on role - UPDATED FOR SOS
-  const renderActionButtons = () => {
-    // Check incident status
-    const isIncidentTreated = incident?.incidentStatus?.toLowerCase() === "treated";
-    const isIncidentClosed = incident?.incidentStatus?.toLowerCase() === "closed";
-    const isIncidentInProgress = incident?.incidentStatus?.toLowerCase() === "inprogress";
-    
-    // Check assignment status
-    const isAlreadyAssigned = incident?.assignedStatus === "assigned";
+// Updated renderActionButtons function for SOS Details with merged Admin/Command Centre supervisor role
+const renderActionButtons = () => {
+  // Check incident status
+  const isIncidentTreated = incident?.incidentStatus?.toLowerCase() === "treated";
+  const isIncidentClosed = incident?.incidentStatus?.toLowerCase() === "closed";
+  const isIncidentInProgress = incident?.incidentStatus?.toLowerCase() === "inprogress";
   
-    // Button availability logic
-    const isMarkAsTreatedDisabled =
-      incident?.incidentStatus?.toLowerCase() !== "inprogress" || markingAsTreated;
-  
-    const isPutOnHoldDisabled =
-      incident?.incidentStatus?.toLowerCase() !== "inprogress" || puttingOnHold;
-  
-    // Disable assign button ONLY if treated OR closed (allow reassignment if assigned + inprogress)
-    const isAssignDisabled = isIncidentTreated || isIncidentClosed;
-  
-    // Close ticket is only active if incident status is "treated"
-    const isCloseDisabled = !isIncidentTreated;
-  
-    // Determine button text for assign/reassign
-    const getAssignButtonText = () => {
-      if (isIncidentTreated) return "Treated";
-      if (isIncidentClosed) return "Closed";
-      if (isAlreadyAssigned && isIncidentInProgress) return "Reassign Ticket";
-      if (isAlreadyAssigned) return "Already Assigned";
-      return "Assign Ticket";
-    };
-  
-    switch (currentUserRole) {
-      case "Command Centre supervisor":
-        return (
-          <div className="space-y-3">
-            <button
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                isAssignDisabled
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-              onClick={handleAssignSosTicketModal}
-              disabled={isAssignDisabled}
-              title={
-                isIncidentTreated
-                  ? "Cannot assign a treated SOS incident"
-                  : isIncidentClosed
-                  ? "Cannot assign a closed SOS incident"
-                  : ""
-              }
-            >
-              {getAssignButtonText()}
-            </button>
-            <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-              onClick={handleRejectTicketModal}
-            >
-              Reject Ticket
-            </button>
-            <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-              onClick={handleExportModal}
-            >
-              Export Report
-            </button>
-          </div>
-        );
-  
-      case "Command Centre Agent":
-        return (
-          <div className="space-y-3">
-            <button
-              className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
-              onClick={handleExportModal}
-            >
-              Export Report
-            </button>
-          </div>
-        );
-  
-      case "Police Station":
-        return (
-          <div className="space-y-3">
-            <button
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                isMarkAsTreatedDisabled
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-              onClick={handleMarkAsTreatedModal}
-              disabled={isMarkAsTreatedDisabled}
-              title={
-                incident?.incidentStatus?.toLowerCase() !== "inprogress"
-                  ? "SOS incident must be 'In Progress' to mark as treated"
-                  : ""
-              }
-            >
-              {markingAsTreated
-                ? "Marking..."
-                : incident?.incidentStatus === "treated"
-                ? "Treated"
-                : "Mark as Treated"}
-            </button>
-            <button
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                isPutOnHoldDisabled
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
-              }`}
-              onClick={handlePutOnHoldModal}
-              disabled={isPutOnHoldDisabled}
-              title={
-                incident?.incidentStatus?.toLowerCase() !== "inprogress"
-                  ? "SOS incident must be 'In Progress' to put on hold"
-                  : ""
-              }
-            >
-              {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
-            </button>
-            <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-              onClick={handleExportModal}
-            >
-              Export Report
-            </button>
-          </div>
-        );
-  
-      case "Super Admin":
-      case "Admin":
-        return (
-          <div className="space-y-3">
-            <button
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                isAssignDisabled
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-              onClick={handleAssignSosTicketModal}
-              disabled={isAssignDisabled}
-              title={
-                isIncidentTreated
-                  ? "Cannot assign a treated SOS incident"
-                  : isIncidentClosed
-                  ? "Cannot assign a closed SOS incident"
-                  : ""
-              }
-            >
-              {getAssignButtonText()}
-            </button>
-            <button
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                isCloseDisabled
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={handleCloseSosTicketModal}
-              disabled={isCloseDisabled}
-              title={
-                !isIncidentTreated
-                  ? "SOS incident must be 'treated' before it can be closed"
-                  : ""
-              }
-            >
-              {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
-            </button>
-            <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-              onClick={handleExportModal}
-            >
-              Export Report
-            </button>
-          </div>
-        );
-  
-      default:
-        return (
-          <div className="space-y-3">
-            <button
-              className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
-              onClick={handleExportModal}
-            >
-              Export Report
-            </button>
-          </div>
-        );
-    }
+  // Check assignment status
+  const isAlreadyAssigned = incident?.assignedStatus === "assigned";
+
+  // Button availability logic
+  const isMarkAsTreatedDisabled =
+    incident?.incidentStatus?.toLowerCase() !== "inprogress" || markingAsTreated;
+
+  const isPutOnHoldDisabled =
+    incident?.incidentStatus?.toLowerCase() !== "inprogress" || puttingOnHold;
+
+  // Disable assign button ONLY if treated OR closed (allow reassignment if assigned + inprogress)
+  const isAssignDisabled = isIncidentTreated || isIncidentClosed;
+
+  // Close ticket is only active if incident status is "treated"
+  const isCloseDisabled = !isIncidentTreated;
+
+  // Determine button text for assign/reassign
+  const getAssignButtonText = () => {
+    if (isIncidentTreated) return "Treated";
+    if (isIncidentClosed) return "Closed";
+    if (isAlreadyAssigned && isIncidentInProgress) return "Reassign Ticket";
+    if (isAlreadyAssigned) return "Already Assigned";
+    return "Assign Ticket";
   };
+
+  switch (currentUserRole) {
+    // MERGED ROLE: Admin now handles both Admin and Command Centre supervisor functionality
+    case "Admin":
+      return (
+        <div className="space-y-3">
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isAssignDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+            onClick={handleAssignSosTicketModal}
+            disabled={isAssignDisabled}
+            title={
+              isIncidentTreated
+                ? "Cannot assign a treated SOS incident"
+                : isIncidentClosed
+                ? "Cannot assign a closed SOS incident"
+                : ""
+            }
+          >
+            {getAssignButtonText()}
+          </button>
+          <button
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            onClick={handleRejectTicketModal}
+          >
+            Reject Ticket
+          </button>
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isCloseDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            onClick={handleCloseSosTicketModal}
+            disabled={isCloseDisabled}
+            title={
+              !isIncidentTreated
+                ? "SOS incident must be 'treated' before it can be closed"
+                : ""
+            }
+          >
+            {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
+          </button>
+          <button
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            onClick={handleExportModal}
+          >
+            Export Report
+          </button>
+        </div>
+      );
+
+    case "Command Centre Agent":
+      return (
+        <div className="space-y-3">
+          <button
+            className="w-full bg-[#444CE7] border border-gray-300 text-white py-2 px-4 rounded-lg font-medium"
+            onClick={handleExportModal}
+          >
+            Export Report
+          </button>
+        </div>
+      );
+
+    case "Police Station":
+      return (
+        <div className="space-y-3">
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isMarkAsTreatedDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+            onClick={handleMarkAsTreatedModal}
+            disabled={isMarkAsTreatedDisabled}
+            title={
+              incident?.incidentStatus?.toLowerCase() !== "inprogress"
+                ? "SOS incident must be 'In Progress' to mark as treated"
+                : ""
+            }
+          >
+            {markingAsTreated
+              ? "Marking..."
+              : incident?.incidentStatus === "treated"
+              ? "Treated"
+              : "Mark as Treated"}
+          </button>
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isPutOnHoldDisabled
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
+            }`}
+            onClick={handlePutOnHoldModal}
+            disabled={isPutOnHoldDisabled}
+            title={
+              incident?.incidentStatus?.toLowerCase() !== "inprogress"
+                ? "SOS incident must be 'In Progress' to put on hold"
+                : ""
+            }
+          >
+            {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
+          </button>
+          <button
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            onClick={handleExportModal}
+          >
+            Export Report
+          </button>
+        </div>
+      );
+
+    case "Super Admin":
+      return (
+        <div className="space-y-3">
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isAssignDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+            onClick={handleAssignSosTicketModal}
+            disabled={isAssignDisabled}
+            title={
+              isIncidentTreated
+                ? "Cannot assign a treated SOS incident"
+                : isIncidentClosed
+                ? "Cannot assign a closed SOS incident"
+                : ""
+            }
+          >
+            {getAssignButtonText()}
+          </button>
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isCloseDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            onClick={handleCloseSosTicketModal}
+            disabled={isCloseDisabled}
+            title={
+              !isIncidentTreated
+                ? "SOS incident must be 'treated' before it can be closed"
+                : ""
+            }
+          >
+            {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
+          </button>
+          <button
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            onClick={handleExportModal}
+          >
+            Export Report
+          </button>
+        </div>
+      );
+
+    default:
+      return (
+        <div className="space-y-3">
+          <button
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            onClick={handleExportModal}
+          >
+            Export Report
+          </button>
+        </div>
+      );
+  }
+};
   const tabs = ["Citizen Report", "Past SOS History", "Audit Trail"];
 
   return (

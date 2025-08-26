@@ -84,8 +84,6 @@ const Home = () => {
 
   // Check if user is Command Centre Agent or Command Centre Supervisor
   const isCommandCentreAgent = currentUserRole === "Command Centre Agent";
-  const isCommandCentreSupervisor =
-    currentUserRole === "Command Centre supervisor";
   const isPoliceStation = currentUserRole === "Police Station";
 
   useEffect(() => {
@@ -349,10 +347,7 @@ const Home = () => {
     );
   };
 
-  // If user is Command Centre Supervisor, render CcsHome component
-  if (isCommandCentreSupervisor) {
-    return <CcsHome />;
-  }
+
 
   // If user is Police Station, render PsHome component
   if (isPoliceStation) {
