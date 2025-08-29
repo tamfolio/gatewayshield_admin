@@ -622,7 +622,7 @@ function GeneralDetails() {
     );
   };
 
-  // Updated renderActionButtons function with Reject Ticket disabled for treated/inprogress incidents
+  // Updated renderActionButtons function with reject prevention for already rejected tickets
   const renderActionButtons = () => {
     // Check incident status
     const isIncidentTreated =
@@ -656,10 +656,12 @@ function GeneralDetails() {
     // Close ticket is only active if incident status is "treated"
     const isCloseDisabled = !isIncidentTreated;
 
-    // NEW: Disable reject button if ticket is treated or in progress
+    // UPDATED: Disable reject button if ticket is treated, in progress, or already rejected
     const isRejectDisabled =
-      isIncidentTreated ||
-      incident?.incidentStatus?.toLowerCase() === "inprogress";
+    isIncidentTreated ||
+    isIncidentClosed ||
+    incident?.incidentStatus?.toLowerCase() === "inprogress" ||
+    incident?.incidentStatus?.toLowerCase() === "rejected";
 
     // Determine button text for assign/reassign
     const getAssignButtonText = () => {
@@ -706,10 +708,16 @@ function GeneralDetails() {
                   ? "Cannot reject a treated incident"
                   : incident?.incidentStatus?.toLowerCase() === "inprogress"
                   ? "Cannot reject an incident that is in progress"
+                  : incident?.incidentStatus?.toLowerCase() === "rejected"
+                  ? "This incident has already been rejected"
                   : ""
               }
             >
-              {isRejectDisabled ? "Cannot Reject" : "Reject Ticket"}
+              {incident?.incidentStatus?.toLowerCase() === "rejected"
+                ? "Already Rejected"
+                : isRejectDisabled
+                ? "Already Closed"
+                : "Reject Ticket"}
             </button>
             <button
               className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -1064,9 +1072,13 @@ function GeneralDetails() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm text-gray-600">Nearest Police Station</label>
+                    <label className="text-sm text-gray-600">
+                      Nearest Police Station
+                    </label>
                     <div className="font-medium text-sm">
-                    {`${incident?.station?.formation || ""} - ${incident?.station?.address || ""}`.trim() || "N/A"}
+                      {`${incident?.station?.formation || ""} - ${
+                        incident?.station?.address || ""
+                      }`.trim() || "N/A"}
                     </div>
                   </div>
                 </div>
