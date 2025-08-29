@@ -380,22 +380,33 @@ function SosDetails() {
     );
   };
 
-// Updated renderActionButtons function for SOS Details with merged Admin/Command Centre supervisor role
+// Updated renderActionButtons function with Reject Ticket disabled for treated/inprogress incidents
 const renderActionButtons = () => {
   // Check incident status
-  const isIncidentTreated = incident?.incidentStatus?.toLowerCase() === "treated";
-  const isIncidentClosed = incident?.incidentStatus?.toLowerCase() === "closed";
-  const isIncidentInProgress = incident?.incidentStatus?.toLowerCase() === "inprogress";
-  
-  // Check assignment status
-  const isAlreadyAssigned = incident?.assignedStatus === "assigned";
+  const isIncidentTreated =
+    incident?.incidentStatus?.toLowerCase() === "treated";
+  const isIncidentClosed =
+    incident?.incidentStatus?.toLowerCase() === "closed";
+  const isIncidentInProgress = () => {
+    const status = incident?.incidentStatus?.toLowerCase();
+    return status === "new" || status === "inprogress";
+  };
+
+  // Check assignment status (like SOS)
+  const isAlreadyAssigned = incident?.assignedStation;
 
   // Button availability logic
   const isMarkAsTreatedDisabled =
-    incident?.incidentStatus?.toLowerCase() !== "inprogress" || markingAsTreated;
+    !incident?.assignedStation ||
+    incident?.slaStatus === "Treated" ||
+    !isIncidentInProgress() ||
+    markingAsTreated;
 
   const isPutOnHoldDisabled =
-    incident?.incidentStatus?.toLowerCase() !== "inprogress" || puttingOnHold;
+    !incident?.assignedStation ||
+    incident?.slaStatus === "OnHold" ||
+    !isIncidentInProgress() ||
+    puttingOnHold;
 
   // Disable assign button ONLY if treated OR closed (allow reassignment if assigned + inprogress)
   const isAssignDisabled = isIncidentTreated || isIncidentClosed;
@@ -403,11 +414,17 @@ const renderActionButtons = () => {
   // Close ticket is only active if incident status is "treated"
   const isCloseDisabled = !isIncidentTreated;
 
+  // UPDATED: Disable reject button if ticket is treated, in progress, or already rejected
+  const isRejectDisabled =
+    isIncidentTreated ||
+    incident?.incidentStatus?.toLowerCase() === "inprogress" ||
+    incident?.incidentStatus?.toLowerCase() === "rejected";
+
   // Determine button text for assign/reassign
   const getAssignButtonText = () => {
     if (isIncidentTreated) return "Treated";
     if (isIncidentClosed) return "Closed";
-    if (isAlreadyAssigned && isIncidentInProgress) return "Reassign Ticket";
+    if (isAlreadyAssigned && isIncidentInProgress()) return "Reassign Ticket";
     if (isAlreadyAssigned) return "Already Assigned";
     return "Assign Ticket";
   };
@@ -427,19 +444,37 @@ const renderActionButtons = () => {
             disabled={isAssignDisabled}
             title={
               isIncidentTreated
-                ? "Cannot assign a treated SOS incident"
+                ? "Cannot assign a treated incident"
                 : isIncidentClosed
-                ? "Cannot assign a closed SOS incident"
+                ? "Cannot assign a closed incident"
                 : ""
             }
           >
             {getAssignButtonText()}
           </button>
           <button
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isRejectDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
             onClick={handleRejectTicketModal}
+            disabled={isRejectDisabled}
+            title={
+              isIncidentTreated
+                ? "Cannot reject a treated incident"
+                : incident?.incidentStatus?.toLowerCase() === "inprogress"
+                ? "Cannot reject an incident that is in progress"
+                : incident?.incidentStatus?.toLowerCase() === "rejected"
+                ? "Incident is already rejected"
+                : ""
+            }
           >
-            Reject Ticket
+            {incident?.incidentStatus?.toLowerCase() === "rejected" 
+              ? "Already Rejected" 
+              : isRejectDisabled 
+              ? "Cannot Reject" 
+              : "Reject Ticket"}
           </button>
           <button
             className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -451,11 +486,15 @@ const renderActionButtons = () => {
             disabled={isCloseDisabled}
             title={
               !isIncidentTreated
-                ? "SOS incident must be 'treated' before it can be closed"
+                ? "Incident must be 'treated' before it can be closed"
                 : ""
             }
           >
-            {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
+            {isIncidentClosed
+              ? "Already Closed"
+              : isCloseDisabled
+              ? "Cannot Close"
+              : "Close Ticket"}
           </button>
           <button
             className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
@@ -490,8 +529,12 @@ const renderActionButtons = () => {
             onClick={handleMarkAsTreatedModal}
             disabled={isMarkAsTreatedDisabled}
             title={
-              incident?.incidentStatus?.toLowerCase() !== "inprogress"
-                ? "SOS incident must be 'In Progress' to mark as treated"
+              !isIncidentInProgress()
+                ? "Incident must be 'New' or 'In Progress' to mark as treated"
+                : !incident?.assignedStation
+                ? "Incident must be assigned to a station"
+                : incident?.slaStatus === "Treated"
+                ? "Incident is already marked as treated"
                 : ""
             }
           >
@@ -510,8 +553,12 @@ const renderActionButtons = () => {
             onClick={handlePutOnHoldModal}
             disabled={isPutOnHoldDisabled}
             title={
-              incident?.incidentStatus?.toLowerCase() !== "inprogress"
-                ? "SOS incident must be 'In Progress' to put on hold"
+              !isIncidentInProgress()
+                ? "Incident must be 'New' or 'In Progress' to put on hold"
+                : !incident?.assignedStation
+                ? "Incident must be assigned to a station"
+                : incident?.slaStatus === "OnHold"
+                ? "Incident is already on hold"
                 : ""
             }
           >
@@ -539,9 +586,9 @@ const renderActionButtons = () => {
             disabled={isAssignDisabled}
             title={
               isIncidentTreated
-                ? "Cannot assign a treated SOS incident"
+                ? "Cannot assign a treated incident"
                 : isIncidentClosed
-                ? "Cannot assign a closed SOS incident"
+                ? "Cannot assign a closed incident"
                 : ""
             }
           >
@@ -557,11 +604,15 @@ const renderActionButtons = () => {
             disabled={isCloseDisabled}
             title={
               !isIncidentTreated
-                ? "SOS incident must be 'treated' before it can be closed"
+                ? "Incident must be 'treated' before it can be closed"
                 : ""
             }
           >
-            {isIncidentClosed ? "Already Closed" : isCloseDisabled ? "Cannot Close" : "Close Ticket"}
+            {isIncidentClosed
+              ? "Already Closed"
+              : isCloseDisabled
+              ? "Cannot Close"
+              : "Close Ticket"}
           </button>
           <button
             className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50"
