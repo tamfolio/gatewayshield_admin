@@ -1075,7 +1075,7 @@ function GeneralDetails() {
                   <div>
                     <label className="text-sm text-gray-600">Reported By</label>
                     <div className="font-medium">
-                      {incident?.user?.name || "John Doe"}
+                      {incident?.user?.name || "Anonymous Reporter"}
                     </div>
                   </div>
                   <div>
@@ -1083,7 +1083,7 @@ function GeneralDetails() {
                       Phone Number
                     </label>
                     <div className="font-medium">
-                      {incident?.user?.phoneNumber || "+234 81 34456666"}
+                      {incident?.user?.phoneNumber || "N/A"}
                     </div>
                   </div>
                   <div>
