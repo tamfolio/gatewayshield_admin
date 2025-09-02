@@ -380,7 +380,6 @@ function SosDetails() {
     );
   };
 
-// Updated renderActionButtons function with Reject Ticket disabled for treated/inprogress incidents
 const renderActionButtons = () => {
   // Check incident status
   const isIncidentTreated =
@@ -431,6 +430,7 @@ const renderActionButtons = () => {
 
   switch (currentUserRole) {
     // MERGED ROLE: Admin now handles both Admin and Command Centre supervisor functionality
+    // UPDATED: Added Mark as Treated and Put On Hold buttons for Admin role
     case "Admin":
       return (
         <div className="space-y-3">
@@ -451,6 +451,50 @@ const renderActionButtons = () => {
             }
           >
             {getAssignButtonText()}
+          </button>
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isMarkAsTreatedDisabled
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white text-[#3538CD] hover:bg-[#DDE7FF]"
+            }`}
+            onClick={handleMarkAsTreatedModal}
+            disabled={isMarkAsTreatedDisabled}
+            title={
+              !isIncidentInProgress()
+                ? "Incident must be 'New' or 'In Progress' to mark as treated"
+                : !incident?.assignedStation
+                ? "Incident must be assigned to a station"
+                : incident?.slaStatus === "Treated"
+                ? "Incident is already marked as treated"
+                : ""
+            }
+          >
+            {markingAsTreated
+              ? "Marking..."
+              : incident?.incidentStatus === "treated"
+              ? "Treated"
+              : "Mark as Treated"}
+          </button>
+          <button
+            className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              isPutOnHoldDisabled
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-[#EEF4FF] text-[#3538CD] hover:bg-[#DDE7FF]"
+            }`}
+            onClick={handlePutOnHoldModal}
+            disabled={isPutOnHoldDisabled}
+            title={
+              !isIncidentInProgress()
+                ? "Incident must be 'New' or 'In Progress' to put on hold"
+                : !incident?.assignedStation
+                ? "Incident must be assigned to a station"
+                : incident?.slaStatus === "OnHold"
+                ? "Incident is already on hold"
+                : ""
+            }
+          >
+            {puttingOnHold ? "Putting On Hold..." : "Put On Hold"}
           </button>
           <button
             className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
