@@ -225,17 +225,11 @@ const PsHome = ({
         {/* Stats Cards - Fixed Layout: 3 on top, 2 below */}
         <div className="space-y-4 mb-8">
           {/* Top row - 3 cards */}
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <StatCard
               title="In Progress"
               value={dashboardData?.base?.["in-progress"] ?? 0}
               change="2%"
-              isNegative={false}
-            />
-            <StatCard
-              title="Unassigned"
-              value={dashboardData?.base?.["unassigned"] ?? 0}
-              change="12%"
               isNegative={false}
             />
             <StatCard
@@ -255,8 +249,8 @@ const PsHome = ({
               isNegative={false}
             />
             <StatCard
-              title="Rejected"
-              value={dashboardData?.base?.["rejected"] ?? 0}
+              title="Treated"
+              value={dashboardData?.base?.["treated"] ?? 0}
               change="2%"
               isNegative={true}
             />
