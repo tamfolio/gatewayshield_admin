@@ -3,7 +3,6 @@ import { ChevronRight } from "lucide-react";
 import BroadcastForm from "./BroadcastForm";
 import BroadcastLogs from "./BroadcastLogs";
 import SuccessModal from "./components/SuccessModal";
-import ErrorBoundary from "./ErrorBoundary";
 import { useBroadcastLogic } from "./useBroadcastLogic";
 
 export default function EmergencyBroadcastForm({ onBroadcastUpdate }) {
@@ -43,8 +42,7 @@ export default function EmergencyBroadcastForm({ onBroadcastUpdate }) {
   } = useBroadcastLogic({ onBroadcastUpdate });
 
   return (
-    <ErrorBoundary>
-      <div className="max-w-5xl mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="max-w-5xl mx-auto p-6 bg-gray-50 min-h-screen">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
         <span>Dashboard</span>
@@ -118,7 +116,6 @@ export default function EmergencyBroadcastForm({ onBroadcastUpdate }) {
         type={successModalType}
         onRedirectToDashboard={handleRedirectToDashboard}
       />
-      </div>
-    </ErrorBoundary>
+    </div>
   );
 }
