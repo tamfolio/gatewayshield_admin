@@ -1013,8 +1013,17 @@ export const feedbackUtils = {
 export const broadcastApi = {
   create: async (apiClient, broadcastData) => {
     try {
+      console.log("🔍 BROADCAST API - Received data:", JSON.stringify(broadcastData, null, 2));
+      
+      // FIX: Convert "ALL" string to null before validation
+      if (broadcastData.lgaId === "ALL") {
+        broadcastData.lgaId = null;
+        console.log("🔧 FIXED: Converted lgaId from 'ALL' to null");
+      }
+      
       console.log("🚀 [BROADCAST API] Creating broadcast");
       console.log("📤 Payload:", JSON.stringify(broadcastData, null, 2));
+
 
       const requiredFields = ["title", "body", "alertType"];
       const missingFields = requiredFields.filter(
@@ -1755,134 +1764,4 @@ export const auditLogsUtils = {
     console.log("✅ Final filtered count:", filtered.length);
     return filtered;
   },
-};// Debug version of auditLogsApi.getAll - Add this to your API file temporarily
-
-// export const auditLogsApi = {
-//   getAll: async (client, page = 1, size = 10, filters = {}) => {
-//     try {
-//       console.log("📋 [AUDIT LOGS API] === NEW API CALL ===");
-//       console.log("📊 Input Parameters:", { page, size, filters });
-
-//       const params = new URLSearchParams();
-//       params.append("page", page.toString());
-//       params.append("size", size.toString());
-
-//       // Debug: Log each filter being added
-//       if (filters.userRole && Array.isArray(filters.userRole) && filters.userRole.length > 0) {
-//         console.log("👤 Processing userRole filter:", filters.userRole);
-        
-//         // Test different approaches - uncomment one at a time to test:
-        
-//         // Approach 1: Multiple userRole parameters
-//         filters.userRole.forEach((role, index) => {
-//           console.log(`👤 Adding userRole[${index}]:`, role);
-//           params.append("userRole", role);
-//         });
-        
-//         // Approach 2: Single comma-separated parameter (uncomment to test)
-//         // console.log("👤 Adding single userRole param:", filters.userRole.join(","));
-//         // params.append("userRole", filters.userRole.join(","));
-        
-//         // Approach 3: Array notation (uncomment to test)
-//         // console.log("👤 Adding userRole[] param:", filters.userRole.join(","));
-//         // params.append("userRole[]", filters.userRole.join(","));
-        
-//         // Approach 4: Different parameter name (uncomment to test)
-//         // console.log("👤 Adding role param:", filters.userRole.join(","));
-//         // params.append("role", filters.userRole.join(","));
-//       }
-
-//       if (filters.date) {
-//         console.log("📅 Processing date filter:", filters.date);
-        
-//         // Test different date parameter names:
-//         params.append("date", filters.date);
-        
-//         // Uncomment these one at a time to test:
-//         // params.append("timestamp", filters.date);
-//         // params.append("dateFilter", filters.date);
-//         // params.append("startDate", filters.date);
-//         // params.append("filterDate", filters.date);
-        
-//         console.log("📅 Added date parameter:", filters.date);
-//       }
-
-//       // Log the final URL and parameters
-//       const finalUrl = `/auditLogs/all?${params.toString()}`;
-//       console.log("🔗 Final API URL:", finalUrl);
-//       console.log("🔗 All parameters:", Array.from(params.entries()));
-
-//       // Make the request
-//       console.log("📡 Making request to:", finalUrl);
-//       const response = await client.get(finalUrl);
-
-//       console.log("✅ [AUDIT LOGS API] Response received");
-//       console.log("📊 Response status:", response.status);
-//       console.log("📊 Response data keys:", Object.keys(response.data || {}));
-      
-//       if (response.data?.data) {
-//         console.log("📊 Response structure:", {
-//           dataCount: response.data.data.data?.length || 0,
-//           totalFromPagination: response.data.data.pagination?.total || 0,
-//           currentPage: response.data.data.pagination?.currentPage || 0,
-//           totalPages: response.data.data.pagination?.totalPages || 0
-//         });
-        
-//         // Log first few items to see if filtering worked
-//         const logs = response.data.data.data || [];
-//         if (logs.length > 0) {
-//           console.log("📄 First log sample:", {
-//             id: logs[0].id,
-//             role: logs[0].admin?.role || logs[0].user?.role,
-//             timestamp: logs[0].timestamp,
-//             action: logs[0].action
-//           });
-          
-//           // Check if all logs have the same role (indicating no filtering)
-//           const roles = logs.map(log => log.admin?.role || log.user?.role).filter(Boolean);
-//           const uniqueRoles = [...new Set(roles)];
-//           console.log("📊 Roles in response:", uniqueRoles);
-          
-//           if (filters.userRole && filters.userRole.length > 0) {
-//             const matchingLogs = logs.filter(log => 
-//               filters.userRole.includes(log.admin?.role) || 
-//               filters.userRole.includes(log.user?.role)
-//             );
-//             console.log(`🎯 Logs matching filter: ${matchingLogs.length}/${logs.length}`);
-            
-//             if (matchingLogs.length === 0) {
-//               console.warn("⚠️ NO LOGS MATCH THE ROLE FILTER - API may not be filtering!");
-//             }
-//           }
-//         }
-//       }
-
-//       return response.data;
-//     } catch (error) {
-//       console.error("❌ [AUDIT LOGS API] Error:", error);
-//       console.error("🔍 Error details:", {
-//         status: error.response?.status,
-//         statusText: error.response?.statusText,
-//         data: error.response?.data,
-//         url: error.config?.url,
-//         method: error.config?.method
-//       });
-
-//       // Log the request details for debugging
-//       if (error.config) {
-//         console.error("📤 Failed request details:", {
-//           url: error.config.url,
-//           method: error.config.method,
-//           params: error.config.params,
-//           headers: error.config.headers
-//         });
-//       }
-
-//       throw new Error(
-//         error.response?.data?.message ||
-//           error.message ||
-//           "Failed to fetch audit logs"
-//       );
-//     }
-//   }
-// };
+};
