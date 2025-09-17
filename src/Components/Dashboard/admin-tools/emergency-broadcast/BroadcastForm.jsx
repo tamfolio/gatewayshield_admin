@@ -38,13 +38,22 @@ export default function BroadcastForm({
   const { maxCharacters, titleMaxLength } = config;
 
   const handleAlertTypeSelect = (type) => {
-    setAlertType(type);
-    setIsAlertDropdownOpen(false);
+    try {
+      setAlertType(type);
+      setIsAlertDropdownOpen(false);
+    } catch (error) {
+      console.error("Error in handleAlertTypeSelect:", error);
+    }
   };
 
   const handleRegionSelect = (regionName) => {
-    setRegion(regionName);
-    setIsRegionDropdownOpen(false);
+    try {
+      console.log("Selecting region:", regionName);
+      setRegion(regionName);
+      setIsRegionDropdownOpen(false);
+    } catch (error) {
+      console.error("Error in handleRegionSelect:", error);
+    }
   };
 
   return (
@@ -269,22 +278,26 @@ export default function BroadcastForm({
 
               {isRegionDropdownOpen && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                  {regions.map((regionOption) => (
+                  {regions && regions.length > 0 ? regions.map((regionOption) => (
                     <button
-                      key={regionOption.name}
+                      key={`${regionOption.name}-${regionOption.lgaId}`}
                       onClick={() => handleRegionSelect(regionOption.name)}
                       className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <span>{regionOption.name}</span>
-                        {regionOption.lgaId !== "ALL" && (
+                        {regionOption.lgaId !== null && regionOption.lgaId !== "ALL" && (
                           <span className="text-xs text-gray-500">
                             ({regionOption.lgaId.slice(-6)})
                           </span>
                         )}
                       </div>
                     </button>
-                  ))}
+                  )) : (
+                    <div className="px-3 py-2 text-gray-500 text-sm">
+                      Loading regions...
+                    </div>
+                  )}
                 </div>
               )}
             </div>

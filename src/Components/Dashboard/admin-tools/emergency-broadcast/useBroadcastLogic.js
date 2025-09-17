@@ -10,10 +10,7 @@ const DEFAULT_CONFIG = {
   dashboardUrl: "/dashboard",
 };
 
-export function useBroadcastLogic({
-  onBroadcastUpdate,
-  config = DEFAULT_CONFIG,
-}) {
+export function useBroadcastLogic({ onBroadcastUpdate, config = DEFAULT_CONFIG }) {
   // Tab and form state
   const [activeTab, setActiveTab] = useState("new");
   const [headerTitle, setHeaderTitle] = useState("");
@@ -59,10 +56,7 @@ export function useBroadcastLogic({
       let regionsArray = [];
       if (Array.isArray(response.data)) {
         regionsArray = response.data;
-      } else if (
-        response.data?.data?.lgas &&
-        Array.isArray(response.data.data.lgas)
-      ) {
+      } else if (response.data?.data?.lgas && Array.isArray(response.data.data.lgas)) {
         regionsArray = response.data.data.lgas;
       } else if (response.data?.lgas && Array.isArray(response.data.lgas)) {
         regionsArray = response.data.lgas;
@@ -71,22 +65,26 @@ export function useBroadcastLogic({
       }
 
       if (regionsArray.length > 0) {
-        // Map LGA data to expected format (assuming each LGA has name and id/lgaId)
-        const mappedRegions = regionsArray.map((lga) => ({
+        // Map LGA data to expected format
+        const mappedRegions = regionsArray.map(lga => ({
           name: lga.name,
-          lgaId: lga.id || lga.lgaId || lga._id,
+          lgaId: lga.id || lga.lgaId || lga._id
         }));
 
-        // Ensure "All" option is always first
-        const allOption = { name: config.defaultRegion, lgaId: "ALL" };
-        const filteredRegions = mappedRegions.filter(
-          (r) => r.name !== config.defaultRegion
-        );
-        setRegions([allOption, ...filteredRegions]);
+        // Add "All" option at the beginning with explicit null value
+        const allOption = { name: "All", lgaId: null };
+        const regionsWithAll = [allOption, ...mappedRegions];
+        
+        console.log("Setting regions with All option:", regionsWithAll);
+        console.log("All option lgaId:", allOption.lgaId);
+        
+        setRegions(regionsWithAll);
       } else {
-        // Fallback if API fails
+        // Fallback if API fails - at least provide "All" option
         console.warn("🔄 Using fallback region");
-        setRegions([{ name: config.defaultRegion, lgaId: "ALL" }]);
+        const fallbackRegions = [{ name: "All", lgaId: null }];
+        console.log("Setting fallback regions:", fallbackRegions);
+        setRegions(fallbackRegions);
       }
     } catch (error) {
       console.error("❌ [BROADCAST API] Failed to fetch regions");
@@ -96,7 +94,7 @@ export function useBroadcastLogic({
         data: error.response?.data,
         message: error.message,
       });
-
+      
       // Fallback regions
       console.log("🔄 Using fallback regions");
       setRegions([{ name: config.defaultRegion, lgaId: "ALL" }]);
@@ -146,16 +144,15 @@ export function useBroadcastLogic({
     setBodyText(broadcast.body || "");
     setAlertType(broadcast.alertType || alertTypes[0]);
 
-    const regionObj = regions.find((r) => r.lgaId === broadcast.lgaId);
-    if (
-      !regionObj &&
-      (broadcast.lgaId === null ||
-        broadcast.lgaId === undefined ||
-        broadcast.lgaId === "ALL")
-    ) {
+        const regionObj = regions.find((r) => r.lgaId === broadcast.lgaId);
+    if (regionObj) {
+      setRegion(regionObj.name);
+    } else if (broadcast.lgaId === null || broadcast.lgaId === undefined) {
+      // Handle case where broadcast was sent to "All" (lgaId is null)
       setRegion(config.defaultRegion);
-    } else {
-      setRegion(regionObj ? regionObj.name : config.defaultRegion);
+    } else if (regions.length > 0) {
+      // Default to "All" if no match found
+      setRegion(config.defaultRegion);
     }
 
     setActiveTab("new");
@@ -321,7 +318,7 @@ export function useBroadcastLogic({
     editingBroadcast,
     regions,
     config,
-
+    
     // Actions
     handleEdit,
     handleSubmit,

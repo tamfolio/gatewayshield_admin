@@ -212,17 +212,19 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
 
   // Load broadcasts when dependencies change
   useEffect(() => {
-    loadBroadcasts();
-  }, [loadBroadcasts, refreshTrigger]);
+  loadBroadcasts();
+}, [currentPage, selectedFilters, refreshTrigger]);
 
   // Handle search with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setCurrentPage(1);
-    }, 500);
+ useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    setCurrentPage(1);
+    // Only trigger loadBroadcasts after the delay
+    loadBroadcasts();
+  }, 500);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  return () => clearTimeout(timeoutId);
+}, [searchTerm]); 
 
   // Handle view details click
   const handleViewDetails = (broadcast) => {
@@ -242,45 +244,36 @@ export default function BroadcastLogs({ onEdit, refreshTrigger = 0 }) {
     setShowDeleteConfirmation(true);
   };
 
+
   // Handle confirmed deletion
-  const handleConfirmDelete = async () => {
-    if (!deletingBroadcast) return;
+const handleConfirmDelete = async () => {
+  if (!deletingBroadcast) return;
 
-    try {
-      setIsDeleting(true);
-      await broadcastApi.delete(
-        apiClient,
-        deletingBroadcast.id || deletingBroadcast._id
-      );
+  try {
+    setIsDeleting(true);
+    await broadcastApi.delete(
+      apiClient,
+      deletingBroadcast.id || deletingBroadcast._id
+    );
 
-      // Update local state
-      setBroadcasts((prev) =>
-        prev.filter(
-          (b) =>
-            b.id !== deletingBroadcast.id && b._id !== deletingBroadcast._id
-        )
-      );
-      setTotalCount((prev) => Math.max(0, prev - 1));
-
-      // Go to previous page if current page becomes empty
-      if (broadcasts.length === 1 && currentPage > 1) {
-        setCurrentPage((prev) => prev - 1);
-      }
-
-      // Close confirmation modal and show success modal
-      setShowDeleteConfirmation(false);
-      setShowDeleteSuccess(true);
-      setError("");
-    } catch (error) {
-      setError(
-        "Failed to delete broadcast: " +
-          (error.response?.data?.message || error.message)
-      );
-      setShowDeleteConfirmation(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+    // Close confirmation modal and show success modal
+    setShowDeleteConfirmation(false);
+    setShowDeleteSuccess(true);
+    setError("");
+    
+    // Refresh the broadcasts list from server
+    await loadBroadcasts();
+    
+  } catch (error) {
+    setError(
+      "Failed to delete broadcast: " +
+        (error.response?.data?.message || error.message)
+    );
+    setShowDeleteConfirmation(false);
+  } finally {
+    setIsDeleting(false);
+  }
+};
 
   // Handle cancel deletion
   const handleCancelDelete = () => {
