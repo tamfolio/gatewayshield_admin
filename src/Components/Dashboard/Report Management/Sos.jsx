@@ -780,43 +780,54 @@ useEffect(() => {
     );
   };
 
+  const [startDate, setStartDate] = useState(() => {
+    // Initialize from existing selectedCalendarDate if it exists
+    if (selectedCalendarDate && selectedCalendarDate.includes(" to ")) {
+      const [start] = selectedCalendarDate.split(" to ");
+      return new Date(start);
+    }
+    return null;
+  });
+  
+  const [endDate, setEndDate] = useState(() => {
+    // Initialize from existing selectedCalendarDate if it exists
+    if (selectedCalendarDate && selectedCalendarDate.includes(" to ")) {
+      const [, end] = selectedCalendarDate.split(" to ");
+      return new Date(end);
+    }
+    return null;
+  });
+  
+  const [hoverDate, setHoverDate] = useState(null);
+
   const DatePicker = () => {
-    const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
-    const [hoverDate, setHoverDate] = useState(null);
+    // Move these states to the parent component level (outside DatePicker)
+    // or use useRef to persist them across re-renders
 
+  
     if (!showDatePicker) return null;
-
+  
     const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
     ];
-
+  
     const days = generateCalendarDays();
-
+  
     const handleDateSelect = (dayObj) => {
       if (!dayObj.isCurrentMonth) return;
-
+  
       const selectedDate = new Date(
         calendarDate.getFullYear(),
         calendarDate.getMonth(),
         dayObj.day
       );
-
+  
       if (!startDate || (startDate && endDate)) {
         // First selection or reset selection
         setStartDate(selectedDate);
         setEndDate(null);
+        setHoverDate(null);
       } else if (startDate && !endDate) {
         // Second selection
         if (selectedDate < startDate) {
@@ -826,9 +837,10 @@ useEffect(() => {
         } else {
           setEndDate(selectedDate);
         }
+        setHoverDate(null);
       }
     };
-
+  
     const handleDateHover = (dayObj) => {
       if (!dayObj.isCurrentMonth || !startDate || endDate) return;
       const hoverDate = new Date(
@@ -838,45 +850,39 @@ useEffect(() => {
       );
       setHoverDate(hoverDate);
     };
-
+  
     const isDateInRange = (dayObj) => {
       if (!dayObj.isCurrentMonth || !startDate) return false;
-
+  
       const currentDate = new Date(
         calendarDate.getFullYear(),
         calendarDate.getMonth(),
         dayObj.day
       );
       const rangeEnd = endDate || hoverDate;
-
+  
       if (!rangeEnd) return false;
-
+  
       const actualStart = startDate < rangeEnd ? startDate : rangeEnd;
       const actualEnd = startDate < rangeEnd ? rangeEnd : startDate;
-
+  
       return currentDate >= actualStart && currentDate <= actualEnd;
     };
-
-    const isStartDate = (dayObj) => {
-      if (!startDate || !dayObj.isCurrentMonth) return false;
+  
+    const isStartOrEndDate = (dayObj) => {
+      if (!dayObj.isCurrentMonth) return false;
       const currentDate = new Date(
         calendarDate.getFullYear(),
         calendarDate.getMonth(),
         dayObj.day
       );
-      return currentDate.getTime() === startDate.getTime();
+      
+      const isStart = startDate && currentDate.getTime() === startDate.getTime();
+      const isEnd = endDate && currentDate.getTime() === endDate.getTime();
+      
+      return isStart || isEnd;
     };
-
-    const isEndDate = (dayObj) => {
-      if (!endDate || !dayObj.isCurrentMonth) return false;
-      const currentDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
-      return currentDate.getTime() === endDate.getTime();
-    };
-
+  
     const applyDateFilter = () => {
       if (startDate && endDate) {
         // Use local date formatting to avoid timezone issues
@@ -892,11 +898,11 @@ useEffect(() => {
           String(endDate.getMonth() + 1).padStart(2, "0") +
           "-" +
           String(endDate.getDate()).padStart(2, "0");
-
+  
         // Store the formatted display string for UI
         const displayString = `${formattedStartDate} to ${formattedEndDate}`;
         setSelectedCalendarDate(displayString);
-
+  
         // Add to active filters with proper display
         let newFilters = [...activeFilters];
         newFilters = newFilters.filter(
@@ -917,7 +923,7 @@ useEffect(() => {
           "-" +
           String(startDate.getDate()).padStart(2, "0");
         setSelectedCalendarDate(formattedDate);
-
+  
         // Add to active filters
         let newFilters = [...activeFilters];
         newFilters = newFilters.filter(
@@ -930,16 +936,25 @@ useEffect(() => {
         });
         setActiveFilters(newFilters);
       }
-
+  
       setShowDatePicker(false);
     };
-
+  
     const clearSelection = () => {
       setStartDate(null);
       setEndDate(null);
       setHoverDate(null);
     };
-
+  
+    const handleMonthChange = (direction) => {
+      const newDate = new Date(
+        calendarDate.getFullYear(),
+        calendarDate.getMonth() + direction
+      );
+      setCalendarDate(newDate);
+      // Don't clear the selected dates when changing months
+    };
+  
     return (
       <div
         ref={datePickerRef}
@@ -948,14 +963,7 @@ useEffect(() => {
         {/* Header with navigation */}
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() - 1
-                )
-              )
-            }
+            onClick={() => handleMonthChange(-1)}
             className="p-1 hover:bg-gray-100 rounded"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -964,20 +972,13 @@ useEffect(() => {
             {monthNames[calendarDate.getMonth()]} {calendarDate.getFullYear()}
           </h3>
           <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() + 1
-                )
-              )
-            }
+            onClick={() => handleMonthChange(1)}
             className="p-1 hover:bg-gray-100 rounded"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-
+  
         {/* Date Range Display */}
         <div className="mb-4 text-sm text-center">
           {startDate && endDate ? (
@@ -992,7 +993,7 @@ useEffect(() => {
             <span className="text-gray-400">Select start date</span>
           )}
         </div>
-
+  
         {/* Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 mb-4">
           {/* Day headers */}
@@ -1004,34 +1005,39 @@ useEffect(() => {
               {day}
             </div>
           ))}
-
+  
           {/* Calendar days */}
-          {days.map((day, index) => (
-            <button
-              key={index}
-              onClick={() => handleDateSelect(day)}
-              onMouseEnter={() => handleDateHover(day)}
-              onMouseLeave={() => setHoverDate(null)}
-              disabled={!day.isCurrentMonth}
-              className={`text-center text-sm py-2 rounded transition-colors ${
-                day.isCurrentMonth
-                  ? "text-gray-900 hover:bg-gray-100 cursor-pointer"
-                  : "text-gray-300 cursor-not-allowed"
-              } ${day.isToday ? "ring-2 ring-blue-300" : ""} ${
-                isStartDate(day) || isEndDate(day)
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : ""
-              } ${
-                isDateInRange(day) && !isStartDate(day) && !isEndDate(day)
-                  ? "bg-blue-100 text-blue-700"
-                  : ""
-              }`}
-            >
-              {day.day}
-            </button>
-          ))}
+          {days.map((day, index) => {
+            const isSelected = isStartOrEndDate(day);
+            const isInRange = isDateInRange(day);
+            
+            return (
+              <button
+                key={index}
+                onClick={() => handleDateSelect(day)}
+                onMouseEnter={() => handleDateHover(day)}
+                onMouseLeave={() => setHoverDate(null)}
+                disabled={!day.isCurrentMonth}
+                className={`text-center text-sm py-2 rounded transition-colors ${
+                  day.isCurrentMonth
+                    ? "text-gray-900 hover:bg-gray-100 cursor-pointer"
+                    : "text-gray-300 cursor-not-allowed"
+                } ${day.isToday ? "ring-2 ring-blue-300" : ""} ${
+                  isSelected
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : ""
+                } ${
+                  isInRange && !isSelected
+                    ? "bg-blue-100 text-blue-700"
+                    : ""
+                }`}
+              >
+                {day.day}
+              </button>
+            );
+          })}
         </div>
-
+  
         {/* Action buttons */}
         <div className="flex justify-between items-center">
           <div className="flex gap-2">
