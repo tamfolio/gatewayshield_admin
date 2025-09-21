@@ -783,233 +783,238 @@ const General = () => {
     );
   };
 
-  const DatePicker = () => {
-    const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
-    const [hoverDate, setHoverDate] = useState(null);
+  const [startDate, setStartDate] = useState(() => {
+    // Initialize from existing selectedCalendarDate if it exists
+    if (selectedCalendarDate && selectedCalendarDate.includes(" to ")) {
+      const [start] = selectedCalendarDate.split(" to ");
+      return new Date(start);
+    }
+    return null;
+  });
+  
+  const [endDate, setEndDate] = useState(() => {
+    // Initialize from existing selectedCalendarDate if it exists
+    if (selectedCalendarDate && selectedCalendarDate.includes(" to ")) {
+      const [, end] = selectedCalendarDate.split(" to ");
+      return new Date(end);
+    }
+    return null;
+  });
+  
+  const [hoverDate, setHoverDate] = useState(null);
 
-    if (!showDatePicker) return null;
+const DatePicker = () => {
+  // Move these states to the parent component level (outside DatePicker)
+  // or use useRef to persist them across re-renders
 
-    const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
 
-    const days = generateCalendarDays();
+  if (!showDatePicker) return null;
 
-    const handleDateSelect = (dayObj) => {
-      if (!dayObj.isCurrentMonth) return;
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
 
-      const selectedDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
+  const days = generateCalendarDays();
 
-      if (!startDate || (startDate && endDate)) {
-        // First selection or reset selection
-        setStartDate(selectedDate);
-        setEndDate(null);
-      } else if (startDate && !endDate) {
-        // Second selection
-        if (selectedDate < startDate) {
-          // If selected date is before start date, swap them
-          setEndDate(startDate);
-          setStartDate(selectedDate);
-        } else {
-          setEndDate(selectedDate);
-        }
-      }
-    };
+  const handleDateSelect = (dayObj) => {
+    if (!dayObj.isCurrentMonth) return;
 
-    const handleDateHover = (dayObj) => {
-      if (!dayObj.isCurrentMonth || !startDate || endDate) return;
-      const hoverDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
-      setHoverDate(hoverDate);
-    };
+    const selectedDate = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth(),
+      dayObj.day
+    );
 
-    const isDateInRange = (dayObj) => {
-      if (!dayObj.isCurrentMonth || !startDate) return false;
-
-      const currentDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
-      const rangeEnd = endDate || hoverDate;
-
-      if (!rangeEnd) return false;
-
-      const actualStart = startDate < rangeEnd ? startDate : rangeEnd;
-      const actualEnd = startDate < rangeEnd ? rangeEnd : startDate;
-
-      return currentDate >= actualStart && currentDate <= actualEnd;
-    };
-
-    const isStartDate = (dayObj) => {
-      if (!startDate || !dayObj.isCurrentMonth) return false;
-      const currentDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
-      return currentDate.getTime() === startDate.getTime();
-    };
-
-    const isEndDate = (dayObj) => {
-      if (!endDate || !dayObj.isCurrentMonth) return false;
-      const currentDate = new Date(
-        calendarDate.getFullYear(),
-        calendarDate.getMonth(),
-        dayObj.day
-      );
-      return currentDate.getTime() === endDate.getTime();
-    };
-
-    const applyDateFilter = () => {
-      if (startDate && endDate) {
-        // Use local date formatting to avoid timezone issues
-        const formattedStartDate =
-          startDate.getFullYear() +
-          "-" +
-          String(startDate.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(startDate.getDate()).padStart(2, "0");
-        const formattedEndDate =
-          endDate.getFullYear() +
-          "-" +
-          String(endDate.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(endDate.getDate()).padStart(2, "0");
-
-        // Store the formatted display string for UI
-        const displayString = `${formattedStartDate} to ${formattedEndDate}`;
-        setSelectedCalendarDate(displayString);
-
-        // Add to active filters with proper display
-        let newFilters = [...activeFilters];
-        newFilters = newFilters.filter(
-          (filter) => filter.type !== "dateRange" && filter.type !== "date"
-        );
-        newFilters.push({
-          type: "dateRange",
-          value: displayString,
-          label: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
-        });
-        setActiveFilters(newFilters);
-      } else if (startDate) {
-        // If only start date is selected, use it as single date
-        const formattedDate =
-          startDate.getFullYear() +
-          "-" +
-          String(startDate.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(startDate.getDate()).padStart(2, "0");
-        setSelectedCalendarDate(formattedDate);
-
-        // Add to active filters
-        let newFilters = [...activeFilters];
-        newFilters = newFilters.filter(
-          (filter) => filter.type !== "dateRange" && filter.type !== "date"
-        );
-        newFilters.push({
-          type: "dateRange",
-          value: formattedDate,
-          label: startDate.toLocaleDateString(),
-        });
-        setActiveFilters(newFilters);
-      }
-
-      setShowDatePicker(false);
-    };
-
-    const clearSelection = () => {
-      setStartDate(null);
+    if (!startDate || (startDate && endDate)) {
+      // First selection or reset selection
+      setStartDate(selectedDate);
       setEndDate(null);
       setHoverDate(null);
-    };
+    } else if (startDate && !endDate) {
+      // Second selection
+      if (selectedDate < startDate) {
+        // If selected date is before start date, swap them
+        setEndDate(startDate);
+        setStartDate(selectedDate);
+      } else {
+        setEndDate(selectedDate);
+      }
+      setHoverDate(null);
+    }
+  };
 
-    return (
-      <div
-        ref={datePickerRef}
-        className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4"
-      >
-        {/* Header with navigation */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() - 1
-                )
-              )
-            }
-            className="p-1 hover:bg-gray-100 rounded"
+  const handleDateHover = (dayObj) => {
+    if (!dayObj.isCurrentMonth || !startDate || endDate) return;
+    const hoverDate = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth(),
+      dayObj.day
+    );
+    setHoverDate(hoverDate);
+  };
+
+  const isDateInRange = (dayObj) => {
+    if (!dayObj.isCurrentMonth || !startDate) return false;
+
+    const currentDate = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth(),
+      dayObj.day
+    );
+    const rangeEnd = endDate || hoverDate;
+
+    if (!rangeEnd) return false;
+
+    const actualStart = startDate < rangeEnd ? startDate : rangeEnd;
+    const actualEnd = startDate < rangeEnd ? rangeEnd : startDate;
+
+    return currentDate >= actualStart && currentDate <= actualEnd;
+  };
+
+  const isStartOrEndDate = (dayObj) => {
+    if (!dayObj.isCurrentMonth) return false;
+    const currentDate = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth(),
+      dayObj.day
+    );
+    
+    const isStart = startDate && currentDate.getTime() === startDate.getTime();
+    const isEnd = endDate && currentDate.getTime() === endDate.getTime();
+    
+    return isStart || isEnd;
+  };
+
+  const applyDateFilter = () => {
+    if (startDate && endDate) {
+      // Use local date formatting to avoid timezone issues
+      const formattedStartDate =
+        startDate.getFullYear() +
+        "-" +
+        String(startDate.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(startDate.getDate()).padStart(2, "0");
+      const formattedEndDate =
+        endDate.getFullYear() +
+        "-" +
+        String(endDate.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(endDate.getDate()).padStart(2, "0");
+
+      // Store the formatted display string for UI
+      const displayString = `${formattedStartDate} to ${formattedEndDate}`;
+      setSelectedCalendarDate(displayString);
+
+      // Add to active filters with proper display
+      let newFilters = [...activeFilters];
+      newFilters = newFilters.filter(
+        (filter) => filter.type !== "dateRange" && filter.type !== "date"
+      );
+      newFilters.push({
+        type: "dateRange",
+        value: displayString,
+        label: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
+      });
+      setActiveFilters(newFilters);
+    } else if (startDate) {
+      // If only start date is selected, use it as single date
+      const formattedDate =
+        startDate.getFullYear() +
+        "-" +
+        String(startDate.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(startDate.getDate()).padStart(2, "0");
+      setSelectedCalendarDate(formattedDate);
+
+      // Add to active filters
+      let newFilters = [...activeFilters];
+      newFilters = newFilters.filter(
+        (filter) => filter.type !== "dateRange" && filter.type !== "date"
+      );
+      newFilters.push({
+        type: "dateRange",
+        value: formattedDate,
+        label: startDate.toLocaleDateString(),
+      });
+      setActiveFilters(newFilters);
+    }
+
+    setShowDatePicker(false);
+  };
+
+  const clearSelection = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setHoverDate(null);
+  };
+
+  const handleMonthChange = (direction) => {
+    const newDate = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth() + direction
+    );
+    setCalendarDate(newDate);
+    // Don't clear the selected dates when changing months
+  };
+
+  return (
+    <div
+      ref={datePickerRef}
+      className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-4"
+    >
+      {/* Header with navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => handleMonthChange(-1)}
+          className="p-1 hover:bg-gray-100 rounded"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h3 className="font-medium">
+          {monthNames[calendarDate.getMonth()]} {calendarDate.getFullYear()}
+        </h3>
+        <button
+          onClick={() => handleMonthChange(1)}
+          className="p-1 hover:bg-gray-100 rounded"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Date Range Display */}
+      <div className="mb-4 text-sm text-center">
+        {startDate && endDate ? (
+          <span className="text-blue-600 font-medium">
+            {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+          </span>
+        ) : startDate ? (
+          <span className="text-gray-600">
+            Start: {startDate.toLocaleDateString()} (Select end date)
+          </span>
+        ) : (
+          <span className="text-gray-400">Select start date</span>
+        )}
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1 mb-4">
+        {/* Day headers */}
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+          <div
+            key={day}
+            className="text-center text-sm font-medium text-gray-500 py-2"
           >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <h3 className="font-medium">
-            {monthNames[calendarDate.getMonth()]} {calendarDate.getFullYear()}
-          </h3>
-          <button
-            onClick={() =>
-              setCalendarDate(
-                new Date(
-                  calendarDate.getFullYear(),
-                  calendarDate.getMonth() + 1
-                )
-              )
-            }
-            className="p-1 hover:bg-gray-100 rounded"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+            {day}
+          </div>
+        ))}
 
-        {/* Date Range Display */}
-        <div className="mb-4 text-sm text-center">
-          {startDate && endDate ? (
-            <span className="text-blue-600 font-medium">
-              {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-            </span>
-          ) : startDate ? (
-            <span className="text-gray-600">
-              Start: {startDate.toLocaleDateString()} (Select end date)
-            </span>
-          ) : (
-            <span className="text-gray-400">Select start date</span>
-          )}
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 mb-4">
-          {/* Day headers */}
-          {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-            <div
-              key={day}
-              className="text-center text-sm font-medium text-gray-500 py-2"
-            >
-              {day}
-            </div>
-          ))}
-
-          {/* Calendar days */}
-          {days.map((day, index) => (
+        {/* Calendar days */}
+        {days.map((day, index) => {
+          const isSelected = isStartOrEndDate(day);
+          const isInRange = isDateInRange(day);
+          
+          return (
             <button
               key={index}
               onClick={() => handleDateSelect(day)}
@@ -1021,51 +1026,52 @@ const General = () => {
                   ? "text-gray-900 hover:bg-gray-100 cursor-pointer"
                   : "text-gray-300 cursor-not-allowed"
               } ${day.isToday ? "ring-2 ring-blue-300" : ""} ${
-                isStartDate(day) || isEndDate(day)
+                isSelected
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : ""
               } ${
-                isDateInRange(day) && !isStartDate(day) && !isEndDate(day)
+                isInRange && !isSelected
                   ? "bg-blue-100 text-blue-700"
                   : ""
               }`}
             >
               {day.day}
             </button>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        {/* Action buttons */}
-        <div className="flex justify-between items-center">
-          <div className="flex gap-2">
-            <button
-              onClick={clearSelection}
-              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Clear
-            </button>
-            <button
-              onClick={() => setShowDatePicker(false)}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+      {/* Action buttons */}
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2">
           <button
-            onClick={applyDateFilter}
-            disabled={!startDate}
-            className={`px-4 py-2 text-sm rounded transition-colors ${
-              startDate
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+            onClick={clearSelection}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
           >
-            Apply
+            Clear
+          </button>
+          <button
+            onClick={() => setShowDatePicker(false)}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancel
           </button>
         </div>
+        <button
+          onClick={applyDateFilter}
+          disabled={!startDate}
+          className={`px-4 py-2 text-sm rounded transition-colors ${
+            startDate
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          }`}
+        >
+          Apply
+        </button>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
